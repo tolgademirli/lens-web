@@ -1,0 +1,23 @@
+import { BrowserRouter, Routes, Route } from "react-router";
+import { RaporPage } from "@/pages/RaporPage";
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/rapor/:id" element={<RaporPage />} />
+        <Route
+          path="*"
+          element={
+            <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+              <div className="text-center space-y-4 px-6">
+                <p className="text-slate-500 text-6xl">404</p>
+                <h1 className="text-white text-2xl font-serif">Sayfa bulunamadı</h1>
+              </div>
+            </div>
+          }
+        />
+      </Routes>
+    </BrowserRouter>
+  );
+}
