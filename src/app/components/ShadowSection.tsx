@@ -8,23 +8,23 @@ const TYPE_CONFIG = {
   Kitap: {
     icon: Book,
     gradient: "from-emerald-900/60 to-teal-900/60",
-    iconBg: "bg-teal-500/20 border-teal-400/30",
-    iconColor: "text-teal-300",
-    labelColor: "text-teal-300",
+    iconBgStyle: { backgroundColor: "rgba(20,184,166,0.15)", borderColor: "rgba(45,212,191,0.3)" },
+    iconStyle: { color: "#5eead4" },
+    labelStyle: { color: "#5eead4" },
   },
   Film: {
     icon: Film,
     gradient: "from-violet-900/60 to-purple-900/60",
-    iconBg: "bg-violet-500/20 border-violet-400/30",
-    iconColor: "text-violet-300",
-    labelColor: "text-violet-300",
+    iconBgStyle: { backgroundColor: "rgba(139,92,246,0.15)", borderColor: "rgba(167,139,250,0.3)" },
+    iconStyle: { color: "#c4b5fd" },
+    labelStyle: { color: "#c4b5fd" },
   },
   Müzik: {
     icon: Music,
     gradient: "from-amber-900/60 to-orange-900/60",
-    iconBg: "bg-amber-500/20 border-amber-400/30",
-    iconColor: "text-amber-300",
-    labelColor: "text-amber-300",
+    iconBgStyle: { backgroundColor: "rgba(245,158,11,0.15)", borderColor: "rgba(252,211,77,0.3)" },
+    iconStyle: { color: "#fcd34d" },
+    labelStyle: { color: "#fcd34d" },
   },
 } as const;
 
@@ -95,10 +95,10 @@ export function ShadowSection({ data }: ShadowSectionProps) {
                 className={`group bg-gradient-to-br ${rec.gradient} backdrop-blur-sm rounded-2xl p-6 md:p-8 border border-white/10 hover:border-white/30 transition-all cursor-pointer hover:scale-105 hover:shadow-2xl`}
               >
                 <div className="flex items-center gap-3 mb-4">
-                  <div className={`p-3 rounded-full border ${rec.iconBg} group-hover:scale-110 transition-transform`}>
-                    <Icon className={`w-6 h-6 ${rec.iconColor}`} />
+                  <div className="p-3 rounded-full border group-hover:scale-110 transition-transform" style={rec.iconBgStyle}>
+                    <Icon className="w-6 h-6" style={rec.iconStyle} />
                   </div>
-                  <span className={`${rec.labelColor} text-sm uppercase tracking-wider`}>
+                  <span className="text-sm uppercase tracking-wider" style={rec.labelStyle}>
                     {rec.type}
                   </span>
                 </div>
@@ -141,10 +141,10 @@ export function ShadowSection({ data }: ShadowSectionProps) {
                   className={`flex-shrink-0 w-[85vw] snap-center bg-gradient-to-br ${rec.gradient} backdrop-blur-sm rounded-2xl p-6 border border-white/10`}
                 >
                   <div className="flex items-center gap-3 mb-4">
-                    <div className={`p-3 rounded-full border ${rec.iconBg}`}>
-                      <Icon className={`w-6 h-6 ${rec.iconColor}`} />
+                    <div className="p-3 rounded-full border" style={rec.iconBgStyle}>
+                      <Icon className="w-6 h-6" style={rec.iconStyle} />
                     </div>
-                    <span className={`${rec.labelColor} text-sm uppercase tracking-wider`}>
+                    <span className="text-sm uppercase tracking-wider" style={rec.labelStyle}>
                       {rec.type}
                     </span>
                   </div>
