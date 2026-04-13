@@ -17,3 +17,16 @@ export async function fetchReport(id: string): Promise<Report | null> {
   if (error) return null;
   return data as Report;
 }
+
+export async function analyzeAndCreateReport(
+  books: string[],
+  movies: string[],
+  music: string[]
+): Promise<string> {
+  const { data, error } = await supabase.functions.invoke("analyze", {
+    body: { books, movies, music },
+  });
+  if (error) throw error;
+  if (!data?.reportId) throw new Error("reportId dönmedi");
+  return data.reportId as string;
+}
