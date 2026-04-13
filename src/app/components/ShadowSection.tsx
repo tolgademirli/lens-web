@@ -113,11 +113,6 @@ export function ShadowSection({ data }: ShadowSectionProps) {
 
                 <p className="text-slate-200 leading-relaxed text-sm">{rec.description}</p>
 
-                <div className="mt-6 pt-4 border-t border-white/10">
-                  <span className="text-white/60 text-xs uppercase tracking-wider group-hover:text-white/80 transition-colors">
-                    Keşfet →
-                  </span>
-                </div>
               </motion.div>
             );
           })}
@@ -156,10 +151,6 @@ export function ShadowSection({ data }: ShadowSectionProps) {
                   )}
 
                   <p className="text-slate-200 leading-relaxed text-sm">{rec.description}</p>
-
-                  <div className="mt-6 pt-4 border-t border-white/10">
-                    <span className="text-white/60 text-xs uppercase tracking-wider">Keşfet →</span>
-                  </div>
                 </motion.div>
               );
             })}
