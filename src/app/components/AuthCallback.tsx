@@ -4,6 +4,20 @@ import { motion } from "motion/react";
 import { Sparkles } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
+function restoreSessionFromLocalStorage() {
+  const map = {
+    books: "lens_pending_books",
+    movies: "lens_pending_movies",
+    music: "lens_pending_music",
+  } as const;
+  (Object.keys(map) as (keyof typeof map)[]).forEach((key) => {
+    const stored = localStorage.getItem(map[key]);
+    if (stored && !sessionStorage.getItem(key)) {
+      sessionStorage.setItem(key, stored);
+    }
+  });
+}
+
 export function AuthCallback() {
   const navigate = useNavigate();
 
@@ -13,6 +27,7 @@ export function AuthCallback() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_IN") {
         subscription.unsubscribe();
+        restoreSessionFromLocalStorage();
         navigate("/generating", { replace: true });
       }
     });
@@ -21,6 +36,7 @@ export function AuthCallback() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         subscription.unsubscribe();
+        restoreSessionFromLocalStorage();
         navigate("/generating", { replace: true });
       }
     });

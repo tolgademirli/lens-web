@@ -24,6 +24,9 @@ export function GeneratingReport() {
         sessionStorage.removeItem("books");
         sessionStorage.removeItem("movies");
         sessionStorage.removeItem("music");
+        localStorage.removeItem("lens_pending_books");
+        localStorage.removeItem("lens_pending_movies");
+        localStorage.removeItem("lens_pending_music");
         navigate("/rapor/" + reportId);
       })
       .catch((err: Error) => setError(err?.message ?? "Bilinmeyen hata"));

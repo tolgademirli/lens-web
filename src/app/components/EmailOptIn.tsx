@@ -20,6 +20,15 @@ export function EmailOptIn() {
   const handleSubmit = async () => {
     if (!isValidEmail(email)) return;
     setStatus("sending");
+
+    // Cross-tab fallback: sessionStorage verisini localStorage'a köprüle
+    const books = sessionStorage.getItem("books");
+    const movies = sessionStorage.getItem("movies");
+    const music = sessionStorage.getItem("music");
+    if (books) localStorage.setItem("lens_pending_books", books);
+    if (movies) localStorage.setItem("lens_pending_movies", movies);
+    if (music) localStorage.setItem("lens_pending_music", music);
+
     const redirectTo = `${window.location.origin}/auth/callback`;
     const { error } = await sendMagicLink(email.trim(), redirectTo);
     if (error) {
