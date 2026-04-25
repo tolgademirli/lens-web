@@ -263,6 +263,15 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // Auth token varsa user_id al
+    const authHeader = req.headers.get("Authorization");
+    let userId: string | null = null;
+    if (authHeader) {
+      const token = authHeader.replace("Bearer ", "");
+      const { data: { user } } = await sb.auth.getUser(token);
+      userId = user?.id ?? null;
+    }
+
     const parsedBooks = books
       .map(parseEntry)
       .map(([t, a]) => ({ title: t, author: a }));
@@ -277,6 +286,7 @@ Deno.serve(async (req) => {
       .from("reports")
       .insert({
         source: "web",
+        user_id: userId,
         books: parsedBooks,
         films: parsedFilms,
         songs: parsedSongs,

@@ -30,3 +30,15 @@ export async function analyzeAndCreateReport(
   if (!data?.reportId) throw new Error("reportId dönmedi");
   return data.reportId as string;
 }
+
+export async function sendMagicLink(email: string, redirectTo: string) {
+  return supabase.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: redirectTo },
+  });
+}
+
+export async function getCurrentUser() {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.user ?? null;
+}

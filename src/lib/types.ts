@@ -47,6 +47,7 @@ export interface Report {
   id: string;
   created_at: string;
   telegram_user_id?: number;
+  user_id?: string;
   source?: string;
   books?: { title: string; author: string }[];
   films?: { title: string; director: string }[];

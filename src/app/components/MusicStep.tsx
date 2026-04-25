@@ -37,7 +37,7 @@ export function MusicStep() {
   const handleNext = () => {
     if (canProceed) {
       sessionStorage.setItem("music", JSON.stringify(entries));
-      navigate("/generating");
+      navigate("/email-opt-in");
     }
   };
 
