@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { motion } from "motion/react";
 import { Mail, Sparkles } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { sendMagicLink } from "@/lib/supabase";
+import { sendMagicLink, getCurrentUser } from "@/lib/supabase";
 
 type Status = "idle" | "sending" | "sent" | "error";
 
@@ -13,6 +13,12 @@ export function EmailOptIn() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState("");
+
+  useEffect(() => {
+    getCurrentUser().then((user) => {
+      if (user) navigate("/generating", { replace: true });
+    });
+  }, [navigate]);
 
   const isValidEmail = (v: string) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());

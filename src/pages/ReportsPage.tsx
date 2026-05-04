@@ -63,7 +63,7 @@ export function ReportsPage() {
         >
           <h1 className="text-2xl font-serif text-white">Raporlarım</h1>
           <Button
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/books")}
             className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-full text-sm"
           >
             <Plus className="w-4 h-4 mr-1" />
@@ -97,7 +97,7 @@ export function ReportsPage() {
             <Sparkles className="w-12 h-12 text-purple-500 mx-auto" />
             <p className="text-purple-200 text-lg">Henüz raporunuz yok.</p>
             <Button
-              onClick={() => navigate("/")}
+              onClick={() => navigate("/books")}
               className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-full px-8"
             >
               İlk Raporunu Oluştur
