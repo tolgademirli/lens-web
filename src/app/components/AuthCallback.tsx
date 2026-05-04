@@ -22,23 +22,28 @@ export function AuthCallback() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Supabase magic link'ten dönen URL hash'ini otomatik işler.
-    // onAuthStateChange ile session oluşunca /generating'e yönlendir.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_IN") {
-        subscription.unsubscribe();
+    const params = new URLSearchParams(window.location.search);
+    const intent = params.get("intent");
+
+    function handleNav(sub: { unsubscribe: () => void }) {
+      sub.unsubscribe();
+      if (intent === "reports") {
+        navigate("/reports", { replace: true });
+      } else {
         restoreSessionFromLocalStorage();
         navigate("/generating", { replace: true });
       }
+    }
+
+    // Supabase magic link'ten dönen URL hash'ini otomatik işler.
+    // onAuthStateChange ile session oluşunca intent'e göre yönlendir.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN") handleNav(subscription);
     });
 
     // Sayfa yüklenirken zaten oturum varsa (hash zaten işlendi) direkt geç
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        subscription.unsubscribe();
-        restoreSessionFromLocalStorage();
-        navigate("/generating", { replace: true });
-      }
+      if (session) handleNav(subscription);
     });
 
     return () => subscription.unsubscribe();

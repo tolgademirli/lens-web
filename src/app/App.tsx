@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router";
 import { RaporPage } from "@/pages/RaporPage";
+import { ReportsPage } from "@/pages/ReportsPage";
 import { Welcome } from "@/app/components/Welcome";
 import { BooksStep } from "@/app/components/BooksStep";
 import { MoviesStep } from "@/app/components/MoviesStep";
@@ -8,6 +9,7 @@ import { GeneratingReport } from "@/app/components/GeneratingReport";
 import { EmailOptIn } from "@/app/components/EmailOptIn";
 import { AuthCallback } from "@/app/components/AuthCallback";
 import { TelegramConnect } from "@/app/components/TelegramConnect";
+import { Login } from "@/app/components/Login";
 
 export default function App() {
   return (
@@ -22,6 +24,8 @@ export default function App() {
         <Route path="/connect" element={<TelegramConnect />} />
         <Route path="/generating" element={<GeneratingReport />} />
         <Route path="/rapor/:id" element={<RaporPage />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/reports" element={<ReportsPage />} />
         <Route
           path="*"
           element={

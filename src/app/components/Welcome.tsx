@@ -68,6 +68,7 @@ export function Welcome() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1 }}
+          className="space-y-4"
         >
           <Button
             onClick={() => navigate("/books")}
@@ -76,6 +77,14 @@ export function Welcome() {
           >
             Başlayalım
           </Button>
+          <div>
+            <button
+              onClick={() => navigate("/login")}
+              className="text-purple-300 hover:text-white text-sm transition-colors"
+            >
+              Zaten hesabınız var mı? Giriş Yap →
+            </button>
+          </div>
         </motion.div>
       </motion.div>
     </div>

@@ -42,3 +42,17 @@ export async function getCurrentUser() {
   const { data: { session } } = await supabase.auth.getSession();
   return session?.user ?? null;
 }
+
+export async function fetchUserReports(): Promise<Report[]> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return [];
+
+  const { data, error } = await supabase
+    .from("reports")
+    .select("*")
+    .eq("user_id", session.user.id)
+    .order("created_at", { ascending: false });
+
+  if (error) return [];
+  return data as Report[];
+}
