@@ -80,9 +80,10 @@ export function Welcome() {
           <div>
             <button
               onClick={() => navigate("/login")}
-              className="text-purple-300 hover:text-white text-sm transition-colors"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-purple-500/30 bg-white/5 text-purple-200 hover:bg-white/10 hover:text-white hover:border-purple-400/50 text-sm transition-all"
             >
-              Zaten hesabınız var mı? Giriş Yap →
+              Zaten hesabınız var mı?
+              <span className="font-semibold">Giriş Yap →</span>
             </button>
           </div>
         </motion.div>

@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { useNavigate } from "react-router";
 import { motion } from "motion/react";
-import { Mail, Sparkles } from "lucide-react";
+import { ArrowLeft, Mail, Sparkles } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { sendMagicLink } from "@/lib/supabase";
@@ -8,6 +9,7 @@ import { sendMagicLink } from "@/lib/supabase";
 type Status = "idle" | "sending" | "sent" | "error";
 
 export function Login() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState("");
@@ -48,7 +50,14 @@ export function Login() {
             <span className="text-white font-medium">{email}</span> adresine bir bağlantı
             gönderdik. Bağlantıya tıkladığınızda raporlarınıza yönlendirileceksiniz.
           </p>
-          <p className="text-slate-400 text-sm">Email gelmedi mi? Spam klasörünü kontrol edin.</p>
+          <p className="text-purple-400/70 text-sm">Email gelmedi mi? Spam klasörünü kontrol edin.</p>
+          <button
+            onClick={() => navigate("/")}
+            className="inline-flex items-center gap-1.5 text-purple-300/60 hover:text-purple-200 text-sm transition-colors mx-auto"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Ana Sayfaya Dön
+          </button>
         </motion.div>
       </div>
     );
@@ -101,6 +110,16 @@ export function Login() {
           >
             {status === "sending" ? "Gönderiliyor..." : "Giriş Bağlantısı Gönder"}
           </Button>
+        </div>
+
+        <div className="text-center pt-2">
+          <button
+            onClick={() => navigate("/")}
+            className="inline-flex items-center gap-1.5 text-purple-300/60 hover:text-purple-200 text-sm transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Ana Sayfaya Dön
+          </button>
         </div>
       </motion.div>
     </div>

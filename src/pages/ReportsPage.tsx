@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router";
 import { motion } from "motion/react";
-import { Sparkles, ChevronRight, Plus } from "lucide-react";
+import { Sparkles, Plus, ArrowRight, Calendar, LogOut, User } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { getCurrentUser, fetchUserReports, supabase } from "@/lib/supabase";
 import type { Report } from "@/lib/types";
@@ -54,51 +54,77 @@ export function ReportsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-6">
-      <div className="max-w-2xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      {/* Navbar */}
+      <motion.header
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="sticky top-0 z-10 backdrop-blur-md bg-slate-900/60 border-b border-white/5"
+      >
+        <div className="max-w-2xl mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-white" />
+            </div>
+            <span className="text-white font-semibold tracking-wide text-sm">LENS</span>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <div className="hidden sm:flex items-center gap-2 text-purple-300/70 text-sm">
+              <User className="w-3.5 h-3.5" />
+              <span>{userEmail}</span>
+            </div>
+            <button
+              onClick={handleSignOut}
+              className="flex items-center gap-1.5 text-slate-400 hover:text-purple-300 text-sm transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="hidden sm:inline">Çıkış Yap</span>
+            </button>
+          </div>
+        </div>
+      </motion.header>
+
+      <div className="max-w-2xl mx-auto px-6 py-10">
+        {/* Page title + new report */}
         <motion.div
-          initial={{ opacity: 0, y: -10 }}
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between mb-2"
+          transition={{ delay: 0.05 }}
+          className="flex items-end justify-between mb-8"
         >
-          <h1 className="text-2xl font-serif text-white">Raporlarım</h1>
+          <div>
+            <h1 className="text-3xl font-serif text-white">Raporlarım</h1>
+            <p className="text-purple-300/60 text-sm mt-1">{reports.length} rapor</p>
+          </div>
           <Button
             onClick={() => navigate("/books")}
-            className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-full text-sm"
+            className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-full text-sm px-5 shadow-lg shadow-purple-900/40"
           >
-            <Plus className="w-4 h-4 mr-1" />
+            <Plus className="w-4 h-4 mr-1.5" />
             Yeni Rapor
           </Button>
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.1 }}
-          className="flex items-center gap-3 mb-8"
-        >
-          <span className="text-purple-300 text-sm">{userEmail}</span>
-          <span className="text-slate-600">·</span>
-          <button
-            onClick={handleSignOut}
-            className="text-slate-400 hover:text-purple-300 text-sm transition-colors"
-          >
-            Çıkış Yap
-          </button>
-        </motion.div>
-
         {reports.length === 0 ? (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="text-center py-20 space-y-4"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="flex flex-col items-center justify-center text-center py-24 space-y-5"
           >
-            <Sparkles className="w-12 h-12 text-purple-500 mx-auto" />
-            <p className="text-purple-200 text-lg">Henüz raporunuz yok.</p>
+            <div className="w-20 h-20 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
+              <Sparkles className="w-10 h-10 text-purple-400" />
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-white text-lg font-medium">Henüz raporunuz yok</p>
+              <p className="text-purple-300/60 text-sm max-w-xs">
+                Favori eserlerinizi girerek estetik kimliğinizi keşfetmeye başlayın.
+              </p>
+            </div>
             <Button
               onClick={() => navigate("/books")}
-              className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-full px-8"
+              className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-full px-8 mt-2"
             >
               İlk Raporunu Oluştur
             </Button>
@@ -107,27 +133,37 @@ export function ReportsPage() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
+            transition={{ delay: 0.1 }}
             className="space-y-3"
           >
             {reports.map((report, i) => (
               <motion.div
                 key={report.id}
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 + i * 0.05 }}
-                className="bg-slate-800/90 backdrop-blur-sm rounded-2xl p-5 flex items-center justify-between"
+                transition={{ delay: 0.1 + i * 0.06 }}
               >
-                <div className="space-y-1">
-                  <p className="text-white font-serif text-lg">{report.hero.archetype}</p>
-                  <p className="text-purple-300 text-sm">{formatDate(report.created_at)}</p>
-                </div>
                 <Link
                   to={`/rapor/${report.id}`}
-                  className="flex items-center gap-1 text-sm text-purple-300 hover:text-white transition-colors shrink-0 ml-4"
+                  className="group flex items-center justify-between bg-slate-800/70 hover:bg-slate-800 border border-white/5 hover:border-purple-500/30 backdrop-blur-sm rounded-2xl p-6 transition-all duration-200 hover:shadow-lg hover:shadow-purple-900/30"
                 >
-                  Raporu Gör
-                  <ChevronRight className="w-4 h-4" />
+                  <div className="flex items-center gap-4 min-w-0">
+                    <div className="w-11 h-11 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center shrink-0 group-hover:bg-purple-500/20 transition-colors">
+                      <Sparkles className="w-5 h-5 text-purple-400" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-white font-semibold text-base leading-snug truncate">
+                        {report.hero.archetype}
+                      </p>
+                      <div className="flex items-center gap-1.5 mt-1 text-purple-300/60 text-xs">
+                        <Calendar className="w-3 h-3" />
+                        <span>{formatDate(report.created_at)}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="shrink-0 ml-4 w-8 h-8 rounded-full bg-purple-500/10 border border-purple-500/20 flex items-center justify-center group-hover:bg-purple-500 group-hover:border-purple-500 transition-all duration-200">
+                    <ArrowRight className="w-4 h-4 text-purple-400 group-hover:text-white transition-colors" />
+                  </div>
                 </Link>
               </motion.div>
             ))}
