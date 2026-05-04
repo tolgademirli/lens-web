@@ -1,6 +1,7 @@
 import { motion } from "motion/react";
 import { Share2, Check } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router";
 
 export function FooterSection() {
   const [copied, setCopied] = useState(false);
@@ -51,6 +52,23 @@ export function FooterSection() {
             </>
           )}
         </button>
+
+        {/* Navigation */}
+        <div className="flex items-center gap-6 justify-center">
+          <Link
+            to="/books"
+            className="text-slate-400 hover:text-purple-300 text-sm transition-colors"
+          >
+            Yeni Rapor Oluştur
+          </Link>
+          <span className="text-slate-700">·</span>
+          <Link
+            to="/reports"
+            className="text-slate-400 hover:text-purple-300 text-sm transition-colors"
+          >
+            Raporlarım
+          </Link>
+        </div>
 
         {/* Divider */}
         <div className="w-64 h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent mx-auto" />
