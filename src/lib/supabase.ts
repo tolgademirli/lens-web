@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import type { Report } from "./types";
+import type { Report, DailyDiscovery } from "./types";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -41,6 +41,16 @@ export async function sendMagicLink(email: string, redirectTo: string) {
 export async function getCurrentUser() {
   const { data: { session } } = await supabase.auth.getSession();
   return session?.user ?? null;
+}
+
+export async function fetchDailyDiscovery(): Promise<DailyDiscovery | null> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return null;
+  const { data, error } = await supabase.functions.invoke("daily-discovery", {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  });
+  if (error) return null;
+  return data as DailyDiscovery;
 }
 
 export async function fetchUserReports(): Promise<Report[]> {

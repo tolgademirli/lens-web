@@ -28,7 +28,7 @@ export function AuthCallback() {
     function handleNav(sub: { unsubscribe: () => void }) {
       sub.unsubscribe();
       if (intent === "reports") {
-        navigate("/reports", { replace: true });
+        navigate("/dashboard", { replace: true });
       } else {
         restoreSessionFromLocalStorage();
         navigate("/generating", { replace: true });

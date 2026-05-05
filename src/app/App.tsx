@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router";
 import { RaporPage } from "@/pages/RaporPage";
-import { ReportsPage } from "@/pages/ReportsPage";
+import { Dashboard } from "@/pages/Dashboard";
 import { Welcome } from "@/app/components/Welcome";
 import { BooksStep } from "@/app/components/BooksStep";
 import { MoviesStep } from "@/app/components/MoviesStep";
@@ -25,7 +25,7 @@ export default function App() {
         <Route path="/generating" element={<GeneratingReport />} />
         <Route path="/rapor/:id" element={<RaporPage />} />
         <Route path="/login" element={<Login />} />
-        <Route path="/reports" element={<ReportsPage />} />
+        <Route path="/dashboard" element={<Dashboard />} />
         <Route
           path="*"
           element={

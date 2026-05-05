@@ -43,6 +43,14 @@ export interface ShadowItem {
   description: string;
 }
 
+export interface DailyDiscovery {
+  book: string;
+  film: string;
+  music: string;
+  reasons: { book: string; film: string; music: string };
+  date: string;
+}
+
 export interface Report {
   id: string;
   created_at: string;
