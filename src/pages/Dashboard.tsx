@@ -178,6 +178,11 @@ export function Dashboard() {
                   <p className="text-white font-medium">
                     {dailyDiscovery?.book ?? "—"}
                   </p>
+                  {dailyDiscovery?.reasons?.book && (
+                    <p className="text-purple-300/60 text-xs mt-2 leading-relaxed">
+                      {dailyDiscovery.reasons.book}
+                    </p>
+                  )}
                 </motion.div>
 
                 {/* Movie */}
@@ -196,6 +201,11 @@ export function Dashboard() {
                   <p className="text-white font-medium">
                     {dailyDiscovery?.film ?? "—"}
                   </p>
+                  {dailyDiscovery?.reasons?.film && (
+                    <p className="text-pink-300/60 text-xs mt-2 leading-relaxed">
+                      {dailyDiscovery.reasons.film}
+                    </p>
+                  )}
                 </motion.div>
 
                 {/* Music */}
@@ -214,6 +224,11 @@ export function Dashboard() {
                   <p className="text-white font-medium">
                     {dailyDiscovery?.music ?? "—"}
                   </p>
+                  {dailyDiscovery?.reasons?.music && (
+                    <p className="text-indigo-300/60 text-xs mt-2 leading-relaxed">
+                      {dailyDiscovery.reasons.music}
+                    </p>
+                  )}
                 </motion.div>
               </div>
             </div>
