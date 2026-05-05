@@ -63,10 +63,10 @@ export function FooterSection() {
           </Link>
           <span className="text-slate-700">·</span>
           <Link
-            to="/reports"
+            to="/dashboard"
             className="text-slate-400 hover:text-purple-300 text-sm transition-colors"
           >
-            Raporlarım
+            Ana Sayfa
           </Link>
         </div>
 
