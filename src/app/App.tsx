@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router";
-import { RaporPage } from "@/pages/RaporPage";
+import { ReportPage } from "@/pages/ReportPage";
 import { Dashboard } from "@/pages/Dashboard";
 import { Welcome } from "@/app/components/Welcome";
 import { BooksStep } from "@/app/components/BooksStep";
@@ -23,7 +23,7 @@ export default function App() {
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/connect" element={<TelegramConnect />} />
         <Route path="/generating" element={<GeneratingReport />} />
-        <Route path="/rapor/:id" element={<RaporPage />} />
+        <Route path="/report/:id" element={<ReportPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route

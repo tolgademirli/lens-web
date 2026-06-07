@@ -329,7 +329,7 @@ export function Dashboard() {
                           </div>
                         </div>
 
-                        <Link to={`/rapor/${report.id}`} className="shrink-0">
+                        <Link to={`/report/${report.id}`} className="shrink-0">
                           <Button className="bg-purple-500/20 hover:bg-purple-500/30 text-purple-100 hover:text-white border border-purple-500/30 hover:border-purple-400/50 rounded-xl gap-2 transition-all">
                             <span>Raporu Gör</span>
                             <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />

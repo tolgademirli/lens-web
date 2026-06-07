@@ -9,7 +9,7 @@ import { ContrastsSection } from "@/app/components/ContrastsSection";
 import { ShadowSection } from "@/app/components/ShadowSection";
 import { FooterSection } from "@/app/components/FooterSection";
 
-export function RaporPage() {
+export function ReportPage() {
   const { id } = useParams<{ id: string }>();
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);

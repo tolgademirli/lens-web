@@ -144,7 +144,7 @@ export function ReportsPage() {
                 transition={{ delay: 0.1 + i * 0.06 }}
               >
                 <Link
-                  to={`/rapor/${report.id}`}
+                  to={`/report/${report.id}`}
                   className="group flex items-center justify-between bg-slate-800/70 hover:bg-slate-800 border border-white/5 hover:border-purple-500/30 backdrop-blur-sm rounded-2xl p-6 transition-all duration-200 hover:shadow-lg hover:shadow-purple-900/30"
                 >
                   <div className="flex items-center gap-4 min-w-0">
