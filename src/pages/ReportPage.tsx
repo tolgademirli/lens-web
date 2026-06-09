@@ -11,7 +11,7 @@ import { ShadowSection } from "@/app/components/ShadowSection";
 import { FooterSection } from "@/app/components/FooterSection";
 import { Switch } from "@/app/components/ui/switch";
 import { Button } from "@/app/components/ui/button";
-import { Lock, Globe2, Copy } from "lucide-react";
+import { Lock, Globe2, Copy, Check } from "lucide-react";
 
 export function ReportPage() {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +21,7 @@ export function ReportPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isPublic, setIsPublic] = useState(false);
   const [toggling, setToggling] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -114,10 +115,22 @@ export function ReportPage() {
                       className="flex-1 bg-slate-900 text-slate-300 text-sm rounded-xl px-4 py-2.5 border border-slate-700 outline-none"
                     />
                     <Button
-                      onClick={() => navigator.clipboard.writeText(shareUrl)}
-                      className="bg-purple-500/20 hover:bg-purple-500/30 text-purple-100 border border-purple-500/30 rounded-xl"
+                      disabled={copied}
+                      onClick={() => {
+                        navigator.clipboard.writeText(shareUrl);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }}
+                      className={copied
+                        ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-xl cursor-default"
+                        : "bg-purple-500/20 hover:bg-purple-500/30 text-purple-100 border border-purple-500/30 rounded-xl"
+                      }
                     >
-                      <Copy className="w-4 h-4 mr-2" /> Kopyala
+                      {copied ? (
+                        <><Check className="w-4 h-4 mr-2" /> Kopyalandı</>
+                      ) : (
+                        <><Copy className="w-4 h-4 mr-2" /> Kopyala</>
+                      )}
                     </Button>
                   </div>
                 </div>
