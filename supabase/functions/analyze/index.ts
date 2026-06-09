@@ -295,7 +295,7 @@ Deno.serve(async (req) => {
         threads: report.threads,
         contrasts: report.contrasts,
         shadow: report.shadow,
-        is_public: true,
+        is_public: false,
       })
       .select("id")
       .single();

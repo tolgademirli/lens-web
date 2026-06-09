@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate, Link } from "react-router";
 import { motion } from "motion/react";
-import { Sparkles, Plus, LogOut, ChevronRight, Calendar, User, BookOpen, Film, Music } from "lucide-react";
+import { Sparkles, Plus, LogOut, ChevronRight, Calendar, User, BookOpen, Film, Music, Lock, Globe2 } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { getCurrentUser, fetchUserReports, fetchDailyDiscovery, supabase } from "@/lib/supabase";
 import type { Report, DailyDiscovery } from "@/lib/types";
@@ -320,9 +320,20 @@ export function Dashboard() {
                     <div className="p-6">
                       <div className="flex items-center justify-between gap-4">
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-lg text-white mb-2 group-hover:text-purple-200 transition-colors">
-                            {report.hero.archetype}
-                          </h3>
+                          <div className="flex items-center gap-2 flex-wrap mb-2">
+                            <h3 className="text-lg text-white group-hover:text-purple-200 transition-colors">
+                              {report.hero.archetype}
+                            </h3>
+                            {report.is_public ? (
+                              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
+                                <Globe2 className="w-3 h-3" /> Paylaşıma Açık
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border bg-slate-700/60 text-slate-400 border-slate-600/40">
+                                <Lock className="w-3 h-3" /> Özel
+                              </span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-2 text-purple-300">
                             <Calendar className="w-4 h-4" />
                             <span className="text-sm">{formatDate(report.created_at)}</span>

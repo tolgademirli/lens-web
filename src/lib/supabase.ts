@@ -7,15 +7,30 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export async function fetchReport(id: string): Promise<Report | null> {
-  const { data, error } = await supabase
-    .from("reports")
-    .select("*")
-    .eq("id", id)
-    .eq("is_public", true)
-    .single();
+  const { data: { session } } = await supabase.auth.getSession();
 
+  let query = supabase.from("reports").select("*").eq("id", id);
+
+  if (session) {
+    query = query.or(`is_public.eq.true,user_id.eq.${session.user.id}`);
+  } else {
+    query = query.eq("is_public", true);
+  }
+
+  const { data, error } = await query.single();
   if (error) return null;
   return data as Report;
+}
+
+export async function updateReportVisibility(
+  reportId: string,
+  isPublic: boolean
+): Promise<boolean> {
+  const { error } = await supabase
+    .from("reports")
+    .update({ is_public: isPublic })
+    .eq("id", reportId);
+  return !error;
 }
 
 export async function analyzeAndCreateReport(
