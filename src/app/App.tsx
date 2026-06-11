@@ -6,7 +6,6 @@ import { BooksStep } from "@/app/components/BooksStep";
 import { MoviesStep } from "@/app/components/MoviesStep";
 import { MusicStep } from "@/app/components/MusicStep";
 import { GeneratingReport } from "@/app/components/GeneratingReport";
-import { EmailOptIn } from "@/app/components/EmailOptIn";
 import { AuthCallback } from "@/app/components/AuthCallback";
 import { TelegramConnect } from "@/app/components/TelegramConnect";
 import { Login } from "@/app/components/Login";
@@ -19,7 +18,6 @@ export default function App() {
         <Route path="/books" element={<BooksStep />} />
         <Route path="/movies" element={<MoviesStep />} />
         <Route path="/music" element={<MusicStep />} />
-        <Route path="/email-opt-in" element={<EmailOptIn />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/connect" element={<TelegramConnect />} />
         <Route path="/generating" element={<GeneratingReport />} />

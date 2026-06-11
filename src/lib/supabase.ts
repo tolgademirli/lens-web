@@ -53,6 +53,13 @@ export async function sendMagicLink(email: string, redirectTo: string) {
   });
 }
 
+export async function signInWithGoogle(redirectTo: string) {
+  return supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo },
+  });
+}
+
 export async function getCurrentUser() {
   const { data: { session } } = await supabase.auth.getSession();
   return session?.user ?? null;

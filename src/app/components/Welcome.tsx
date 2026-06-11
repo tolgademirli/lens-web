@@ -1,10 +1,21 @@
+import { useState } from "react";
 import { motion } from "motion/react";
 import { useNavigate } from "react-router";
 import { BookOpen, Film, Music, Sparkles } from "lucide-react";
 import { Button } from "./ui/button";
+import { GoogleButton } from "./ui/google-button";
+import { signInWithGoogle } from "@/lib/supabase";
 
 export function Welcome() {
   const navigate = useNavigate();
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    const redirectTo = `${window.location.origin}/auth/callback?intent=reports`;
+    const { error } = await signInWithGoogle(redirectTo);
+    if (error) setGoogleLoading(false);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
@@ -77,6 +88,13 @@ export function Welcome() {
           >
             Başlayalım
           </Button>
+          <div className="max-w-xs mx-auto">
+            <GoogleButton
+              onClick={handleGoogleSignIn}
+              disabled={googleLoading}
+              label={googleLoading ? "Yönlendiriliyor..." : "Google ile Devam Et"}
+            />
+          </div>
           <div>
             <button
               onClick={() => navigate("/login")}

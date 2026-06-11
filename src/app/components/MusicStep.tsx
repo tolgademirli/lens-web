@@ -4,6 +4,7 @@ import { Music, Plus, X } from "lucide-react";
 import { StepLayout } from "./StepLayout";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import { EmailOptInModal } from "./EmailOptInModal";
 import { motion, AnimatePresence } from "motion/react";
 import { getCurrentUser } from "@/lib/supabase";
 
@@ -11,6 +12,7 @@ export function MusicStep() {
   const navigate = useNavigate();
   const [entries, setEntries] = useState<string[]>([]);
   const [currentInput, setCurrentInput] = useState("");
+  const [showEmailModal, setShowEmailModal] = useState(false);
 
   const minEntries = 3;
   const maxEntries = 5;
@@ -39,11 +41,13 @@ export function MusicStep() {
     if (canProceed) {
       sessionStorage.setItem("music", JSON.stringify(entries));
       const user = await getCurrentUser();
-      navigate(user ? "/generating" : "/email-opt-in");
+      if (user) navigate("/generating");
+      else setShowEmailModal(true);
     }
   };
 
   return (
+    <>
     <StepLayout
       step={3}
       totalSteps={3}
@@ -167,5 +171,11 @@ export function MusicStep() {
         </Button>
       </div>
     </StepLayout>
+    <EmailOptInModal
+      open={showEmailModal}
+      onOpenChange={setShowEmailModal}
+      onSkip={() => navigate("/generating")}
+    />
+    </>
   );
 }

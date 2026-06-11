@@ -4,7 +4,8 @@ import { motion } from "motion/react";
 import { ArrowLeft, Mail, Sparkles } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { sendMagicLink } from "@/lib/supabase";
+import { GoogleButton } from "./ui/google-button";
+import { sendMagicLink, signInWithGoogle } from "@/lib/supabase";
 
 type Status = "idle" | "sending" | "sent" | "error";
 
@@ -13,9 +14,17 @@ export function Login() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState("");
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const isValidEmail = (v: string) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
+
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    const redirectTo = `${window.location.origin}/auth/callback?intent=reports`;
+    const { error } = await signInWithGoogle(redirectTo);
+    if (error) setGoogleLoading(false);
+  };
 
   const handleSubmit = async () => {
     if (!isValidEmail(email)) return;
@@ -79,6 +88,20 @@ export function Login() {
           <p className="text-purple-200 text-sm leading-relaxed">
             Email adresinize bir giriş bağlantısı göndereceğiz.
           </p>
+        </div>
+
+        <div className="space-y-4">
+          <GoogleButton
+            onClick={handleGoogleSignIn}
+            disabled={googleLoading}
+            label={googleLoading ? "Yönlendiriliyor..." : "Google ile Devam Et"}
+          />
+
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-purple-500/20" />
+            <span className="text-purple-300/60 text-sm">veya</span>
+            <div className="h-px flex-1 bg-purple-500/20" />
+          </div>
         </div>
 
         <div className="space-y-3">
