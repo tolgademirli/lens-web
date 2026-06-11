@@ -5,6 +5,7 @@ import { StepLayout } from "./StepLayout";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { motion, AnimatePresence } from "motion/react";
+import { getCurrentUser } from "@/lib/supabase";
 
 export function MusicStep() {
   const navigate = useNavigate();
@@ -34,10 +35,11 @@ export function MusicStep() {
     setEntries(entries.filter((_, i) => i !== index));
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (canProceed) {
       sessionStorage.setItem("music", JSON.stringify(entries));
-      navigate("/email-opt-in");
+      const user = await getCurrentUser();
+      navigate(user ? "/generating" : "/email-opt-in");
     }
   };
 
