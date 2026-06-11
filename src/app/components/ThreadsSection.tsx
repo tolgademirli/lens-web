@@ -64,14 +64,14 @@ export function ThreadsSection({ data }: ThreadsSectionProps) {
         </motion.div>
 
         {/* Desktop Grid */}
-        <div className="hidden md:grid md:grid-cols-3 gap-6">
+        <div className="hidden md:flex md:flex-wrap md:justify-center gap-6">
           {threads.map((thread, index) => (
             <motion.div
               key={thread.title}
               initial={{ opacity: 0, y: 50 }}
               animate={isInView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.6, delay: index * 0.2 }}
-              className={`bg-gradient-to-br ${thread.gradient} backdrop-blur-sm rounded-2xl p-6 md:p-8 border border-white/10 hover:border-white/20 transition-all hover:scale-105`}
+              className={`md:basis-[calc(33.333%-1rem)] md:max-w-[calc(33.333%-1rem)] bg-gradient-to-br ${thread.gradient} backdrop-blur-sm rounded-2xl p-6 md:p-8 border border-white/10 hover:border-white/20 transition-all hover:scale-105`}
             >
               <h3 className="text-xl md:text-2xl font-serif text-white mb-4">
                 {thread.title}
