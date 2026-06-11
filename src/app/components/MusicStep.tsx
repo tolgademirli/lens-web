@@ -105,7 +105,7 @@ export function MusicStep() {
             className="bg-amber-900/30 border border-amber-500/30 rounded-xl p-4 text-center"
           >
             <p className="text-sm text-amber-200">
-              En az {minEntries - entries.length} şarkı daha eklemelisin
+              En az {minEntries - entries.length} kayıt daha eklemelisin
             </p>
           </motion.div>
         )}

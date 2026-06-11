@@ -105,7 +105,7 @@ export function MoviesStep() {
             className="bg-amber-900/30 border border-amber-500/30 rounded-xl p-4 text-center"
           >
             <p className="text-sm text-amber-200">
-              En az {minEntries - entries.length} film daha eklemelisin
+              En az {minEntries - entries.length} kayıt daha eklemelisin
             </p>
           </motion.div>
         )}
@@ -117,7 +117,7 @@ export function MoviesStep() {
             className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center"
           >
             <p className="text-sm text-emerald-700 font-medium">
-              ✅ {entries.length} film eklendi.
+              ✅ {entries.length} kayıt eklendi.
             </p>
           </motion.div>
         )}
@@ -129,7 +129,7 @@ export function MoviesStep() {
             className="bg-emerald-900/30 border border-emerald-500/30 rounded-xl p-4 text-center"
           >
             <p className="text-sm text-emerald-200">
-              ✅ {entries.length} film eklendi. Devam edebilir veya {maxEntries - entries.length} tane daha ekleyebilirsin.
+              ✅ {entries.length} kayıt eklendi. Devam edebilir veya {maxEntries - entries.length} tane daha ekleyebilirsin.
             </p>
           </motion.div>
         )}
@@ -141,7 +141,7 @@ export function MoviesStep() {
             className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center"
           >
             <p className="text-sm text-emerald-700 font-medium">
-              ✅ {entries.length} film eklendi. Maksimum sayıya ulaştın!
+              ✅ {entries.length} kayıt eklendi. Maksimum sayıya ulaştın!
             </p>
           </motion.div>
         )}
