@@ -3,45 +3,22 @@ import { useNavigate } from "react-router";
 import { motion } from "motion/react";
 import { Sparkles } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-
-function restoreSessionFromLocalStorage() {
-  const map = {
-    books: "lens_pending_books",
-    movies: "lens_pending_movies",
-    music: "lens_pending_music",
-  } as const;
-  (Object.keys(map) as (keyof typeof map)[]).forEach((key) => {
-    const stored = localStorage.getItem(map[key]);
-    if (stored && !sessionStorage.getItem(key)) {
-      sessionStorage.setItem(key, stored);
-    }
-  });
-}
+import { readPendingReport } from "@/lib/pendingReport";
 
 export function AuthCallback() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const intent = params.get("intent");
-
     function handleNav(sub: { unsubscribe: () => void }) {
       sub.unsubscribe();
-      if (intent === "reports") {
-        navigate("/dashboard", { replace: true });
-      } else {
-        restoreSessionFromLocalStorage();
-        navigate("/generating", { replace: true });
-      }
+      const hasPending = Boolean(readPendingReport());
+      navigate(hasPending ? "/generating" : "/dashboard", { replace: true });
     }
 
-    // Supabase magic link'ten dönen URL hash'ini otomatik işler.
-    // onAuthStateChange ile session oluşunca intent'e göre yönlendir.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_IN") handleNav(subscription);
     });
 
-    // Sayfa yüklenirken zaten oturum varsa (hash zaten işlendi) direkt geç
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) handleNav(subscription);
     });

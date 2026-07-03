@@ -13,19 +13,9 @@ type Status = "idle" | "sending" | "error";
 interface EmailOptInModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSkip: () => void;
 }
 
-function bridgeSessionToLocalStorage() {
-  const books = sessionStorage.getItem("books");
-  const movies = sessionStorage.getItem("movies");
-  const music = sessionStorage.getItem("music");
-  if (books) localStorage.setItem("lens_pending_books", books);
-  if (movies) localStorage.setItem("lens_pending_movies", movies);
-  if (music) localStorage.setItem("lens_pending_music", music);
-}
-
-export function EmailOptInModal({ open, onOpenChange, onSkip }: EmailOptInModalProps) {
+export function EmailOptInModal({ open, onOpenChange }: EmailOptInModalProps) {
   const [view, setView] = useState<View>("options");
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<Status>("idle");
@@ -35,14 +25,8 @@ export function EmailOptInModal({ open, onOpenChange, onSkip }: EmailOptInModalP
   const isValidEmail = (v: string) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
-  const handleSkip = () => {
-    onOpenChange(false);
-    onSkip();
-  };
-
   const handleGoogleClick = async () => {
     setGoogleLoading(true);
-    bridgeSessionToLocalStorage();
     const redirectTo = `${window.location.origin}/auth/callback`;
     const { error } = await signInWithGoogle(redirectTo);
     if (error) setGoogleLoading(false);
@@ -51,7 +35,6 @@ export function EmailOptInModal({ open, onOpenChange, onSkip }: EmailOptInModalP
   const handleEmailSubmit = async () => {
     if (!isValidEmail(email)) return;
     setStatus("sending");
-    bridgeSessionToLocalStorage();
     const redirectTo = `${window.location.origin}/auth/callback`;
     const { error } = await sendMagicLink(email.trim(), redirectTo);
     if (error) {
@@ -67,13 +50,7 @@ export function EmailOptInModal({ open, onOpenChange, onSkip }: EmailOptInModalP
   };
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        if (!next) handleSkip();
-        else onOpenChange(next);
-      }}
-    >
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         overlayClassName="backdrop-blur-sm bg-black/60"
         className="bg-slate-900 border border-purple-500/30 text-white sm:max-w-md max-sm:inset-x-0 max-sm:bottom-0 max-sm:top-auto max-sm:left-0 max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none max-sm:max-w-full"
@@ -81,10 +58,10 @@ export function EmailOptInModal({ open, onOpenChange, onSkip }: EmailOptInModalP
         {view === "options" && (
           <>
             <DialogTitle className="text-2xl text-white font-serif text-center">
-              Raporunuzu Kaydedin
+              Raporun hazır olmak üzere
             </DialogTitle>
             <DialogDescription className="text-purple-200 text-sm leading-relaxed text-center">
-              Estetik kimliğinize daha sonra da erişebilmek için hesabınıza bağlayın.
+              Görmek ve daha sonra tekrar açmak için giriş yap — 10 saniye sürer.
             </DialogDescription>
 
             <div className="space-y-4 pt-2">
@@ -110,14 +87,6 @@ export function EmailOptInModal({ open, onOpenChange, onSkip }: EmailOptInModalP
               </Button>
             </div>
 
-            <div className="text-center pt-2">
-              <button
-                onClick={handleSkip}
-                className="text-purple-300/60 hover:text-purple-200 text-sm transition-colors underline underline-offset-4"
-              >
-                Şimdilik atla, raporu yine de oluştur →
-              </button>
-            </div>
           </>
         )}
 

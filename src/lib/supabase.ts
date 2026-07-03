@@ -33,6 +33,12 @@ export async function updateReportVisibility(
   return !error;
 }
 
+export class AnalyzeError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message);
+  }
+}
+
 export async function analyzeAndCreateReport(
   books: string[],
   movies: string[],
@@ -41,7 +47,21 @@ export async function analyzeAndCreateReport(
   const { data, error } = await supabase.functions.invoke("analyze", {
     body: { books, movies, music },
   });
-  if (error) throw error;
+
+  if (error) {
+    let message = "Bir hata oluştu. Lütfen tekrar deneyin.";
+    let status = 500;
+    try {
+      const res: Response | undefined = (error as any).context;
+      if (res) {
+        status = res.status;
+        const body = await res.json();
+        if (body?.error) message = body.error;
+      }
+    } catch { /* ignore */ }
+    throw new AnalyzeError(message, status);
+  }
+
   if (!data?.reportId) throw new Error("reportId dönmedi");
   return data.reportId as string;
 }

@@ -40,6 +40,15 @@ export function MusicStep() {
   const handleNext = async () => {
     if (canProceed) {
       sessionStorage.setItem("music", JSON.stringify(entries));
+
+      // Consolidated pending report for post-OAuth restore (survives full-page redirects)
+      const books = JSON.parse(sessionStorage.getItem("books") ?? "[]") as string[];
+      const movies = JSON.parse(sessionStorage.getItem("movies") ?? "[]") as string[];
+      localStorage.setItem(
+        "lens_pending_report",
+        JSON.stringify({ books, movies, music: entries, savedAt: Date.now() })
+      );
+
       const user = await getCurrentUser();
       if (user) navigate("/generating");
       else setShowEmailModal(true);
@@ -174,7 +183,6 @@ export function MusicStep() {
     <EmailOptInModal
       open={showEmailModal}
       onOpenChange={setShowEmailModal}
-      onSkip={() => navigate("/generating")}
     />
     </>
   );

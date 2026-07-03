@@ -2,17 +2,47 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { motion } from "motion/react";
 import { Sparkles, BookOpen, Film, Music } from "lucide-react";
-import { analyzeAndCreateReport } from "@/lib/supabase";
+import { analyzeAndCreateReport, AnalyzeError } from "@/lib/supabase";
+import { readPendingReport, clearPendingReport } from "@/lib/pendingReport";
 import { Button } from "./ui/button";
+
+function abandonAndGoToDashboard(nav: (path: string) => void) {
+  sessionStorage.removeItem("books");
+  sessionStorage.removeItem("movies");
+  sessionStorage.removeItem("music");
+  clearPendingReport();
+  nav("/dashboard");
+}
+
+type ErrorKind = "auth" | "quota" | "generic";
+
+function errorKind(err: unknown): ErrorKind {
+  if (err instanceof AnalyzeError) {
+    if (err.status === 401) return "auth";
+    if (err.status === 429) return "quota";
+  }
+  return "generic";
+}
 
 export function GeneratingReport() {
   const navigate = useNavigate();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ kind: ErrorKind; message: string } | null>(null);
 
   useEffect(() => {
-    const books = JSON.parse(sessionStorage.getItem("books") ?? "[]") as string[];
-    const movies = JSON.parse(sessionStorage.getItem("movies") ?? "[]") as string[];
-    const music = JSON.parse(sessionStorage.getItem("music") ?? "[]") as string[];
+    // Primary source: individual sessionStorage keys (direct logged-in path)
+    let books = JSON.parse(sessionStorage.getItem("books") ?? "[]") as string[];
+    let movies = JSON.parse(sessionStorage.getItem("movies") ?? "[]") as string[];
+    let music = JSON.parse(sessionStorage.getItem("music") ?? "[]") as string[];
+
+    // Fallback: consolidated pending report saved before OAuth redirect (max 60 dk)
+    if (books.length < 3 || movies.length < 3 || music.length < 3) {
+      const pending = readPendingReport();
+      if (pending) {
+        if (pending.books.length >= 3) books = pending.books;
+        if (pending.movies.length >= 3) movies = pending.movies;
+        if (pending.music.length >= 3) music = pending.music;
+      }
+    }
 
     if (books.length < 3 || movies.length < 3 || music.length < 3) {
       navigate("/");
@@ -21,30 +51,73 @@ export function GeneratingReport() {
 
     analyzeAndCreateReport(books, movies, music)
       .then((reportId) => {
+        // Clear everything only on success
         sessionStorage.removeItem("books");
         sessionStorage.removeItem("movies");
         sessionStorage.removeItem("music");
-        localStorage.removeItem("lens_pending_books");
-        localStorage.removeItem("lens_pending_movies");
-        localStorage.removeItem("lens_pending_music");
+        clearPendingReport();
         navigate("/report/" + reportId);
       })
-      .catch((err: Error) => setError(err?.message ?? "Bilinmeyen hata"));
+      .catch((err: unknown) => {
+        // Keep lens_pending_report so the user can retry
+        const message =
+          err instanceof Error ? err.message : "Bir hata oluştu. Lütfen tekrar deneyin.";
+        setError({ kind: errorKind(err), message });
+      });
   }, [navigate]);
 
   if (error) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
         <div className="max-w-md w-full text-center space-y-6">
-          <p className="text-red-400 text-lg">Bir hata oluştu.</p>
-          <p className="text-slate-400 text-sm">{error}</p>
-          <Button
-            onClick={() => navigate("/")}
-            variant="ghost"
-            className="text-purple-200 hover:text-white"
-          >
-            Ana sayfaya dön
-          </Button>
+          {error.kind === "auth" ? (
+            <>
+              <p className="text-white text-lg">Giriş yapman gerekiyor.</p>
+              <p className="text-purple-200 text-sm">{error.message}</p>
+              <Button
+                onClick={() => navigate("/music")}
+                className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-xl px-8"
+              >
+                Geri dön ve giriş yap
+              </Button>
+              <Button
+                onClick={() => abandonAndGoToDashboard(navigate)}
+                variant="ghost"
+                className="text-purple-300/60 hover:text-purple-200 text-sm"
+              >
+                Vazgeç, panele dön
+              </Button>
+            </>
+          ) : error.kind === "quota" ? (
+            <>
+              <p className="text-white text-lg">Günlük limit doldu.</p>
+              <p className="text-purple-200 text-sm">{error.message}</p>
+              <Button
+                onClick={() => abandonAndGoToDashboard(navigate)}
+                className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-xl px-8"
+              >
+                Panele dön
+              </Button>
+            </>
+          ) : (
+            <>
+              <p className="text-red-400 text-lg">Bir hata oluştu.</p>
+              <p className="text-slate-400 text-sm">{error.message}</p>
+              <Button
+                onClick={() => navigate("/music")}
+                className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-xl px-8"
+              >
+                Tekrar dene
+              </Button>
+              <Button
+                onClick={() => abandonAndGoToDashboard(navigate)}
+                variant="ghost"
+                className="text-purple-300/60 hover:text-purple-200 text-sm"
+              >
+                Vazgeç, panele dön
+              </Button>
+            </>
+          )}
         </div>
       </div>
     );

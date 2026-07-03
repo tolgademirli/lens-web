@@ -20,8 +20,8 @@ Akademik mesafe değil, samimi zeka. Yargılayan değil, merak eden bir ton.
 - Klişe ifadelerden kaçın
 - Türkçe yaz
 - Keşif tonu — merak uyandır, dayatma
-- SADECE Latin/Türk alfabesi kullan — Kiril, Arap veya başka alfabelerden HİÇBİR karakter kullanma
-- Eser adlarını orijinal dilde değil, Türkçe karşılığıyla veya Latin harflerle yaz
+- Türkçe karakterleri (ı, ş, ğ, ü, ö, ç, İ) eksiksiz ve doğru kullan; "sıkışır" yerine "sikisir" gibi ASCII yazım KESİNLİKLE yasak
+- Latin dışı alfabelerden karakter kullanma; Latin olmayan eser adlarını Türkçe karşılığı veya Latin transliterasyonuyla yaz
 
 ## GÖREVİN
 Kullanıcının estetik kimliğine göre bugün için 1 kitap, 1 film, 1 müzik sanatçısı öner.
@@ -183,10 +183,10 @@ Deno.serve(async (req) => {
       { headers: { ...CORS, "Content-Type": "application/json" } }
     );
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return new Response(JSON.stringify({ error: message }), {
-      status: 500,
-      headers: { ...CORS, "Content-Type": "application/json" },
-    });
+    console.error("[daily-discovery] Beklenmeyen hata:", err);
+    return new Response(
+      JSON.stringify({ error: "Bir hata oluştu. Lütfen tekrar deneyin." }),
+      { status: 500, headers: { ...CORS, "Content-Type": "application/json" } }
+    );
   }
 });

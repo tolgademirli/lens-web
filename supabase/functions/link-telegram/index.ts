@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(
-        JSON.stringify({ error: "Yetkilendirme gerekli" }),
+        JSON.stringify({ error: "Yetkilendirme gerekli." }),
         { status: 401, headers: { ...CORS, "Content-Type": "application/json" } }
       );
     }
@@ -30,18 +30,35 @@ Deno.serve(async (req) => {
     const { data: { user }, error: authError } = await sb.auth.getUser(token);
     if (authError || !user) {
       return new Response(
-        JSON.stringify({ error: "Geçersiz oturum" }),
+        JSON.stringify({ error: "Geçersiz oturum. Lütfen tekrar giriş yap." }),
         { status: 401, headers: { ...CORS, "Content-Type": "application/json" } }
       );
     }
 
-    const { telegram_user_id } = await req.json();
-    if (!telegram_user_id || typeof telegram_user_id !== "number") {
+    const { code } = await req.json();
+    if (!code || typeof code !== "string") {
       return new Response(
-        JSON.stringify({ error: "telegram_user_id gerekli" }),
+        JSON.stringify({ error: "Geçerli bir bağlantı kodu gerekli." }),
         { status: 400, headers: { ...CORS, "Content-Type": "application/json" } }
       );
     }
+
+    // Kodu telegram_link_codes tablosunda ara (süresi geçmemiş)
+    const { data: linkCode, error: codeError } = await sb
+      .from("telegram_link_codes")
+      .select("telegram_user_id, expires_at")
+      .eq("code", code)
+      .gt("expires_at", new Date().toISOString())
+      .single();
+
+    if (codeError || !linkCode) {
+      return new Response(
+        JSON.stringify({ error: "Geçersiz veya süresi dolmuş kod." }),
+        { status: 400, headers: { ...CORS, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { telegram_user_id } = linkCode;
 
     // telegram_users tablosuna upsert
     const { error: upsertError } = await sb
@@ -59,14 +76,17 @@ Deno.serve(async (req) => {
 
     if (updateError) throw updateError;
 
+    // Kullanılmış kodu sil
+    await sb.from("telegram_link_codes").delete().eq("code", code);
+
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...CORS, "Content-Type": "application/json" },
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return new Response(JSON.stringify({ error: message }), {
-      status: 500,
-      headers: { ...CORS, "Content-Type": "application/json" },
-    });
+    console.error("[link-telegram] Beklenmeyen hata:", err);
+    return new Response(
+      JSON.stringify({ error: "Bir hata oluştu. Lütfen tekrar deneyin." }),
+      { status: 500, headers: { ...CORS, "Content-Type": "application/json" } }
+    );
   }
 });

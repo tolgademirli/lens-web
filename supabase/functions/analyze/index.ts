@@ -147,6 +147,14 @@ SADECE geçerli JSON döndür. Başka hiçbir şey yazma. JSON şeması:
 - Keşif tonu — merak uyandır, dayatma
 `;
 
+const MAX_ITEMS = 7;
+const MAX_CHARS = 120;
+const DAILY_LIMIT = 3;
+
+function getTodayInIstanbul(): string {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Istanbul" }).format(new Date());
+}
+
 function parseEntry(text: string): [string, string] {
   const idx = text.indexOf(" - ");
   if (idx !== -1) {
@@ -210,6 +218,29 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Auth zorunlu
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Bu işlem için giriş yapman gerekiyor." }),
+        { status: 401, headers: { ...CORS, "Content-Type": "application/json" } }
+      );
+    }
+
+    const sb = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: authError } = await sb.auth.getUser(token);
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: "Geçersiz oturum. Lütfen tekrar giriş yap." }),
+        { status: 401, headers: { ...CORS, "Content-Type": "application/json" } }
+      );
+    }
+
     const { books, movies, music } = await req.json();
 
     if (
@@ -221,11 +252,52 @@ Deno.serve(async (req) => {
       music.length < 3
     ) {
       return new Response(
-        JSON.stringify({ error: "Her kategoride en az 3 giriş gerekli" }),
+        JSON.stringify({ error: "Her kategoride en az 3 giriş gerekli." }),
         {
           status: 400,
           headers: { ...CORS, "Content-Type": "application/json" },
         }
+      );
+    }
+
+    // Input sınırları: max 7 eleman, max 120 karakter
+    for (const arr of [books, movies, music]) {
+      if (arr.length > MAX_ITEMS) {
+        return new Response(
+          JSON.stringify({ error: "Her kategoride en fazla 7 giriş yapabilirsin." }),
+          { status: 400, headers: { ...CORS, "Content-Type": "application/json" } }
+        );
+      }
+      for (const item of arr) {
+        if (typeof item !== "string" || item.length > MAX_CHARS) {
+          return new Response(
+            JSON.stringify({ error: "Her giriş en fazla 120 karakter olabilir." }),
+            { status: 400, headers: { ...CORS, "Content-Type": "application/json" } }
+          );
+        }
+      }
+    }
+
+    // Günlük kota: Istanbul gününe göre maks 3 rapor
+    const today = getTodayInIstanbul();
+    const { count, error: countError } = await sb
+      .from("reports")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .gte("created_at", `${today}T00:00:00+03:00`);
+
+    if (countError) {
+      console.error("[analyze] Kota sorgusu hatası:", countError);
+      return new Response(
+        JSON.stringify({ error: "Bir hata oluştu. Lütfen tekrar deneyin." }),
+        { status: 500, headers: { ...CORS, "Content-Type": "application/json" } }
+      );
+    }
+
+    if ((count ?? 0) >= DAILY_LIMIT) {
+      return new Response(
+        JSON.stringify({ error: "Bugün için rapor limitine ulaştın. Yarın tekrar deneyebilirsin." }),
+        { status: 429, headers: { ...CORS, "Content-Type": "application/json" } }
       );
     }
 
@@ -248,7 +320,11 @@ Deno.serve(async (req) => {
 
     if (!anthropicRes.ok) {
       const errText = await anthropicRes.text();
-      throw new Error(`Claude API hatası: ${anthropicRes.status} ${errText}`);
+      console.error(`[analyze] Claude API hatası: ${anthropicRes.status}`, errText);
+      return new Response(
+        JSON.stringify({ error: "Bir hata oluştu. Lütfen tekrar deneyin." }),
+        { status: 500, headers: { ...CORS, "Content-Type": "application/json" } }
+      );
     }
 
     const anthropicData = await anthropicRes.json();
@@ -257,20 +333,6 @@ Deno.serve(async (req) => {
     const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
     const jsonStr = jsonMatch ? jsonMatch[1] : responseText.trim();
     const report = JSON.parse(jsonStr);
-
-    const sb = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-
-    // Auth token varsa user_id al
-    const authHeader = req.headers.get("Authorization");
-    let userId: string | null = null;
-    if (authHeader) {
-      const token = authHeader.replace("Bearer ", "");
-      const { data: { user } } = await sb.auth.getUser(token);
-      userId = user?.id ?? null;
-    }
 
     const parsedBooks = books
       .map(parseEntry)
@@ -286,7 +348,7 @@ Deno.serve(async (req) => {
       .from("reports")
       .insert({
         source: "web",
-        user_id: userId,
+        user_id: user.id,
         books: parsedBooks,
         films: parsedFilms,
         songs: parsedSongs,
@@ -306,8 +368,8 @@ Deno.serve(async (req) => {
       headers: { ...CORS, "Content-Type": "application/json" },
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return new Response(JSON.stringify({ error: message }), {
+    console.error("[analyze] Beklenmeyen hata:", err);
+    return new Response(JSON.stringify({ error: "Bir hata oluştu. Lütfen tekrar deneyin." }), {
       status: 500,
       headers: { ...CORS, "Content-Type": "application/json" },
     });
