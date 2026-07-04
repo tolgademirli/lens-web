@@ -14,6 +14,7 @@ export function Dashboard() {
   const [userEmail, setUserEmail] = useState("");
   const [dailyDiscovery, setDailyDiscovery] = useState<DailyDiscovery | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollEndTimer = useRef<ReturnType<typeof setTimeout>>();
   const [activeIndex, setActiveIndex] = useState(0);
 
   useEffect(() => {
@@ -45,13 +46,21 @@ export function Dashboard() {
 
   const handleScroll = () => {
     if (!scrollRef.current) return;
-    const { scrollLeft, offsetWidth } = scrollRef.current;
-    setActiveIndex(Math.round(scrollLeft / offsetWidth));
+    clearTimeout(scrollEndTimer.current);
+    scrollEndTimer.current = setTimeout(() => {
+      if (!scrollRef.current) return;
+      const { scrollLeft, scrollWidth, offsetWidth } = scrollRef.current;
+      const maxScroll = scrollWidth - offsetWidth;
+      if (maxScroll <= 0) return;
+      setActiveIndex(Math.round((scrollLeft / maxScroll) * 2));
+    }, 80);
   };
 
   const scrollToCard = (index: number) => {
     if (!scrollRef.current) return;
-    scrollRef.current.scrollTo({ left: scrollRef.current.offsetWidth * index, behavior: "smooth" });
+    const { scrollWidth, offsetWidth } = scrollRef.current;
+    const maxScroll = scrollWidth - offsetWidth;
+    scrollRef.current.scrollTo({ left: (maxScroll / 2) * index, behavior: "smooth" });
   };
 
   const formatDate = (dateStr: string) =>
