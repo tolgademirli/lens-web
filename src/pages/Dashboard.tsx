@@ -4,6 +4,7 @@ import { motion } from "motion/react";
 import { Sparkles, Plus, LogOut, ChevronRight, Calendar, User, BookOpen, Film, Music, Lock, Globe2 } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { getCurrentUser, fetchUserReports, fetchDailyDiscovery, supabase } from "@/lib/supabase";
+import { posthog } from "@/lib/posthog";
 import type { Report, DailyDiscovery } from "@/lib/types";
 
 export function Dashboard() {
@@ -29,6 +30,7 @@ export function Dashboard() {
       if (data.length > 0) {
         const discovery = await fetchDailyDiscovery();
         setDailyDiscovery(discovery);
+        if (discovery) posthog.capture("daily_discovery_viewed");
       }
 
       setLoading(false);

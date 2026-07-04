@@ -5,6 +5,7 @@ import { StepLayout } from "./StepLayout";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { motion, AnimatePresence } from "motion/react";
+import { posthog } from "@/lib/posthog";
 
 export function MoviesStep() {
   const navigate = useNavigate();
@@ -37,6 +38,7 @@ export function MoviesStep() {
   const handleNext = () => {
     if (canProceed) {
       sessionStorage.setItem("movies", JSON.stringify(entries));
+      posthog.capture("form_step_completed", { step: 2 });
       navigate("/music");
     }
   };

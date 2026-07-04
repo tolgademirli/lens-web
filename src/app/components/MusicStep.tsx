@@ -7,6 +7,7 @@ import { Input } from "./ui/input";
 import { EmailOptInModal } from "./EmailOptInModal";
 import { motion, AnimatePresence } from "motion/react";
 import { getCurrentUser } from "@/lib/supabase";
+import { posthog } from "@/lib/posthog";
 
 export function MusicStep() {
   const navigate = useNavigate();
@@ -49,9 +50,15 @@ export function MusicStep() {
         JSON.stringify({ books, movies, music: entries, savedAt: Date.now() })
       );
 
+      posthog.capture("form_step_completed", { step: 3 });
+
       const user = await getCurrentUser();
-      if (user) navigate("/generating");
-      else setShowEmailModal(true);
+      if (user) {
+        navigate("/generating");
+      } else {
+        posthog.capture("auth_gate_shown");
+        setShowEmailModal(true);
+      }
     }
   };
 

@@ -5,6 +5,7 @@ import { Sparkles, BookOpen, Film, Music } from "lucide-react";
 import { analyzeAndCreateReport, AnalyzeError } from "@/lib/supabase";
 import { readPendingReport, clearPendingReport } from "@/lib/pendingReport";
 import { Button } from "./ui/button";
+import { posthog } from "@/lib/posthog";
 
 function abandonAndGoToDashboard(nav: (path: string) => void) {
   sessionStorage.removeItem("books");
@@ -49,8 +50,11 @@ export function GeneratingReport() {
       return;
     }
 
+    posthog.capture("report_generation_started");
+
     analyzeAndCreateReport(books, movies, music)
       .then((reportId) => {
+        posthog.capture("report_generation_completed");
         // Clear everything only on success
         sessionStorage.removeItem("books");
         sessionStorage.removeItem("movies");
@@ -59,10 +63,13 @@ export function GeneratingReport() {
         navigate("/report/" + reportId);
       })
       .catch((err: unknown) => {
+        const kind = errorKind(err);
+        posthog.capture("report_generation_failed", { error_type: kind });
+        if (kind === "quota") posthog.capture("quota_hit");
         // Keep lens_pending_report so the user can retry
         const message =
           err instanceof Error ? err.message : "Bir hata oluştu. Lütfen tekrar deneyin.";
-        setError({ kind: errorKind(err), message });
+        setError({ kind, message });
       });
   }, [navigate]);
 

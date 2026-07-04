@@ -4,6 +4,7 @@ import { motion } from "motion/react";
 import { Sparkles } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { readPendingReport } from "@/lib/pendingReport";
+import { posthog } from "@/lib/posthog";
 
 export function AuthCallback() {
   const navigate = useNavigate();
@@ -11,6 +12,11 @@ export function AuthCallback() {
   useEffect(() => {
     function handleNav(sub: { unsubscribe: () => void }) {
       sub.unsubscribe();
+      const method = localStorage.getItem("lens_auth_method") as "google" | "magic_link" | null;
+      if (method) {
+        posthog.capture("auth_completed", { method });
+        localStorage.removeItem("lens_auth_method");
+      }
       const hasPending = Boolean(readPendingReport());
       navigate(hasPending ? "/generating" : "/dashboard", { replace: true });
     }

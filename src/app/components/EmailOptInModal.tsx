@@ -27,6 +27,7 @@ export function EmailOptInModal({ open, onOpenChange }: EmailOptInModalProps) {
 
   const handleGoogleClick = async () => {
     setGoogleLoading(true);
+    localStorage.setItem("lens_auth_method", "google");
     const redirectTo = `${window.location.origin}/auth/callback`;
     const { error } = await signInWithGoogle(redirectTo);
     if (error) setGoogleLoading(false);
@@ -35,6 +36,7 @@ export function EmailOptInModal({ open, onOpenChange }: EmailOptInModalProps) {
   const handleEmailSubmit = async () => {
     if (!isValidEmail(email)) return;
     setStatus("sending");
+    localStorage.setItem("lens_auth_method", "magic_link");
     const redirectTo = `${window.location.origin}/auth/callback`;
     const { error } = await sendMagicLink(email.trim(), redirectTo);
     if (error) {

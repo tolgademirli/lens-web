@@ -1,15 +1,17 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router";
 import { BookOpen, Plus, X } from "lucide-react";
 import { StepLayout } from "./StepLayout";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { motion, AnimatePresence } from "motion/react";
+import { posthog } from "@/lib/posthog";
 
 export function BooksStep() {
   const navigate = useNavigate();
   const [entries, setEntries] = useState<string[]>([]);
   const [currentInput, setCurrentInput] = useState("");
+  const formStartedRef = useRef(false);
 
   const minEntries = 3;
   const maxEntries = 5;
@@ -18,6 +20,10 @@ export function BooksStep() {
 
   const handleAdd = () => {
     if (currentInput.trim() && canAddMore) {
+      if (!formStartedRef.current) {
+        formStartedRef.current = true;
+        posthog.capture("form_started");
+      }
       setEntries([...entries, currentInput.trim()]);
       setCurrentInput("");
     }
@@ -37,6 +43,7 @@ export function BooksStep() {
   const handleNext = () => {
     if (canProceed) {
       sessionStorage.setItem("books", JSON.stringify(entries));
+      posthog.capture("form_step_completed", { step: 1 });
       navigate("/movies");
     }
   };

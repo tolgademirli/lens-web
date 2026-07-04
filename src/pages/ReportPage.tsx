@@ -3,6 +3,7 @@ import { useParams } from "react-router";
 import { fetchReport, getCurrentUser, updateReportVisibility } from "@/lib/supabase";
 import type { Report } from "@/lib/types";
 import type { User } from "@supabase/supabase-js";
+import { posthog } from "@/lib/posthog";
 import { HeroSection } from "@/app/components/HeroSection";
 import { TextureSection } from "@/app/components/TextureSection";
 import { ThreadsSection } from "@/app/components/ThreadsSection";
@@ -30,6 +31,8 @@ export function ReportPage() {
       else {
         setReport(data);
         setIsPublic(data.is_public);
+        const is_own = !!user && user.id === data.user_id;
+        posthog.capture("report_viewed", { is_own });
       }
       setCurrentUser(user);
       setLoading(false);

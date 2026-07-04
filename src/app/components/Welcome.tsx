@@ -1,17 +1,23 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { useNavigate } from "react-router";
 import { BookOpen, Film, Music, Sparkles } from "lucide-react";
 import { Button } from "./ui/button";
 import { GoogleButton } from "./ui/google-button";
 import { signInWithGoogle } from "@/lib/supabase";
+import { posthog } from "@/lib/posthog";
 
 export function Welcome() {
   const navigate = useNavigate();
   const [googleLoading, setGoogleLoading] = useState(false);
 
+  useEffect(() => {
+    posthog.capture("landing_viewed");
+  }, []);
+
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
+    localStorage.setItem("lens_auth_method", "google");
     const redirectTo = `${window.location.origin}/auth/callback?intent=reports`;
     const { error } = await signInWithGoogle(redirectTo);
     if (error) setGoogleLoading(false);
