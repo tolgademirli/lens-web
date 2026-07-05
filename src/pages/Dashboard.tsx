@@ -46,7 +46,9 @@ export function Dashboard() {
 
   const scrollToCard = (index: number) => {
     if (!scrollRef.current) return;
-    scrollRef.current.scrollTo({ left: scrollRef.current.offsetWidth * index, behavior: "smooth" });
+    const { scrollWidth, offsetWidth } = scrollRef.current;
+    const maxScroll = scrollWidth - offsetWidth;
+    scrollRef.current.scrollTo({ left: (maxScroll / 2) * index, behavior: "smooth" });
   };
 
   const formatDate = (dateStr: string) =>
@@ -178,7 +180,9 @@ export function Dashboard() {
                     ref={scrollRef}
                     onScroll={() => {
                       if (!scrollRef.current) return;
-                      setActiveIndex(Math.round(scrollRef.current.scrollLeft / scrollRef.current.offsetWidth));
+                      const { scrollLeft, scrollWidth, offsetWidth } = scrollRef.current;
+                      const maxScroll = scrollWidth - offsetWidth;
+                      if (maxScroll > 0) setActiveIndex(Math.round((scrollLeft / maxScroll) * 2));
                     }}
                     className="flex md:hidden overflow-x-auto snap-x snap-mandatory scrollbar-hide gap-3 -mx-8 px-8 pb-2"
                   >
