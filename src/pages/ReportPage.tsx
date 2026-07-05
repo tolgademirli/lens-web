@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router";
+import { useParams, Link } from "react-router";
 import { fetchReport, getCurrentUser, updateReportVisibility } from "@/lib/supabase";
 import type { Report } from "@/lib/types";
 import type { User } from "@supabase/supabase-js";
@@ -12,7 +12,15 @@ import { ShadowSection } from "@/app/components/ShadowSection";
 import { FooterSection } from "@/app/components/FooterSection";
 import { Switch } from "@/app/components/ui/switch";
 import { Button } from "@/app/components/ui/button";
-import { Lock, Globe2, Copy, Check } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/app/components/ui/dialog";
+import { Lock, Globe2 } from "lucide-react";
 
 export function ReportPage() {
   const { id } = useParams<{ id: string }>();
@@ -22,7 +30,8 @@ export function ReportPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isPublic, setIsPublic] = useState(false);
   const [toggling, setToggling] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [shareLabel, setShareLabel] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -45,6 +54,44 @@ export function ReportPage() {
     const success = await updateReportVisibility(id, checked);
     if (success) setIsPublic(checked);
     setToggling(false);
+  }
+
+  async function doShare(wasPrivate: boolean) {
+    const shareUrl = `${window.location.origin}/report/${id}`;
+    const archetype = report?.hero?.archetype ?? "";
+    const summary = report?.hero?.summary ?? "";
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: archetype, text: `${archetype} — ${summary}`, url: shareUrl });
+        posthog.capture("report_shared", { method: "native", was_private: wasPrivate });
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === "AbortError") return;
+      }
+    } else {
+      await navigator.clipboard.writeText(shareUrl);
+      posthog.capture("report_shared", { method: "clipboard", was_private: wasPrivate });
+      setShareLabel("Link kopyalandı ✓");
+      setTimeout(() => setShareLabel(null), 2000);
+    }
+  }
+
+  async function handleShare() {
+    if (!isPublic) {
+      setConfirmOpen(true);
+      return;
+    }
+    await doShare(false);
+  }
+
+  async function handleConfirmShare() {
+    setConfirmOpen(false);
+    if (!id) return;
+    setToggling(true);
+    const success = await updateReportVisibility(id, true);
+    if (success) setIsPublic(true);
+    setToggling(false);
+    await doShare(true);
   }
 
   if (loading) {
@@ -73,7 +120,6 @@ export function ReportPage() {
   }
 
   const isOwner = !!currentUser && currentUser.id === report.user_id;
-  const shareUrl = `${window.location.origin}/report/${id}`;
 
   return (
     <div className="bg-black">
@@ -83,67 +129,144 @@ export function ReportPage() {
       <ContrastsSection data={report.contrasts} />
       <ShadowSection data={report.shadow} />
 
-      {isOwner && (
-        <div className="bg-slate-900 px-6 py-8">
-          <div className="max-w-2xl mx-auto rounded-2xl border border-purple-500/20 bg-slate-800/60 p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {isPublic ? (
-                  <Globe2 className="w-4 h-4 text-emerald-400" />
-                ) : (
-                  <Lock className="w-4 h-4 text-slate-400" />
-                )}
-                <span className="text-white font-medium">
-                  {isPublic ? "Paylaşıma Açık" : "Özel"}
-                </span>
-              </div>
-              <Switch checked={isPublic} onCheckedChange={handleToggle} disabled={toggling} />
-            </div>
-            <p className="text-sm text-slate-400">
-              {isPublic
-                ? "Link ile herkes bu raporu görüntüleyebilir"
-                : "Sadece siz bu raporu görüntüleyebilirsiniz"}
-            </p>
-            {isPublic && (
-              <>
-                <hr className="border-slate-700" />
-                <div>
-                  <p className="text-xs text-slate-500 mb-2 uppercase tracking-wider">
-                    Paylaşım Linki
-                  </p>
-                  <div className="flex items-center gap-3">
-                    <input
-                      readOnly
-                      value={shareUrl}
-                      className="flex-1 bg-slate-900 text-slate-300 text-sm rounded-xl px-4 py-2.5 border border-slate-700 outline-none"
-                    />
-                    <Button
-                      disabled={copied}
-                      onClick={() => {
-                        navigator.clipboard.writeText(shareUrl);
-                        setCopied(true);
-                        setTimeout(() => setCopied(false), 2000);
-                      }}
-                      className={copied
-                        ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-xl cursor-default"
-                        : "bg-purple-500/20 hover:bg-purple-500/30 text-purple-100 border border-purple-500/30 rounded-xl"
-                      }
-                    >
-                      {copied ? (
-                        <><Check className="w-4 h-4 mr-2" /> Kopyalandı</>
-                      ) : (
-                        <><Copy className="w-4 h-4 mr-2" /> Kopyala</>
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+      {isOwner ? (
+        <OwnerClosing
+          archetype={report.hero.archetype}
+          isPublic={isPublic}
+          toggling={toggling}
+          shareLabel={shareLabel}
+          onShare={handleShare}
+          onToggle={handleToggle}
+        />
+      ) : (
+        <VisitorCta reportId={report.id} />
       )}
 
       <FooterSection />
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="bg-slate-900 border border-slate-700 text-white max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-serif text-white">Raporu açalım mı?</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Paylaşmak için raporun herkese açık olması gerekiyor.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-3 flex-row justify-end">
+            <Button
+              variant="ghost"
+              className="text-slate-400 hover:text-white hover:bg-slate-800"
+              onClick={() => setConfirmOpen(false)}
+            >
+              Vazgeç
+            </Button>
+            <Button
+              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white border-0"
+              onClick={handleConfirmShare}
+            >
+              Aç ve Paylaş
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+// ── Owner closing block ───────────────────────────────────────────────────────
+
+interface OwnerClosingProps {
+  archetype: string;
+  isPublic: boolean;
+  toggling: boolean;
+  shareLabel: string | null;
+  onShare: () => void;
+  onToggle: (checked: boolean) => void;
+}
+
+function OwnerClosing({ archetype, isPublic, toggling, shareLabel, onShare, onToggle }: OwnerClosingProps) {
+  return (
+    <section className="bg-gradient-to-b from-slate-950 to-black px-6 py-20">
+      <div className="max-w-2xl mx-auto text-center space-y-6">
+        {/* Label */}
+        <p className="text-purple-300 uppercase tracking-[0.3em] text-xs font-medium">
+          Senin Arketipin
+        </p>
+
+        {/* Archetype name */}
+        <h2 className="text-3xl md:text-5xl font-serif text-transparent bg-clip-text bg-gradient-to-r from-purple-200 via-pink-200 to-indigo-200 text-balance leading-tight">
+          {archetype}
+        </h2>
+
+        {/* Tagline */}
+        <p className="text-slate-400 text-base">
+          Bu senin estetiğin. Merak edenler görsün.
+        </p>
+
+        {/* Share button */}
+        <Button
+          onClick={onShare}
+          disabled={toggling}
+          className="w-full min-h-12 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white border-0 rounded-2xl text-sm font-medium tracking-wide"
+        >
+          {shareLabel ?? "Arketipini Paylaş"}
+        </Button>
+
+        {/* Privacy toggle — secondary */}
+        <div className="flex items-center justify-center gap-3 pt-2">
+          {isPublic ? (
+            <Globe2 className="w-4 h-4 text-emerald-400" />
+          ) : (
+            <Lock className="w-4 h-4 text-slate-500" />
+          )}
+          <span className="text-sm text-slate-400">
+            {isPublic ? "Paylaşıma açık" : "Özel"}
+          </span>
+          <Switch checked={isPublic} onCheckedChange={onToggle} disabled={toggling} />
+        </div>
+
+        {/* Footer nav links */}
+        <div className="flex items-center gap-6 justify-center pt-4">
+          <Link to="/books" className="text-slate-500 hover:text-purple-300 text-sm transition-colors">
+            Yeni Rapor Oluştur
+          </Link>
+          <span className="text-slate-700">·</span>
+          <Link to="/dashboard" className="text-slate-500 hover:text-purple-300 text-sm transition-colors">
+            Ana Sayfa
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── Visitor CTA block ─────────────────────────────────────────────────────────
+
+function VisitorCta({ reportId }: { reportId: string }) {
+  useEffect(() => {
+    posthog.capture("visitor_cta_viewed", { report_id: reportId });
+  }, [reportId]);
+
+  return (
+    <section className="bg-gradient-to-b from-slate-950 to-black px-6 py-20">
+      <div className="max-w-2xl mx-auto text-center space-y-6">
+        {/* Label */}
+        <p className="text-purple-300 uppercase tracking-[0.3em] text-xs font-medium">
+          Sen Ne Çıkacaksın?
+        </p>
+
+        {/* Description */}
+        <p className="text-slate-300 text-base leading-relaxed max-w-md mx-auto">
+          Bu rapor bir Lens kullanıcısına ait. Kendi estetik kimliğini keşfetmek 3 dakika sürer.
+        </p>
+
+        {/* CTA button */}
+        <Link to="/" className="block">
+          <Button className="w-full min-h-12 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white border-0 rounded-2xl text-sm font-medium tracking-wide">
+            Kendi Raporunu Oluştur
+          </Button>
+        </Link>
+      </div>
+    </section>
   );
 }
