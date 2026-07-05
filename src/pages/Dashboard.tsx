@@ -16,16 +16,6 @@ export function Dashboard() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
-  useEffect(() => {
-    const scrollContainer = scrollRef.current;
-    if (!scrollContainer) return;
-    const handleScroll = () => {
-      const index = Math.round(scrollContainer.scrollLeft / scrollContainer.offsetWidth);
-      setActiveIndex(index);
-    };
-    scrollContainer.addEventListener("scroll", handleScroll);
-    return () => scrollContainer.removeEventListener("scroll", handleScroll);
-  }, []);
 
   useEffect(() => {
     async function init() {
@@ -186,6 +176,10 @@ export function Dashboard() {
                   {/* MOBILE: yatay carousel */}
                   <div
                     ref={scrollRef}
+                    onScroll={() => {
+                      if (!scrollRef.current) return;
+                      setActiveIndex(Math.round(scrollRef.current.scrollLeft / scrollRef.current.offsetWidth));
+                    }}
                     className="flex md:hidden overflow-x-auto snap-x snap-mandatory scrollbar-hide gap-3 -mx-8 px-8 pb-2"
                   >
                     {/* Kitap */}
