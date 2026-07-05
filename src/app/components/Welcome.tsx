@@ -84,7 +84,7 @@ export function Welcome() {
             size="lg"
             className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-12 py-6 text-lg rounded-full shadow-2xl hover:shadow-purple-500/50 transition-all"
           >
-            Başlayalım
+            Kimliğini Keşfet
           </Button>
           <div>
             <button
