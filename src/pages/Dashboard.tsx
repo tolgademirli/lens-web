@@ -14,8 +14,18 @@ export function Dashboard() {
   const [userEmail, setUserEmail] = useState("");
   const [dailyDiscovery, setDailyDiscovery] = useState<DailyDiscovery | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const scrollEndTimer = useRef<ReturnType<typeof setTimeout>>();
   const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => {
+    const scrollContainer = scrollRef.current;
+    if (!scrollContainer) return;
+    const handleScroll = () => {
+      const index = Math.round(scrollContainer.scrollLeft / scrollContainer.offsetWidth);
+      setActiveIndex(index);
+    };
+    scrollContainer.addEventListener("scroll", handleScroll);
+    return () => scrollContainer.removeEventListener("scroll", handleScroll);
+  }, []);
 
   useEffect(() => {
     async function init() {
@@ -44,23 +54,9 @@ export function Dashboard() {
     navigate("/", { replace: true });
   };
 
-  const handleScroll = () => {
-    if (!scrollRef.current) return;
-    clearTimeout(scrollEndTimer.current);
-    scrollEndTimer.current = setTimeout(() => {
-      if (!scrollRef.current) return;
-      const { scrollLeft, scrollWidth, offsetWidth } = scrollRef.current;
-      const maxScroll = scrollWidth - offsetWidth;
-      if (maxScroll <= 0) return;
-      setActiveIndex(Math.round((scrollLeft / maxScroll) * 2));
-    }, 80);
-  };
-
   const scrollToCard = (index: number) => {
     if (!scrollRef.current) return;
-    const { scrollWidth, offsetWidth } = scrollRef.current;
-    const maxScroll = scrollWidth - offsetWidth;
-    scrollRef.current.scrollTo({ left: (maxScroll / 2) * index, behavior: "smooth" });
+    scrollRef.current.scrollTo({ left: scrollRef.current.offsetWidth * index, behavior: "smooth" });
   };
 
   const formatDate = (dateStr: string) =>
@@ -190,7 +186,6 @@ export function Dashboard() {
                   {/* MOBILE: yatay carousel */}
                   <div
                     ref={scrollRef}
-                    onScroll={handleScroll}
                     className="flex md:hidden overflow-x-auto snap-x snap-mandatory scrollbar-hide gap-3 -mx-8 px-8 pb-2"
                   >
                     {/* Kitap */}
