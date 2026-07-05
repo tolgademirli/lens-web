@@ -10,7 +10,6 @@ import { ThreadsSection } from "@/app/components/ThreadsSection";
 import { ContrastsSection } from "@/app/components/ContrastsSection";
 import { ShadowSection } from "@/app/components/ShadowSection";
 import { FooterSection } from "@/app/components/FooterSection";
-import { Switch } from "@/app/components/ui/switch";
 import { Button } from "@/app/components/ui/button";
 import {
   Dialog,
@@ -48,11 +47,11 @@ export function ReportPage() {
     });
   }, [id]);
 
-  async function handleToggle(checked: boolean) {
+  async function handleMakePrivate() {
     if (!id) return;
     setToggling(true);
-    const success = await updateReportVisibility(id, checked);
-    if (success) setIsPublic(checked);
+    const success = await updateReportVisibility(id, false);
+    if (success) setIsPublic(false);
     setToggling(false);
   }
 
@@ -136,7 +135,7 @@ export function ReportPage() {
           toggling={toggling}
           shareLabel={shareLabel}
           onShare={handleShare}
-          onToggle={handleToggle}
+          onMakePrivate={handleMakePrivate}
         />
       ) : (
         <VisitorCta reportId={report.id} />
@@ -181,10 +180,10 @@ interface OwnerClosingProps {
   toggling: boolean;
   shareLabel: string | null;
   onShare: () => void;
-  onToggle: (checked: boolean) => void;
+  onMakePrivate: () => void;
 }
 
-function OwnerClosing({ archetype, isPublic, toggling, shareLabel, onShare, onToggle }: OwnerClosingProps) {
+function OwnerClosing({ archetype, isPublic, toggling, shareLabel, onShare, onMakePrivate }: OwnerClosingProps) {
   return (
     <section className="bg-gradient-to-b from-slate-950 to-black px-6 py-20">
       <div className="max-w-2xl mx-auto text-center space-y-6">
@@ -212,17 +211,30 @@ function OwnerClosing({ archetype, isPublic, toggling, shareLabel, onShare, onTo
           {shareLabel ?? "Arketipini Paylaş"}
         </Button>
 
-        {/* Privacy toggle — secondary */}
-        <div className="flex items-center justify-center gap-3 pt-2">
+        {/* Privacy status row */}
+        <div className="flex items-center justify-center gap-2">
           {isPublic ? (
-            <Globe2 className="w-4 h-4 text-emerald-400" />
+            <>
+              <Globe2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span className="text-xs text-slate-500">
+                Paylaşıma açık ·{" "}
+                <button
+                  onClick={onMakePrivate}
+                  disabled={toggling}
+                  className="text-slate-400 hover:text-slate-200 underline underline-offset-2 disabled:opacity-50 transition-colors"
+                >
+                  Gizli yap
+                </button>
+              </span>
+            </>
           ) : (
-            <Lock className="w-4 h-4 text-slate-500" />
+            <>
+              <Lock className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+              <span className="text-xs text-slate-500">
+                Bu rapor özel · Paylaşınca otomatik açılır
+              </span>
+            </>
           )}
-          <span className="text-sm text-slate-400">
-            {isPublic ? "Paylaşıma açık" : "Özel"}
-          </span>
-          <Switch checked={isPublic} onCheckedChange={onToggle} disabled={toggling} />
         </div>
 
         {/* Footer nav links */}
