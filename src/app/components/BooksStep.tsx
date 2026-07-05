@@ -54,7 +54,7 @@ export function BooksStep() {
       totalSteps={3}
       icon={<BookOpen className="w-8 h-8 text-white" />}
       title="Favori Kitaplar"
-      subtitle="Son dönemde seni en çok etkileyen kitap ve/veya yazarları yaz."
+      subtitle="Son dönemde seni en çok etkileyen kitapları yaz — sadece yazar adı da yeterli."
     >
       <div className="space-y-4 mb-8">
         <AnimatePresence>
@@ -91,7 +91,7 @@ export function BooksStep() {
                 value={currentInput}
                 onChange={(e) => setCurrentInput(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="örn: Yaşar Kemal; Körlük; Martin Eden - Jack London"
+                placeholder="örn: Martin Eden - Jack London"
                 className="h-14 text-lg rounded-xl border-2 bg-slate-700/50 border-purple-500/30 text-white placeholder:text-purple-300/50 focus:border-purple-400 focus:bg-slate-700"
               />
             </div>
@@ -148,7 +148,7 @@ export function BooksStep() {
             className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center"
           >
             <p className="text-sm text-emerald-700 font-medium">
-              ✅ {entries.length} kayıt eklendi. Maksimum sayıya ulaştın!
+              ✅ 5/5 — hazırsın.
             </p>
           </motion.div>
         )}
