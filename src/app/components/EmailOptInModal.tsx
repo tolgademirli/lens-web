@@ -13,9 +13,10 @@ type Status = "idle" | "sending" | "error";
 interface EmailOptInModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  context?: "report" | "login";
 }
 
-export function EmailOptInModal({ open, onOpenChange }: EmailOptInModalProps) {
+export function EmailOptInModal({ open, onOpenChange, context = "report" }: EmailOptInModalProps) {
   const [view, setView] = useState<View>("options");
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<Status>("idle");
@@ -60,10 +61,12 @@ export function EmailOptInModal({ open, onOpenChange }: EmailOptInModalProps) {
         {view === "options" && (
           <>
             <DialogTitle className="text-2xl text-white font-serif text-center">
-              Raporun hazır olmak üzere
+              {context === "login" ? "Tekrar hoş geldin" : "Raporun hazır olmak üzere"}
             </DialogTitle>
             <DialogDescription className="text-purple-200 text-sm leading-relaxed text-center">
-              Görmek ve daha sonra tekrar açmak için giriş yap — 10 saniye sürer.
+              {context === "login"
+                ? "Raporlarına ve günlük keşfine devam etmek için giriş yap."
+                : "Görmek ve daha sonra tekrar açmak için giriş yap — 10 saniye sürer."}
             </DialogDescription>
 
             <div className="space-y-4 pt-2">

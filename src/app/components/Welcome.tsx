@@ -97,7 +97,7 @@ export function Welcome() {
         </motion.div>
       </motion.div>
     </div>
-    <EmailOptInModal open={showAuthModal} onOpenChange={setShowAuthModal} />
+    <EmailOptInModal open={showAuthModal} onOpenChange={setShowAuthModal} context="login" />
     </>
   );
 }
