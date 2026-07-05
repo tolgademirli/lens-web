@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { BookOpen, Plus, X } from "lucide-react";
 import { StepLayout } from "./StepLayout";
@@ -12,6 +12,13 @@ export function BooksStep() {
   const [entries, setEntries] = useState<string[]>([]);
   const [currentInput, setCurrentInput] = useState("");
   const formStartedRef = useRef(false);
+  const listEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (entries.length > 0) {
+      listEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [entries]);
 
   const minEntries = 3;
   const maxEntries = 5;
@@ -72,13 +79,14 @@ export function BooksStep() {
               <span className="flex-1 text-purple-50">{entry}</span>
               <button
                 onClick={() => handleRemove(index)}
-                className="opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-slate-600 rounded-lg"
+                className="flex items-center justify-center min-w-[44px] min-h-[44px] hover:bg-slate-600/50 rounded-lg text-purple-300 hover:text-white transition-colors"
               >
-                <X className="w-4 h-4 text-purple-200" />
+                <X className="w-4 h-4" />
               </button>
             </motion.div>
           ))}
         </AnimatePresence>
+        <div ref={listEndRef} />
 
         {canAddMore && (
           <motion.div
@@ -91,7 +99,7 @@ export function BooksStep() {
                 value={currentInput}
                 onChange={(e) => setCurrentInput(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="örn: Martin Eden - Jack London"
+                placeholder="örn: Martin Eden"
                 className="h-14 text-lg rounded-xl border-2 bg-slate-700/50 border-purple-500/30 text-white placeholder:text-purple-300/50 focus:border-purple-400 focus:bg-slate-700"
               />
             </div>
