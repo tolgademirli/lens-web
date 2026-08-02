@@ -166,7 +166,6 @@ export function ImportFlow({
         creator: "",
         title: "",
         confidence: "high",
-        title_readable: true,
         // Elle eklenen eser 'manual' — 'paste' DEĞİL. Edinim analitiği buna bağlı.
         source: "manual" as WorkSource,
         selected: selectedCount + existingCount < MAX_SELECTED,
@@ -383,7 +382,7 @@ export function ImportFlow({
                       <Input
                         value={row.title}
                         onChange={(e) =>
-                          updateRow(row.id, { title: e.target.value, title_readable: true })
+                          updateRow(row.id, { title: e.target.value })
                         }
                         placeholder="Eser adı"
                         className="h-10 bg-slate-800 border-purple-500/40 text-white placeholder:text-purple-300/50"
@@ -445,9 +444,7 @@ export function ImportFlow({
                           </span>
                         ) : row.source !== "manual" ? (
                           <span className="text-[11px] text-purple-300/80">
-                            {!row.title_readable
-                              ? "başlık okunamadı"
-                              : row.confidence === "high"
+                            {row.confidence === "high"
                               ? "yüksek eşleşme"
                               : row.confidence === "medium"
                               ? "orta eşleşme"

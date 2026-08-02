@@ -85,10 +85,9 @@ export interface UserWork {
 export interface ExtractedWork {
   /** Girdide yazmıyorsa boş olabilir — kullanıcı onay ekranında tamamlar. */
   creator: string;
-  /** Boş olabilir; `title_readable: false` ile birlikte "başlık okunamadı" rozetini besler. */
+  /** Girdide eser adı yoksa ya da seçilemediyse boş. Okuma kalitesi confidence'ta. */
   title: string;
   confidence: WorkConfidence;
-  title_readable: boolean;
   /** Yaratıcı girdide yoktu, model eseri tanıyıp tamamladı — kullanıcı doğrulamalı. */
   creator_inferred: boolean;
   source: Extract<WorkSource, "screenshot" | "paste">;

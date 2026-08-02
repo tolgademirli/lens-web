@@ -66,11 +66,8 @@ ekran görüntüsünden veya metinden ${tekil} listesini çıkarmak.
 
 ## ÇIKARIM KURALLARI
 - Girdideki HER eseri çıkar. Satır atlamak, en sık yaptığın hatadır.
-- title (eser adı) opsiyoneldir:
-  · Girdide eser adı YOKSA (yalnızca ${yaratici} yazıyorsa) → title: "",
-    title_readable: TRUE. Okunamayan bir şey yok, ortada başlık hiç yok.
-  · Girdide eser adı VAR ama seçemiyorsan (bulanık, kesik) → title: "",
-    title_readable: FALSE.
+- title (eser adı) opsiyoneldir. Girdide yoksa ya da seçemiyorsan boş string ("")
+  döndür; seçemediysen ayrıca confidence'ı düşür.
 - Aynı eseri iki kez listeleme.
 - Kullanıcı arayüzü öğelerini (menü, buton, "Want to Read", takipçi sayısı,
   yıldız/puan, tarih, "Şimdi çalınıyor") eser sanma.
@@ -91,8 +88,7 @@ değiştirmen kesinlikle yasaktır.
 Aynı liste içinde bu üç biçim karışık bulunur. Hiçbirini atlama:
 
 1. YALNIZCA ${yaratici.toUpperCase()} — örn. "${ornek.yalnizYaratici}"
-   → creator: "${ornek.yalnizYaratici}", title: "", title_readable: false,
-     creator_inferred: false
+   → creator: "${ornek.yalnizYaratici}", title: "", creator_inferred: false
 
 2. YALNIZCA ESER ADI — örn. "${ornek.yalnizEser}"
    → title'a OKUDUĞUN adı yaz (değiştirmeden). Bu adı net okuduysan VE eseri
@@ -150,12 +146,11 @@ const OUTPUT_SCHEMA = {
           creator: { type: "string" },
           title: { type: "string" },
           confidence: { type: "string", enum: ["high", "medium", "low"] },
-          title_readable: { type: "boolean" },
           // Yaratıcı girdide yazmıyordu, model eseri tanıyıp tamamladı.
           // Kullanıcıya ayrı rozetle gösterilir ki doğrulayabilsin.
           creator_inferred: { type: "boolean" },
         },
-        required: ["creator", "title", "confidence", "title_readable", "creator_inferred"],
+        required: ["creator", "title", "confidence", "creator_inferred"],
         additionalProperties: false,
       },
     },
@@ -342,7 +337,6 @@ Deno.serve(async (req) => {
         creator: String(w.creator ?? "").trim(),
         title: String(w.title ?? "").trim(),
         confidence: w.confidence as string,
-        title_readable: w.title_readable === true,
         creator_inferred: w.creator_inferred === true,
         source,
       }))
