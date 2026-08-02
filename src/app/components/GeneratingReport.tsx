@@ -35,13 +35,37 @@ export function GeneratingReport() {
     let movies = JSON.parse(sessionStorage.getItem("movies") ?? "[]") as string[];
     let music = JSON.parse(sessionStorage.getItem("music") ?? "[]") as string[];
 
-    // Fallback: consolidated pending report saved before OAuth redirect (max 60 dk)
+    // Edinim yolları (screenshot / paste / manual), girişlerle aynı sırada.
+    const readSources = (key: string) => {
+      try {
+        return JSON.parse(sessionStorage.getItem(key) ?? "[]") as string[];
+      } catch {
+        return [];
+      }
+    };
+    const sources = {
+      books: readSources("books_sources"),
+      movies: readSources("movies_sources"),
+      music: readSources("music_sources"),
+    };
+
+    // Fallback: consolidated pending report saved before OAuth redirect (max 60 dk).
+    // Girişler oradan geliyorsa source'lar da oradan gelmeli — yoksa hepsi 'form'a düşer.
     if (books.length < 3 || movies.length < 3 || music.length < 3) {
       const pending = readPendingReport();
       if (pending) {
-        if (pending.books.length >= 3) books = pending.books;
-        if (pending.movies.length >= 3) movies = pending.movies;
-        if (pending.music.length >= 3) music = pending.music;
+        if (pending.books.length >= 3) {
+          books = pending.books;
+          sources.books = pending.sources?.books ?? [];
+        }
+        if (pending.movies.length >= 3) {
+          movies = pending.movies;
+          sources.movies = pending.sources?.movies ?? [];
+        }
+        if (pending.music.length >= 3) {
+          music = pending.music;
+          sources.music = pending.sources?.music ?? [];
+        }
       }
     }
 
@@ -52,13 +76,16 @@ export function GeneratingReport() {
 
     posthog.capture("report_generation_started");
 
-    analyzeAndCreateReport(books, movies, music)
+    analyzeAndCreateReport(books, movies, music, sources)
       .then((reportId) => {
         posthog.capture("report_generation_completed");
         // Clear everything only on success
         sessionStorage.removeItem("books");
         sessionStorage.removeItem("movies");
         sessionStorage.removeItem("music");
+        sessionStorage.removeItem("books_sources");
+        sessionStorage.removeItem("movies_sources");
+        sessionStorage.removeItem("music_sources");
         clearPendingReport();
         navigate("/report/" + reportId);
       })

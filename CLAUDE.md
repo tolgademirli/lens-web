@@ -39,10 +39,13 @@ src/
 supabase/
   functions/
     analyze/           # Kitap+film+müzik → estetik rapor (Claude API → reports insert)
+    extract-works/     # Ekran görüntüsü / yapıştırılan metin → eser listesi (Claude vision)
     daily-discovery/   # Günlük keşif önerisi (cache: daily_discoveries tablosu)
     link-telegram/     # Telegram hesap bağlama
   migrations/
     daily_discoveries.sql
+    telegram_link_codes.sql
+    user_works.sql       # eser havuzu + rapor↔eser provenance
 guidelines/
   Guidelines.md        # Figma Make şablonu — uygulama kuralları değil
 docs/
@@ -68,6 +71,8 @@ docs/
    Okuma/temizleme mantığı `src/lib/pendingReport.ts` içinde; kayıt 60 dakika sonra otomatik geçersizleşir.
 3. `/generating` sayfası `analyzeAndCreateReport()` → `supabase.functions.invoke("analyze")` çağırır.
 4. `analyze` edge function: Claude API → JSON rapor → `reports` tablosuna insert → `reportId` döner.
+   Ardından eserler `user_works` havuzuna (`source: "form"`), rapor↔eser ilişkisi `report_works`'e yazılır.
+   Bu yazım **best-effort**: hata alırsa loglanır ve yutulur, rapor dönüşünü asla bloklamaz.
 5. Client `/report/:id`'ye yönlendirilir; `fetchReport()` RLS'e göre raporu çeker.
 
 ## Kritik kurallar

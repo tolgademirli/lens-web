@@ -6,10 +6,16 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { motion, AnimatePresence } from "motion/react";
 import { posthog } from "@/lib/posthog";
+import { ImportFlow } from "./ImportFlow";
+import { QuickImportHero } from "./QuickImportHero";
+import { markImportUsed } from "./CategoryHandoff";
+import type { WorkSource } from "@/lib/types";
 
 export function BooksStep() {
   const navigate = useNavigate();
   const [entries, setEntries] = useState<string[]>([]);
+  const [sources, setSources] = useState<WorkSource[]>([]);
+  const [mode, setMode] = useState<"manual" | "import">("manual");
   const [currentInput, setCurrentInput] = useState("");
   const formStartedRef = useRef(false);
   const listEndRef = useRef<HTMLDivElement>(null);
@@ -21,7 +27,7 @@ export function BooksStep() {
   }, [entries]);
 
   const minEntries = 3;
-  const maxEntries = 5;
+  const maxEntries = 8;
   const canProceed = entries.length >= minEntries;
   const canAddMore = entries.length < maxEntries;
 
@@ -32,6 +38,7 @@ export function BooksStep() {
         posthog.capture("form_started");
       }
       setEntries([...entries, currentInput.trim()]);
+      setSources([...sources, "manual"]);
       setCurrentInput("");
     }
   };
@@ -45,11 +52,21 @@ export function BooksStep() {
 
   const handleRemove = (index: number) => {
     setEntries(entries.filter((_, i) => i !== index));
+    setSources(sources.filter((_, i) => i !== index));
+  };
+
+  // Import onayı: çıkarılan girişler mevcut listeye eklenir, üst sınırda kesilir.
+  const handleImported = (imported: string[], importedSources: WorkSource[]) => {
+    setEntries([...entries, ...imported].slice(0, maxEntries));
+    setSources([...sources, ...importedSources].slice(0, maxEntries));
+    markImportUsed("Kitaplar");
+    setMode("manual");
   };
 
   const handleNext = () => {
     if (canProceed) {
       sessionStorage.setItem("books", JSON.stringify(entries));
+      sessionStorage.setItem("books_sources", JSON.stringify(sources));
       posthog.capture("form_step_completed", { step: 1 });
       navigate("/movies");
     }
@@ -62,7 +79,27 @@ export function BooksStep() {
       icon={<BookOpen className="w-8 h-8 text-white" />}
       title="Favori Kitaplar"
       subtitle="Son dönemde seni en çok etkileyen kitapları yaz — sadece yazar adı da yeterli."
+      hint={mode === "import" ? null : undefined}
     >
+      {mode === "import" ? (
+        <ImportFlow
+          type="book"
+          categoryLabel="Kitap"
+          sourceChips={["Goodreads rafı", "StoryGraph", "Instagram", "düz metin"]}
+          textPlaceholder={"Kitap listeni buraya yapıştır...\nörn: Dostoyevski - Karamazov Kardeşler\nOrhan Pamuk\nDünya Nimetleri - Gide"}
+          existingCount={entries.length}
+          onConfirm={handleImported}
+          onCancel={() => setMode("manual")}
+        />
+      ) : (
+      <>
+      <QuickImportHero
+        hint="Goodreads rafın ya da elle yazdığın bir liste — ekran görüntüsünü at, biz okuyup dolduralım."
+        onClick={() => {
+          posthog.capture("source_path_selected", { type: "book", path: "import" });
+          setMode("import");
+        }}
+      />
       <div className="space-y-4 mb-8">
         <AnimatePresence>
           {entries.map((entry, index) => (
@@ -156,7 +193,7 @@ export function BooksStep() {
             className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center"
           >
             <p className="text-sm text-emerald-700 font-medium">
-              ✅ 5/5 — hazırsın.
+              ✅ {maxEntries}/{maxEntries} — hazırsın.
             </p>
           </motion.div>
         )}
@@ -179,6 +216,8 @@ export function BooksStep() {
           İleri
         </Button>
       </div>
+      </>
+      )}
     </StepLayout>
   );
 }

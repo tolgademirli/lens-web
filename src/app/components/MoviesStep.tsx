@@ -6,16 +6,22 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { motion, AnimatePresence } from "motion/react";
 import { posthog } from "@/lib/posthog";
+import { ImportFlow } from "./ImportFlow";
+import { QuickImportHero } from "./QuickImportHero";
+import { CategoryHandoff, markImportUsed } from "./CategoryHandoff";
+import type { WorkSource } from "@/lib/types";
 
 export function MoviesStep() {
   const navigate = useNavigate();
   const [entries, setEntries] = useState<string[]>([]);
+  const [sources, setSources] = useState<WorkSource[]>([]);
+  const [mode, setMode] = useState<"manual" | "import">("manual");
   const [currentInput, setCurrentInput] = useState("");
 
   const listEndRef = useRef<HTMLDivElement>(null);
 
   const minEntries = 3;
-  const maxEntries = 5;
+  const maxEntries = 8;
   const canProceed = entries.length >= minEntries;
   const canAddMore = entries.length < maxEntries;
 
@@ -28,6 +34,7 @@ export function MoviesStep() {
   const handleAdd = () => {
     if (currentInput.trim() && canAddMore) {
       setEntries([...entries, currentInput.trim()]);
+      setSources([...sources, "manual"]);
       setCurrentInput("");
     }
   };
@@ -41,11 +48,20 @@ export function MoviesStep() {
 
   const handleRemove = (index: number) => {
     setEntries(entries.filter((_, i) => i !== index));
+    setSources(sources.filter((_, i) => i !== index));
+  };
+
+  const handleImported = (imported: string[], importedSources: WorkSource[]) => {
+    setEntries([...entries, ...imported].slice(0, maxEntries));
+    setSources([...sources, ...importedSources].slice(0, maxEntries));
+    markImportUsed("Filmler");
+    setMode("manual");
   };
 
   const handleNext = () => {
     if (canProceed) {
       sessionStorage.setItem("movies", JSON.stringify(entries));
+      sessionStorage.setItem("movies_sources", JSON.stringify(sources));
       posthog.capture("form_step_completed", { step: 2 });
       navigate("/music");
     }
@@ -58,7 +74,28 @@ export function MoviesStep() {
       icon={<Film className="w-8 h-8 text-white" />}
       title="Favori Filmler"
       subtitle="Son günlerde aklından çıkmayan filmleri yaz — sadece yönetmen adı da yeterli."
+      hint={mode === "import" ? null : undefined}
     >
+      {mode === "import" ? (
+        <ImportFlow
+          type="film"
+          categoryLabel="Film"
+          sourceChips={["Letterboxd listesi", "IMDb", "ekran görüntüsü", "düz metin"]}
+          textPlaceholder={"Film listeni buraya yapıştır...\nörn: Uzak - Nuri Bilge Ceylan\nWong Kar-wai\nMasumiyet"}
+          existingCount={entries.length}
+          onConfirm={handleImported}
+          onCancel={() => setMode("manual")}
+        />
+      ) : (
+      <>
+      <CategoryHandoff hint="Sıradaki: filmler. Aynı şekilde Letterboxd ya da IMDb ekranını atabilirsin." />
+      <QuickImportHero
+        hint="Letterboxd listen ya da IMDb ekranın — görüntüyü at, biz okuyup dolduralım."
+        onClick={() => {
+          posthog.capture("source_path_selected", { type: "film", path: "import" });
+          setMode("import");
+        }}
+      />
       <div className="space-y-4 mb-8">
         <AnimatePresence>
           {entries.map((entry, index) => (
@@ -152,7 +189,7 @@ export function MoviesStep() {
             className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center"
           >
             <p className="text-sm text-emerald-700 font-medium">
-              ✅ 5/5 — hazırsın.
+              ✅ {maxEntries}/{maxEntries} — hazırsın.
             </p>
           </motion.div>
         )}
@@ -175,6 +212,8 @@ export function MoviesStep() {
           İleri
         </Button>
       </div>
+      </>
+      )}
     </StepLayout>
   );
 }

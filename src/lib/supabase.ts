@@ -39,13 +39,21 @@ export class AnalyzeError extends Error {
   }
 }
 
+/** Girişlerle aynı sırada edinim yolları. Verilmezse edge function 'form' varsayar. */
+export interface EntrySources {
+  books?: string[];
+  movies?: string[];
+  music?: string[];
+}
+
 export async function analyzeAndCreateReport(
   books: string[],
   movies: string[],
-  music: string[]
+  music: string[],
+  sources?: EntrySources
 ): Promise<string> {
   const { data, error } = await supabase.functions.invoke("analyze", {
-    body: { books, movies, music },
+    body: { books, movies, music, sources },
   });
 
   if (error) {

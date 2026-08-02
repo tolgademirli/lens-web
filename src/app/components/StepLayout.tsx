@@ -8,10 +8,17 @@ interface StepLayoutProps {
   icon: ReactNode;
   title: string;
   subtitle: string;
+  /**
+   * Kart üstündeki ipucu şeridi. Verilmezse varsayılan giriş sınırı metni çıkar;
+   * `null` verilirse şerit hiç gösterilmez (import akışının kendi başlığı var).
+   */
+  hint?: ReactNode;
   children: ReactNode;
 }
 
-export function StepLayout({ step, totalSteps, icon, title, subtitle, children }: StepLayoutProps) {
+export function StepLayout({
+  step, totalSteps, icon, title, subtitle, hint, children,
+}: StepLayoutProps) {
   const progress = (step / totalSteps) * 100;
 
   return (
@@ -43,11 +50,15 @@ export function StepLayout({ step, totalSteps, icon, title, subtitle, children }
             </div>
           </div>
 
-          <div className="bg-purple-900/30 border border-purple-500/30 rounded-2xl p-6 mb-8">
-            <p className="text-sm text-purple-100">
-              <strong>En az 3, en fazla 5</strong> giriş ekleyebilirsin.
-            </p>
-          </div>
+          {hint !== null && (
+            <div className="bg-purple-900/30 border border-purple-500/30 rounded-2xl p-6 mb-8">
+              {hint ?? (
+                <p className="text-sm text-purple-100">
+                  <strong>En az 3, en fazla 8</strong> giriş ekleyebilirsin.
+                </p>
+              )}
+            </div>
+          )}
 
           {children}
         </div>

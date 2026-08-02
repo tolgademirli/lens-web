@@ -5,6 +5,12 @@ export interface PendingReport {
   books: string[];
   movies: string[];
   music: string[];
+  /**
+   * Girişlerle aynı sıradaki edinim yolları. Buraya da yazılıyor çünkü OAuth /
+   * magic link redirect'i sessionStorage'ı sıfırlıyor — giriş yapmamış kullanıcı
+   * (yani çoğu yeni kullanıcı) bu yoldan geçiyor ve aksi halde source kaybolurdu.
+   */
+  sources?: { books: string[]; movies: string[]; music: string[] };
 }
 
 export function readPendingReport(): PendingReport | null {
@@ -16,7 +22,12 @@ export function readPendingReport(): PendingReport | null {
       localStorage.removeItem(KEY);
       return null;
     }
-    return { books: parsed.books ?? [], movies: parsed.movies ?? [], music: parsed.music ?? [] };
+    return {
+      books: parsed.books ?? [],
+      movies: parsed.movies ?? [],
+      music: parsed.music ?? [],
+      sources: parsed.sources,
+    };
   } catch {
     return null;
   }

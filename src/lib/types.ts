@@ -51,6 +51,59 @@ export interface DailyDiscovery {
   date: string;
 }
 
+export type WorkType = "book" | "film" | "song";
+
+/** Eserin havuza hangi yoldan girdiği. 'form' = Screenshot-to-DNA öncesi akış. */
+export type WorkSource = "screenshot" | "paste" | "manual" | "form";
+
+export type WorkConfidence = "high" | "medium" | "low";
+
+/** user_works satırı — kullanıcının sınırsız eser havuzu. */
+export interface UserWork {
+  id: string;
+  created_at: string;
+  user_id?: string | null;
+  telegram_user_id?: number | null;
+  type: WorkType;
+  /** Yaratıcı adı (yazar / yönetmen / sanatçı) — zorunlu. */
+  creator: string;
+  /** Eser başlığı — çoğu zaman boş. */
+  title?: string | null;
+  source: WorkSource;
+  /** Tek bir çıkarım işleminden gelen eserleri gruplar. */
+  batch_id?: string | null;
+  /** Vision çıkarımının güven sinyali; manuel girişlerde null. */
+  confidence?: WorkConfidence | null;
+  /** Dolu ise kayıt havuzdan çıkarılmış (soft delete). */
+  deleted_at?: string | null;
+}
+
+/**
+ * `extract-works` endpoint'inin döndürdüğü ham çıkarım satırı.
+ * Henüz havuza yazılmadı — onay ekranından geçtikten sonra `UserWork` olur.
+ */
+export interface ExtractedWork {
+  creator: string;
+  /** Boş olabilir; `title_readable: false` ile birlikte "başlık okunamadı" rozetini besler. */
+  title: string;
+  confidence: WorkConfidence;
+  title_readable: boolean;
+  source: Extract<WorkSource, "screenshot" | "paste">;
+}
+
+/** `works` boş dönerse guardrail ekranı gösterilir — sistem eser uydurmaz. */
+export interface ExtractWorksResponse {
+  works: ExtractedWork[];
+  batch_id: string;
+}
+
+/** report_works satırı — raporun hangi havuz kayıtlarından üretildiği. */
+export interface ReportWork {
+  report_id: string;
+  work_id: string;
+  created_at: string;
+}
+
 export interface Report {
   id: string;
   created_at: string;

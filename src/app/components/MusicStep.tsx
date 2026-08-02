@@ -8,17 +8,23 @@ import { EmailOptInModal } from "./EmailOptInModal";
 import { motion, AnimatePresence } from "motion/react";
 import { getCurrentUser } from "@/lib/supabase";
 import { posthog } from "@/lib/posthog";
+import { ImportFlow } from "./ImportFlow";
+import { QuickImportHero } from "./QuickImportHero";
+import { CategoryHandoff, markImportUsed } from "./CategoryHandoff";
+import type { WorkSource } from "@/lib/types";
 
 export function MusicStep() {
   const navigate = useNavigate();
   const [entries, setEntries] = useState<string[]>([]);
+  const [sources, setSources] = useState<WorkSource[]>([]);
+  const [mode, setMode] = useState<"manual" | "import">("manual");
   const [currentInput, setCurrentInput] = useState("");
   const [showEmailModal, setShowEmailModal] = useState(false);
 
   const listEndRef = useRef<HTMLDivElement>(null);
 
   const minEntries = 3;
-  const maxEntries = 5;
+  const maxEntries = 8;
   const canProceed = entries.length >= minEntries;
   const canAddMore = entries.length < maxEntries;
 
@@ -31,6 +37,7 @@ export function MusicStep() {
   const handleAdd = () => {
     if (currentInput.trim() && canAddMore) {
       setEntries([...entries, currentInput.trim()]);
+      setSources([...sources, "manual"]);
       setCurrentInput("");
     }
   };
@@ -44,18 +51,45 @@ export function MusicStep() {
 
   const handleRemove = (index: number) => {
     setEntries(entries.filter((_, i) => i !== index));
+    setSources(sources.filter((_, i) => i !== index));
+  };
+
+  const handleImported = (imported: string[], importedSources: WorkSource[]) => {
+    setEntries([...entries, ...imported].slice(0, maxEntries));
+    setSources([...sources, ...importedSources].slice(0, maxEntries));
+    markImportUsed("Müzik");
+    setMode("manual");
   };
 
   const handleNext = async () => {
     if (canProceed) {
       sessionStorage.setItem("music", JSON.stringify(entries));
+      sessionStorage.setItem("music_sources", JSON.stringify(sources));
 
       // Consolidated pending report for post-OAuth restore (survives full-page redirects)
       const books = JSON.parse(sessionStorage.getItem("books") ?? "[]") as string[];
       const movies = JSON.parse(sessionStorage.getItem("movies") ?? "[]") as string[];
+      const readSources = (key: string) => {
+        try {
+          return JSON.parse(sessionStorage.getItem(key) ?? "[]") as string[];
+        } catch {
+          return [];
+        }
+      };
       localStorage.setItem(
         "lens_pending_report",
-        JSON.stringify({ books, movies, music: entries, savedAt: Date.now() })
+        JSON.stringify({
+          books,
+          movies,
+          music: entries,
+          // Redirect sessionStorage'ı sıfırlıyor; source'lar da köprüden geçmeli.
+          sources: {
+            books: readSources("books_sources"),
+            movies: readSources("movies_sources"),
+            music: sources,
+          },
+          savedAt: Date.now(),
+        })
       );
 
       posthog.capture("form_step_completed", { step: 3 });
@@ -78,7 +112,28 @@ export function MusicStep() {
       icon={<Music className="w-8 h-8 text-white" />}
       title="Favori Müzik"
       subtitle="Son zamanlarda içini dolduran şarkıları yaz — sadece sanatçı adı da yeterli."
+      hint={mode === "import" ? null : undefined}
     >
+      {mode === "import" ? (
+        <ImportFlow
+          type="song"
+          categoryLabel="Müzik"
+          sourceChips={["Spotify Wrapped", "çalma listesi", "Apple Music", "düz metin"]}
+          textPlaceholder={"Müzik listeni buraya yapıştır...\nörn: Adamlar\nBLOK3\nLa vie en rose - Edith Piaf"}
+          existingCount={entries.length}
+          onConfirm={handleImported}
+          onCancel={() => setMode("manual")}
+        />
+      ) : (
+      <>
+      <CategoryHandoff hint="Son adım: müzik. Spotify Wrapped ekranını da aynı şekilde atabilirsin." />
+      <QuickImportHero
+        hint="Spotify Wrapped ekranın ya da çalma listen — görüntüyü at, biz okuyup dolduralım."
+        onClick={() => {
+          posthog.capture("source_path_selected", { type: "song", path: "import" });
+          setMode("import");
+        }}
+      />
       <div className="space-y-4 mb-8">
         <AnimatePresence>
           {entries.map((entry, index) => (
@@ -172,7 +227,7 @@ export function MusicStep() {
             className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center"
           >
             <p className="text-sm text-emerald-700 font-medium">
-              ✅ 5/5 — hazırsın.
+              ✅ {maxEntries}/{maxEntries} — hazırsın.
             </p>
           </motion.div>
         )}
@@ -195,6 +250,8 @@ export function MusicStep() {
           Raporu Oluştur
         </Button>
       </div>
+      </>
+      )}
     </StepLayout>
     <EmailOptInModal
       open={showEmailModal}

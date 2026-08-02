@@ -25,8 +25,9 @@ BLOK3 ile Saramago'yu eşit saygıyla analiz et — hiçbir eser küçümsenmez.
 - Kullanıcıya "sen" diye hitap et, doğrudan konuş
 
 ## GÖREVİN
-Kullanıcının paylaştığı 5 kitap, 5 film ve 5 müzisyen/sanatçı üzerinden
+Kullanıcının paylaştığı kitap, film ve müzisyen/sanatçı listeleri üzerinden
 'Estetik Kimlik Raporu' çıkar. Aşağıdaki JSON şemasına uygun şekilde üret.
+Her kategorideki eser sayısı değişkendir — listede kaç eser varsa onunla çalış.
 
 ## ÖNEMLİ KURALLAR
 1. Raporu Türkçe yaz
@@ -48,7 +49,7 @@ SADECE geçerli JSON döndür. Başka hiçbir şey yazma. JSON şeması:
   },
   "texture": {
     "descriptions": [
-      "15 eserin ortak atmosferini tek bir his olarak tarif eden cümle 1 (max 3 cümle toplam, eser adı yok, varsayımsal zaman/mekan yok)"
+      "Listelerin tamamının ortak atmosferini tek bir his olarak tarif eden cümle 1 (max 3 cümle toplam, eser adı yok, varsayımsal zaman/mekan yok)"
     ],
     "colors": [
       {
@@ -115,7 +116,7 @@ SADECE geçerli JSON döndür. Başka hiçbir şey yazma. JSON şeması:
 - summary: tek cümle, açıklayıcı
 
 ### texture
-- Bu 15 eserin yarattığı ortak atmosferi tek bir his olarak tarif et
+- Üç listenin birlikte yarattığı ortak atmosferi tek bir his olarak tarif et
 - Eserleri tek tek açıklama veya isimlendirme
 - Varsayımsal zaman/mekan bilgisi kullanma (saat kaç, nerede olduğu gibi)
 - descriptions: maksimum 3 kısa cümle, sade ve doğrudan dil
@@ -147,7 +148,9 @@ SADECE geçerli JSON döndür. Başka hiçbir şey yazma. JSON şeması:
 - Keşif tonu — merak uyandır, dayatma
 `;
 
-const MAX_ITEMS = 7;
+// Rapora giren eser sayısı: kategori başına 3-8 ("kütüphane sınırsız, rapor bounded").
+// Havuzun (user_works) üst sınırı yoktur; bu tavan yalnızca rapora giren seçim içindir.
+const MAX_ITEMS = 8;
 const MAX_CHARS = 120;
 const DAILY_LIMIT = 3;
 
@@ -241,7 +244,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { books, movies, music } = await req.json();
+    const { books, movies, music, sources } = await req.json();
 
     if (
       !Array.isArray(books) ||
@@ -264,7 +267,7 @@ Deno.serve(async (req) => {
     for (const arr of [books, movies, music]) {
       if (arr.length > MAX_ITEMS) {
         return new Response(
-          JSON.stringify({ error: "Her kategoride en fazla 7 giriş yapabilirsin." }),
+          JSON.stringify({ error: `Her kategoride en fazla ${MAX_ITEMS} giriş yapabilirsin.` }),
           { status: 400, headers: { ...CORS, "Content-Type": "application/json" } }
         );
       }
@@ -363,6 +366,53 @@ Deno.serve(async (req) => {
       .single();
 
     if (error) throw error;
+
+    // Havuza yaz: eserler user_works'e, rapor↔eser ilişkisi report_works'e.
+    // Bu blok raporu ASLA bloklamaz — havuz yazımı başarısız olsa da kullanıcı
+    // raporunu alır. reports.books/films/songs zaten raporun kendi snapshot'ı.
+    try {
+      const batchId = crypto.randomUUID();
+
+      // Edinim yolu istemciden girişlerle aynı sırada gelir. Gelmezse ya da
+      // tanınmayan bir değerse 'form' (Screenshot-to-DNA öncesi akış) varsayılır.
+      const VALID_SOURCES = ["screenshot", "paste", "manual", "form"];
+      const sourceAt = (key: string, i: number) => {
+        const value = sources?.[key]?.[i];
+        return VALID_SOURCES.includes(value) ? value : "form";
+      };
+
+      const workRows = [
+        ...parsedBooks.map((b, i) => ({
+          type: "book", creator: b.author, title: b.title, source: sourceAt("books", i),
+        })),
+        ...parsedFilms.map((f, i) => ({
+          type: "film", creator: f.director, title: f.title, source: sourceAt("movies", i),
+        })),
+        ...parsedSongs.map((s, i) => ({
+          type: "song", creator: s.artist, title: s.title, source: sourceAt("music", i),
+        })),
+      ].map((w) => ({
+        user_id: user.id,
+        type: w.type,
+        creator: w.creator,
+        title: w.title || null, // sadece sanatçı girilmişse boş string gelir
+        source: w.source,
+        batch_id: batchId,
+      }));
+
+      const { data: works, error: worksError } = await sb
+        .from("user_works")
+        .insert(workRows)
+        .select("id");
+      if (worksError) throw worksError;
+
+      const { error: linkError } = await sb
+        .from("report_works")
+        .insert(works.map((w: { id: string }) => ({ report_id: data.id, work_id: w.id })));
+      if (linkError) throw linkError;
+    } catch (poolError) {
+      console.error("[analyze] Havuza yazılamadı (rapor etkilenmedi):", poolError);
+    }
 
     return new Response(JSON.stringify({ reportId: data.id }), {
       headers: { ...CORS, "Content-Type": "application/json" },
