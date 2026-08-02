@@ -54,6 +54,8 @@ export function ImportFlow({
   const [batchId, setBatchId] = useState("");
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  /** Düzenlemeye girerken satırın kopyası — "Vazgeç" buna geri döner. */
+  const [editSnapshot, setEditSnapshot] = useState<Row | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [previews, setPreviews] = useState<string[]>([]);
@@ -61,7 +63,10 @@ export function ImportFlow({
 
   const yaraticiLabel = YARATICI_LABEL[type];
   const remainingSlots = Math.max(0, MAX_SELECTED - existingCount);
-  const selectedCount = rows.filter((r) => r.selected).length;
+  // Boş satır seçili sayılmaz — henüz doldurulmamış manuel satır sayacı şişirmesin.
+  const selectedCount = rows.filter(
+    (r) => r.selected && (r.creator.trim() || r.title.trim())
+  ).length;
   // Model'in yazarını çözemediği satırlar. Manuel girilenler sayılmaz — orada
   // yazarı kullanıcı kasten boş bırakmıştır, çözülememiş bir şey yok.
   const creatorlessCount = rows.filter(
@@ -161,19 +166,53 @@ export function ImportFlow({
 
   function addManualRow() {
     const id = `manual-${Date.now()}`;
-    setRows((prev) => [
-      ...prev,
-      {
-        id,
-        creator: "",
-        title: "",
-        confidence: "high",
-        // Elle eklenen eser 'manual' — 'paste' DEĞİL. Edinim analitiği buna bağlı.
-        source: "manual" as WorkSource,
-        selected: selectedCount + existingCount < MAX_SELECTED,
-      } as Row,
-    ]);
+    const row = {
+      id,
+      creator: "",
+      title: "",
+      confidence: "high",
+      creator_inferred: false,
+      // Elle eklenen eser 'manual' — 'paste' DEĞİL. Edinim analitiği buna bağlı.
+      source: "manual" as WorkSource,
+      // Boş başlar, seçilmez; kaydedilince dolu ise kendiliğinden seçilir.
+      selected: false,
+    } as Row;
+    setRows((prev) => [...prev, row]);
+    setEditSnapshot(row);
     setEditingId(id);
+  }
+
+  function startEdit(row: Row) {
+    setEditSnapshot({ ...row });
+    setEditingId(row.id);
+  }
+
+  /** Yeni açılmış boş satırdan vazgeçmek onu kaldırır; doluysa eski haline döner. */
+  function cancelEdit() {
+    const snap = editSnapshot;
+    setEditingId(null);
+    setEditSnapshot(null);
+    if (!snap) return;
+    if (!snap.creator.trim() && !snap.title.trim()) {
+      setRows((prev) => prev.filter((r) => r.id !== snap.id));
+      return;
+    }
+    setRows((prev) => prev.map((r) => (r.id === snap.id ? snap : r)));
+  }
+
+  function saveEdit(id: string) {
+    posthog.capture("item_edited", { type });
+    setRows((prev) =>
+      prev.map((r) => {
+        if (r.id !== id) return r;
+        const usable = !!(r.creator.trim() || r.title.trim());
+        const room = selectedCount + existingCount < MAX_SELECTED;
+        // Doldurulmuş satırı kullanıcı eklediyse istiyordur — kendiliğinden seçilsin.
+        return usable && !r.selected && room ? { ...r, selected: true } : r;
+      })
+    );
+    setEditingId(null);
+    setEditSnapshot(null);
   }
 
   async function handleConfirm() {
@@ -393,16 +432,24 @@ export function ImportFlow({
                         İkisinden biri yeterli — ister {yaraticiLabel.toLowerCase()} adı,
                         ister eser adı yaz.
                       </p>
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          posthog.capture("item_edited", { type });
-                          setEditingId(null);
-                        }}
-                        className="bg-purple-500 hover:bg-purple-600 text-white"
-                      >
-                        Tamam
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => saveEdit(row.id)}
+                          disabled={!row.creator.trim() && !row.title.trim()}
+                          className="bg-purple-500 hover:bg-purple-600 text-white disabled:opacity-40"
+                        >
+                          Tamam
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={cancelEdit}
+                          className="text-purple-200 hover:text-white hover:bg-slate-700"
+                        >
+                          Vazgeç
+                        </Button>
+                      </div>
                     </div>
                   ) : (
                     <>
@@ -457,7 +504,7 @@ export function ImportFlow({
                 {editingId !== row.id && (
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                     <button
-                      onClick={() => setEditingId(row.id)}
+                      onClick={() => startEdit(row)}
                       aria-label="Düzenle"
                       className="w-9 h-9 flex items-center justify-center rounded-lg text-purple-300 hover:text-white hover:bg-slate-600/50"
                     >
