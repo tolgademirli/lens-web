@@ -62,9 +62,11 @@ export function ImportFlow({
   const yaraticiLabel = YARATICI_LABEL[type];
   const remainingSlots = Math.max(0, MAX_SELECTED - existingCount);
   const selectedCount = rows.filter((r) => r.selected).length;
-  // Yazarı çözülemeyen ama eser adı bilinen satırlar: kullanılabilir, sadece
-  // daha az bilgi taşır. Kullanıcı isterse tamamlar, isterse böyle bırakır.
-  const creatorlessCount = rows.filter((r) => !r.creator.trim() && r.title.trim()).length;
+  // Model'in yazarını çözemediği satırlar. Manuel girilenler sayılmaz — orada
+  // yazarı kullanıcı kasten boş bırakmıştır, çözülememiş bir şey yok.
+  const creatorlessCount = rows.filter(
+    (r) => r.source !== "manual" && !r.creator.trim() && r.title.trim()
+  ).length;
   const canConfirm = selectedCount >= 1 && selectedCount + existingCount >= MIN_SELECTED;
   const hasInput = tab === "screenshot" ? files.length > 0 : text.trim().length > 0;
 
@@ -417,7 +419,7 @@ export function ImportFlow({
                         {row.creator
                           ? row.title || "Eser adı — boş kalabilir"
                           : row.title
-                          ? `${yaraticiLabel} bilinmiyor`
+                          ? `${yaraticiLabel} adı — boş kalabilir`
                           : ""}
                       </p>
                       <div className="flex flex-wrap items-center gap-2 mt-2">
@@ -433,10 +435,6 @@ export function ImportFlow({
                         {row.creator_inferred && row.creator ? (
                           <span className="px-2 py-0.5 rounded-full bg-amber-900/40 border border-amber-500/40 text-[11px] text-amber-200">
                             yazarı ben tamamladım — kontrol et
-                          </span>
-                        ) : !row.creator && row.title ? (
-                          <span className="px-2 py-0.5 rounded-full bg-slate-700/60 border border-purple-500/25 text-[11px] text-purple-200">
-                            {yaraticiLabel.toLowerCase()} adını tahmin etmedim — istersen ekle
                           </span>
                         ) : !row.creator && !row.title ? (
                           <span className="px-2 py-0.5 rounded-full bg-amber-900/40 border border-amber-500/40 text-[11px] text-amber-200">
