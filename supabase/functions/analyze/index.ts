@@ -37,7 +37,11 @@ Her kategorideki eser sayısı değişkendir — listede kaç eser varsa onunla 
 4. Emoji kullanma (JSON değerlerinin içine emoji koyma)
 5. Kullanıcıda sadece yazar/yönetmen/sanatçı adı varsa, o sanatçının genel estetiği
    ve bilinen eserleri üzerinden analiz yap. Kullanıcıdan ek bilgi isteme.
-6. Kullanıcının listesindeki HER esere en az bir kez değin
+6. Analizini listenin TAMAMINA dayandır — birkaç esere bakıp gerisini atlama.
+   Ama bu, hepsini isimlendirmek demek DEĞİL: eser adları yalnızca contrasts
+   kutup başlıklarında geçer. Envanter çıkarma, bütünün hissini yaz.
+   Liste uzunsa (kategori başına 8'e kadar çıkabilir) tek tek saymaya çalışmak
+   raporu bir isim listesine çevirir; istenen bu değil.
 
 ## ÇIKTI FORMATI
 SADECE geçerli JSON döndür. Başka hiçbir şey yazma. JSON şeması:
