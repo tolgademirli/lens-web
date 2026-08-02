@@ -14,6 +14,12 @@ const MIN_SELECTED = 3;
 const MAX_SELECTED = 8;
 const MAX_FILES = 5;
 
+const YARATICI_LABEL: Record<WorkType, string> = {
+  book: "Yazar",
+  film: "Yönetmen",
+  song: "Sanatçı",
+};
+
 type Phase = "input" | "processing" | "confirm" | "empty";
 
 /** Onay ekranındaki satır — çıkarılan eser + kullanıcının seçim/düzenleme durumu. */
@@ -49,8 +55,11 @@ export function ImportFlow({
   const [previews, setPreviews] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const yaraticiLabel = YARATICI_LABEL[type];
   const remainingSlots = Math.max(0, MAX_SELECTED - existingCount);
   const selectedCount = rows.filter((r) => r.selected).length;
+  // Yaratıcısı çözülemeyen satırlar — kullanıcı tamamlamadan rapora giremezler.
+  const unresolvedCount = rows.filter((r) => !r.creator.trim()).length;
   const canConfirm = selectedCount >= 1 && selectedCount + existingCount >= MIN_SELECTED;
   const hasInput = tab === "screenshot" ? files.length > 0 : text.trim().length > 0;
 
@@ -110,7 +119,8 @@ export function ImportFlow({
           id: `${result.batch_id}-${i}`,
           // Üst sınırı aşan satırlar listede kalır ama seçimsiz gelir —
           // kullanıcı hangilerinin rapora gireceğini kendisi belirlesin.
-          selected: i < remainingSlots,
+          // Yaratıcısı çözülemeyenler de seçimsiz: önce tamamlanmalı.
+          selected: i < remainingSlots && !!w.creator.trim(),
         }))
       );
       setPhase("confirm");
@@ -124,6 +134,8 @@ export function ImportFlow({
     setRows((prev) =>
       prev.map((r) => {
         if (r.id !== id) return r;
+        // Yaratıcısı boş satır rapora giremez — önce düzenlenmeli.
+        if (!r.creator.trim()) return r;
         if (!r.selected && selectedCount + existingCount >= MAX_SELECTED) return r;
         return { ...r, selected: !r.selected };
       })
@@ -250,6 +262,17 @@ export function ImportFlow({
           {MAX_SELECTED} eser rapora girer — kalanlar kütüphanende durur.
         </p>
 
+        {unresolvedCount > 0 && (
+          <p className="text-sm text-amber-100 bg-amber-900/25 border border-amber-500/30 rounded-xl p-3 mb-4">
+            <strong className="font-medium">
+              {unresolvedCount} satırı çözemedim.
+            </strong>{" "}
+            Bunları tahmin etmek yerine sana bırakıyorum — aşağıda sarı işaretli
+            satırlardaki {yaraticiLabel.toLowerCase()} adını doldurursan rapora
+            girebilirler.
+          </p>
+        )}
+
         <div className="grid lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] gap-6 mb-6">
           {/* Sol: kaynak. Sağdaki satırlarla karşılaştırılabilsin diye yan yana. */}
           <div className="lg:sticky lg:top-6 lg:self-start">
@@ -290,7 +313,9 @@ export function ImportFlow({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, x: 20 }}
                 className={`group flex items-start gap-3 p-4 rounded-xl border transition-colors ${
-                  row.selected
+                  !row.creator.trim()
+                    ? "bg-amber-900/15 border-amber-500/40"
+                    : row.selected
                     ? "bg-slate-700/50 border-purple-500/40"
                     : "bg-slate-800/40 border-slate-600/40"
                 }`}
@@ -352,7 +377,17 @@ export function ImportFlow({
                             ? "yapıştırıldı"
                             : "manuel"}
                         </span>
-                        {row.source !== "manual" && (
+                        {/* Model tamamladıysa "yüksek eşleşme" demek yanıltıcı olur —
+                            kullanıcı doğrulayabilsin diye ayrı ve öne çıkan rozet. */}
+                        {row.creator_inferred && row.creator ? (
+                          <span className="px-2 py-0.5 rounded-full bg-amber-900/40 border border-amber-500/40 text-[11px] text-amber-200">
+                            yazarı ben tamamladım — kontrol et
+                          </span>
+                        ) : !row.creator ? (
+                          <span className="px-2 py-0.5 rounded-full bg-amber-900/40 border border-amber-500/40 text-[11px] text-amber-200">
+                            {yaraticiLabel} adı gerekli
+                          </span>
+                        ) : row.source !== "manual" ? (
                           <span className="text-[11px] text-purple-300/80">
                             {!row.title_readable
                               ? "başlık okunamadı"
@@ -362,7 +397,7 @@ export function ImportFlow({
                               ? "orta eşleşme"
                               : "düşük eşleşme"}
                           </span>
-                        )}
+                        ) : null}
                       </div>
                     </>
                   )}

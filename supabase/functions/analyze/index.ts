@@ -159,7 +159,10 @@ function getTodayInIstanbul(): string {
 }
 
 function parseEntry(text: string): [string, string] {
-  const idx = text.indexOf(" - ");
+  // SON " - " ile bölünür, ilk değil: eser adının kendisi tire içerebiliyor
+  // ("Sıcak - Soğuk Mevsimler - Camus" → başlık "Sıcak - Soğuk Mevsimler").
+  // Yaratıcı adı sona ekleniyor, dolayısıyla son ayırıcı doğru olanıdır.
+  const idx = text.lastIndexOf(" - ");
   if (idx !== -1) {
     return [text.slice(0, idx).trim(), text.slice(idx + 3).trim()];
   }

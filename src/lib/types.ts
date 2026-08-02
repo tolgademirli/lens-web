@@ -83,11 +83,14 @@ export interface UserWork {
  * Henüz havuza yazılmadı — onay ekranından geçtikten sonra `UserWork` olur.
  */
 export interface ExtractedWork {
+  /** Girdide yazmıyorsa boş olabilir — kullanıcı onay ekranında tamamlar. */
   creator: string;
   /** Boş olabilir; `title_readable: false` ile birlikte "başlık okunamadı" rozetini besler. */
   title: string;
   confidence: WorkConfidence;
   title_readable: boolean;
+  /** Yaratıcı girdide yoktu, model eseri tanıyıp tamamladı — kullanıcı doğrulamalı. */
+  creator_inferred: boolean;
   source: Extract<WorkSource, "screenshot" | "paste">;
 }
 
