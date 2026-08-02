@@ -194,6 +194,7 @@ export function ImportFlow({
           title: r.title,
           source: r.source,
           confidence: r.source === "manual" ? undefined : r.confidence,
+          selected: r.selected,
         })),
         batchId || crypto.randomUUID()
       );
@@ -201,11 +202,12 @@ export function ImportFlow({
       setSaving(false);
     }
 
-    const chosenIdx = kept.map((r, i) => ({ row: r, id: ids[i] ?? "" })).filter((x) => x.row.selected);
+    // ids yalnızca seçilenleri, seçilme sırasıyla içerir.
+    const chosen = kept.filter((r) => r.selected);
     onConfirm(
-      chosenIdx.map((x) => workToEntry(x.row)),
-      chosenIdx.map((x) => x.row.source),
-      chosenIdx.map((x) => x.id)
+      chosen.map(workToEntry),
+      chosen.map((r) => r.source),
+      chosen.map((_, i) => ids[i] ?? "")
     );
   }
 

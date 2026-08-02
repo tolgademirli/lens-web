@@ -147,6 +147,34 @@ const OUTPUT_SCHEMA = {
   additionalProperties: false,
 };
 
+const DAILY_EXTRACTIONS = 30;
+
+/**
+ * Günlük çıkarım kotası. Kimlik varsa kullanıcı id'sine, yoksa IP'ye bakar.
+ * Fail-open: `extraction_quota` tablosu yoksa veya sorgu hata verirse false döner,
+ * yani istek geçer. Kota altyapısı ürünü durdurmamalı.
+ */
+async function quotaExceeded(
+  sb: ReturnType<typeof createClient>,
+  clientKey: string
+): Promise<boolean> {
+  try {
+    const today = new Intl.DateTimeFormat("sv-SE", {
+      timeZone: "Europe/Istanbul",
+    }).format(new Date());
+
+    const { data, error } = await sb.rpc("bump_extraction_quota", {
+      p_client_key: clientKey,
+      p_date: today,
+    });
+
+    if (error) return false; // tablo/fonksiyon yok ya da sorgu patladı → engelleme
+    return typeof data === "number" && data > DAILY_EXTRACTIONS;
+  } catch {
+    return false;
+  }
+}
+
 function bad(message: string, status = 400): Response {
   return new Response(JSON.stringify({ error: message }), {
     status,
@@ -160,21 +188,29 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Auth zorunlu — analyze ile aynı desen.
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return bad("Bu işlem için giriş yapman gerekiyor.", 401);
-    }
-
+    // Auth ZORUNLU DEĞİL. Onboarding'de kullanıcı henüz giriş yapmamış oluyor;
+    // hızlı yolu ona kapatmak özelliğin varlık sebebini boşa çıkarırdı.
+    // Çıkarım stateless — hiçbir şey yazmıyor. Havuza yazım girişten sonra olur.
     const sb = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await sb.auth.getUser(token);
-    if (authError || !user) {
-      return bad("Geçersiz oturum. Lütfen tekrar giriş yap.", 401);
+    const authHeader = req.headers.get("Authorization");
+    const token = authHeader?.replace("Bearer ", "");
+    const userId = token
+      ? (await sb.auth.getUser(token)).data.user?.id ?? null
+      : null;
+
+    // Anonim erişime açık bir vision endpoint'i — kötüye kullanım maliyet yaratır.
+    // Kota kimlik yoksa IP'ye düşer. Tablo yoksa/sorgu patlarsa isteği ENGELLEMEZ
+    // (fail-open): kota altyapısı bir aksaklık yüzünden ürünü durdurmasın.
+    const clientKey =
+      userId ??
+      req.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
+      "bilinmeyen";
+    if (await quotaExceeded(sb, clientKey)) {
+      return bad("Bugünlük çıkarım limitine ulaştın. Yarın tekrar deneyebilirsin.", 429);
     }
 
     const { type, images, text } = await req.json();

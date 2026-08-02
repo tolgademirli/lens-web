@@ -4,6 +4,7 @@ import { motion } from "motion/react";
 import { Sparkles, BookOpen, Film, Music } from "lucide-react";
 import { analyzeAndCreateReport, AnalyzeError } from "@/lib/supabase";
 import { readPendingReport, clearPendingReport } from "@/lib/pendingReport";
+import { flushLibraryStash } from "@/lib/userWorks";
 import { Button } from "./ui/button";
 import { posthog } from "@/lib/posthog";
 
@@ -13,6 +14,19 @@ function abandonAndGoToDashboard(nav: (path: string) => void) {
   sessionStorage.removeItem("music");
   clearPendingReport();
   nav("/dashboard");
+}
+
+/**
+ * Girişten sonra havuza yazılan eserlerin id'lerini, import'tan gelen girişlere
+ * sırayla yerleştirir. Sıra güvenilir: ImportFlow seçilenleri liste sırasında
+ * ekliyor, adım da aynı sırayla girişlere yazıyor.
+ */
+function fillImportedIds(sources: string[], ids: string[], flushed: string[]) {
+  let next = 0;
+  for (let i = 0; i < sources.length && next < flushed.length; i++) {
+    const imported = sources[i] === "screenshot" || sources[i] === "paste";
+    if (imported && !ids[i]) ids[i] = flushed[next++];
+  }
 }
 
 type ErrorKind = "auth" | "quota" | "generic";
@@ -85,7 +99,20 @@ export function GeneratingReport() {
 
     posthog.capture("report_generation_started");
 
-    analyzeAndCreateReport(books, movies, music, sources, workIds)
+    void (async () => {
+      // Anonim akışta onaylanan eserler localStorage'da bekliyordu. Artık oturum
+      // var: önce havuza yaz, rapora girenlerin id'lerini geri al ki analyze
+      // aynı eseri ikinci kez oluşturmasın.
+      try {
+        const flushed = await flushLibraryStash();
+        fillImportedIds(sources.books, workIds.books, flushed.book);
+        fillImportedIds(sources.movies, workIds.movies, flushed.film);
+        fillImportedIds(sources.music, workIds.music, flushed.song);
+      } catch (err) {
+        console.error("[generating] Bekleyen kütüphane yazılamadı:", err);
+      }
+
+      analyzeAndCreateReport(books, movies, music, sources, workIds)
       .then((reportId) => {
         posthog.capture("report_generation_completed");
         // Clear everything only on success
@@ -110,6 +137,7 @@ export function GeneratingReport() {
           err instanceof Error ? err.message : "Bir hata oluştu. Lütfen tekrar deneyin.";
         setError({ kind, message });
       });
+    })();
   }, [navigate]);
 
   if (error) {
