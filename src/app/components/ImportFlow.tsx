@@ -7,6 +7,7 @@ import { Input } from "./ui/input";
 import { motion, AnimatePresence } from "motion/react";
 import { posthog } from "@/lib/posthog";
 import { extractWorks, fileToBase64, workToEntry, ExtractError } from "@/lib/extractWorks";
+import { saveWorksToLibrary } from "@/lib/userWorks";
 import type { ExtractedWork, WorkSource, WorkType } from "@/lib/types";
 
 // Rapora giren eser sayısı bounded: kategori başına 3-8 ("kütüphane sınırsız, rapor bounded").
@@ -37,7 +38,8 @@ interface ImportFlowProps {
   textPlaceholder: string;
   /** Halihazırda listede olan giriş sayısı — üst sınır buna göre daralır. */
   existingCount: number;
-  onConfirm: (entries: string[], sources: WorkSource[]) => void;
+  /** workIds: rapora giren satırların havuzdaki karşılıkları (yoksa boş string). */
+  onConfirm: (entries: string[], sources: WorkSource[], workIds: string[]) => void;
   onCancel: () => void;
 }
 
@@ -49,6 +51,8 @@ export function ImportFlow({
   const [files, setFiles] = useState<File[]>([]);
   const [text, setText] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
+  const [batchId, setBatchId] = useState("");
+  const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -113,6 +117,7 @@ export function ImportFlow({
       }
 
       posthog.capture("works_extracted", { type, mode: tab, count: result.works.length });
+      setBatchId(result.batch_id);
       setRows(
         result.works.map((w, i) => ({
           ...w,
@@ -169,10 +174,39 @@ export function ImportFlow({
     setEditingId(id);
   }
 
-  function handleConfirm() {
-    const chosen = rows.filter((r) => r.selected && r.creator.trim());
-    posthog.capture("extraction_confirmed", { type, selected_count: chosen.length });
-    onConfirm(chosen.map(workToEntry), chosen.map((r) => r.source));
+  async function handleConfirm() {
+    // Havuza rapora girecekler DEĞİL, onay ekranında bırakılan HER ŞEY yazılır.
+    // Kullanıcının sildiği satırlar zaten rows'ta yok; kalanlar kütüphaneye ait.
+    const kept = rows.filter((r) => r.creator.trim());
+    posthog.capture("extraction_confirmed", {
+      type,
+      selected_count: kept.filter((r) => r.selected).length,
+      saved_count: kept.length,
+    });
+
+    setSaving(true);
+    let ids: string[] = [];
+    try {
+      ids = await saveWorksToLibrary(
+        type,
+        kept.map((r) => ({
+          creator: r.creator,
+          title: r.title,
+          source: r.source,
+          confidence: r.source === "manual" ? undefined : r.confidence,
+        })),
+        batchId || crypto.randomUUID()
+      );
+    } finally {
+      setSaving(false);
+    }
+
+    const chosenIdx = kept.map((r, i) => ({ row: r, id: ids[i] ?? "" })).filter((x) => x.row.selected);
+    onConfirm(
+      chosenIdx.map((x) => workToEntry(x.row)),
+      chosenIdx.map((x) => x.row.source),
+      chosenIdx.map((x) => x.id)
+    );
   }
 
   // ---------------------------------------------------------------- işleniyor
@@ -451,11 +485,11 @@ export function ImportFlow({
           </Button>
           <Button
             onClick={handleConfirm}
-            disabled={!canConfirm}
+            disabled={!canConfirm || saving}
             size="lg"
             className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-8 rounded-xl disabled:opacity-50"
           >
-            {selectedCount} eserle devam et
+            {saving ? "Kaydediliyor..." : `${selectedCount} eserle devam et`}
           </Button>
         </div>
       </div>

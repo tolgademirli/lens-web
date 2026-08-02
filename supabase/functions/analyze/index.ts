@@ -247,7 +247,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { books, movies, music, sources } = await req.json();
+    const { books, movies, music, sources, work_ids } = await req.json();
 
     if (
       !Array.isArray(books) ||
@@ -384,34 +384,55 @@ Deno.serve(async (req) => {
         return VALID_SOURCES.includes(value) ? value : "form";
       };
 
-      const workRows = [
+      // Import yolunda eserler onay ekranında zaten havuza yazıldı ve id'leri geldi.
+      // O satırlar için YENİDEN yazmıyoruz, yalnızca rapora bağlıyoruz — aksi halde
+      // her eser havuzda iki kez görünürdü.
+      const existingId = (key: string, i: number) => {
+        const value = work_ids?.[key]?.[i];
+        return typeof value === "string" && value.length > 0 ? value : null;
+      };
+
+      const items = [
         ...parsedBooks.map((b, i) => ({
-          type: "book", creator: b.author, title: b.title, source: sourceAt("books", i),
+          type: "book", creator: b.author, title: b.title,
+          source: sourceAt("books", i), id: existingId("books", i),
         })),
         ...parsedFilms.map((f, i) => ({
-          type: "film", creator: f.director, title: f.title, source: sourceAt("movies", i),
+          type: "film", creator: f.director, title: f.title,
+          source: sourceAt("movies", i), id: existingId("movies", i),
         })),
         ...parsedSongs.map((s, i) => ({
-          type: "song", creator: s.artist, title: s.title, source: sourceAt("music", i),
+          type: "song", creator: s.artist, title: s.title,
+          source: sourceAt("music", i), id: existingId("music", i),
         })),
-      ].map((w) => ({
-        user_id: user.id,
-        type: w.type,
-        creator: w.creator,
-        title: w.title || null, // sadece sanatçı girilmişse boş string gelir
-        source: w.source,
-        batch_id: batchId,
-      }));
+      ];
 
-      const { data: works, error: worksError } = await sb
-        .from("user_works")
-        .insert(workRows)
-        .select("id");
-      if (worksError) throw worksError;
+      const missing = items.filter((w) => !w.id);
+      let createdIds: string[] = [];
+      if (missing.length > 0) {
+        const { data: works, error: worksError } = await sb
+          .from("user_works")
+          .insert(
+            missing.map((w) => ({
+              user_id: user.id,
+              type: w.type,
+              creator: w.creator,
+              title: w.title || null, // sadece sanatçı girilmişse boş string gelir
+              source: w.source,
+              batch_id: batchId,
+            }))
+          )
+          .select("id");
+        if (worksError) throw worksError;
+        createdIds = (works ?? []).map((w: { id: string }) => w.id);
+      }
 
+      const linkIds = [
+        ...new Set([...items.map((w) => w.id).filter(Boolean) as string[], ...createdIds]),
+      ];
       const { error: linkError } = await sb
         .from("report_works")
-        .insert(works.map((w: { id: string }) => ({ report_id: data.id, work_id: w.id })));
+        .insert(linkIds.map((id) => ({ report_id: data.id, work_id: id })));
       if (linkError) throw linkError;
     } catch (poolError) {
       console.error("[analyze] Havuza yazılamadı (rapor etkilenmedi):", poolError);

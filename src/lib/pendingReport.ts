@@ -11,6 +11,8 @@ export interface PendingReport {
    * (yani çoğu yeni kullanıcı) bu yoldan geçiyor ve aksi halde source kaybolurdu.
    */
   sources?: { books: string[]; movies: string[]; music: string[] };
+  /** Havuzda zaten oluşturulmuş kayıtların id'leri — analyze aynı eseri tekrar yazmasın. */
+  workIds?: { books: string[]; movies: string[]; music: string[] };
 }
 
 export function readPendingReport(): PendingReport | null {
@@ -27,6 +29,7 @@ export function readPendingReport(): PendingReport | null {
       movies: parsed.movies ?? [],
       music: parsed.music ?? [],
       sources: parsed.sources,
+      workIds: parsed.workIds,
     };
   } catch {
     return null;

@@ -17,6 +17,7 @@ export function MusicStep() {
   const navigate = useNavigate();
   const [entries, setEntries] = useState<string[]>([]);
   const [sources, setSources] = useState<WorkSource[]>([]);
+  const [workIds, setWorkIds] = useState<string[]>([]);
   const [mode, setMode] = useState<"manual" | "import">("manual");
   const [currentInput, setCurrentInput] = useState("");
   const [showEmailModal, setShowEmailModal] = useState(false);
@@ -38,6 +39,7 @@ export function MusicStep() {
     if (currentInput.trim() && canAddMore) {
       setEntries([...entries, currentInput.trim()]);
       setSources([...sources, "manual"]);
+      setWorkIds([...workIds, ""]);
       setCurrentInput("");
     }
   };
@@ -52,11 +54,17 @@ export function MusicStep() {
   const handleRemove = (index: number) => {
     setEntries(entries.filter((_, i) => i !== index));
     setSources(sources.filter((_, i) => i !== index));
+    setWorkIds(workIds.filter((_, i) => i !== index));
   };
 
-  const handleImported = (imported: string[], importedSources: WorkSource[]) => {
+  const handleImported = (
+    imported: string[],
+    importedSources: WorkSource[],
+    importedIds: string[]
+  ) => {
     setEntries([...entries, ...imported].slice(0, maxEntries));
     setSources([...sources, ...importedSources].slice(0, maxEntries));
+    setWorkIds([...workIds, ...importedIds].slice(0, maxEntries));
     markImportUsed("Müzik");
     setMode("manual");
   };
@@ -65,6 +73,7 @@ export function MusicStep() {
     if (canProceed) {
       sessionStorage.setItem("music", JSON.stringify(entries));
       sessionStorage.setItem("music_sources", JSON.stringify(sources));
+      sessionStorage.setItem("music_work_ids", JSON.stringify(workIds));
 
       // Consolidated pending report for post-OAuth restore (survives full-page redirects)
       const books = JSON.parse(sessionStorage.getItem("books") ?? "[]") as string[];
@@ -87,6 +96,11 @@ export function MusicStep() {
             books: readSources("books_sources"),
             movies: readSources("movies_sources"),
             music: sources,
+          },
+          workIds: {
+            books: readSources("books_work_ids"),
+            movies: readSources("movies_work_ids"),
+            music: workIds,
           },
           savedAt: Date.now(),
         })

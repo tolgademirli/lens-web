@@ -50,10 +50,12 @@ export async function analyzeAndCreateReport(
   books: string[],
   movies: string[],
   music: string[],
-  sources?: EntrySources
+  sources?: EntrySources,
+  /** Havuzda zaten yazılmış kayıtların id'leri; verilirse analyze tekrar yazmaz. */
+  workIds?: EntrySources
 ): Promise<string> {
   const { data, error } = await supabase.functions.invoke("analyze", {
-    body: { books, movies, music, sources },
+    body: { books, movies, music, sources, work_ids: workIds },
   });
 
   if (error) {

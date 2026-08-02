@@ -15,6 +15,7 @@ export function MoviesStep() {
   const navigate = useNavigate();
   const [entries, setEntries] = useState<string[]>([]);
   const [sources, setSources] = useState<WorkSource[]>([]);
+  const [workIds, setWorkIds] = useState<string[]>([]);
   const [mode, setMode] = useState<"manual" | "import">("manual");
   const [currentInput, setCurrentInput] = useState("");
 
@@ -35,6 +36,7 @@ export function MoviesStep() {
     if (currentInput.trim() && canAddMore) {
       setEntries([...entries, currentInput.trim()]);
       setSources([...sources, "manual"]);
+      setWorkIds([...workIds, ""]);
       setCurrentInput("");
     }
   };
@@ -49,11 +51,17 @@ export function MoviesStep() {
   const handleRemove = (index: number) => {
     setEntries(entries.filter((_, i) => i !== index));
     setSources(sources.filter((_, i) => i !== index));
+    setWorkIds(workIds.filter((_, i) => i !== index));
   };
 
-  const handleImported = (imported: string[], importedSources: WorkSource[]) => {
+  const handleImported = (
+    imported: string[],
+    importedSources: WorkSource[],
+    importedIds: string[]
+  ) => {
     setEntries([...entries, ...imported].slice(0, maxEntries));
     setSources([...sources, ...importedSources].slice(0, maxEntries));
+    setWorkIds([...workIds, ...importedIds].slice(0, maxEntries));
     markImportUsed("Filmler");
     setMode("manual");
   };
@@ -62,6 +70,7 @@ export function MoviesStep() {
     if (canProceed) {
       sessionStorage.setItem("movies", JSON.stringify(entries));
       sessionStorage.setItem("movies_sources", JSON.stringify(sources));
+      sessionStorage.setItem("movies_work_ids", JSON.stringify(workIds));
       posthog.capture("form_step_completed", { step: 2 });
       navigate("/music");
     }

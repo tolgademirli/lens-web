@@ -48,6 +48,12 @@ export function GeneratingReport() {
       movies: readSources("movies_sources"),
       music: readSources("music_sources"),
     };
+    // Havuzda zaten oluşturulmuş kayıtların id'leri (import yolundan gelenler).
+    const workIds = {
+      books: readSources("books_work_ids"),
+      movies: readSources("movies_work_ids"),
+      music: readSources("music_work_ids"),
+    };
 
     // Fallback: consolidated pending report saved before OAuth redirect (max 60 dk).
     // Girişler oradan geliyorsa source'lar da oradan gelmeli — yoksa hepsi 'form'a düşer.
@@ -57,14 +63,17 @@ export function GeneratingReport() {
         if (pending.books.length >= 3) {
           books = pending.books;
           sources.books = pending.sources?.books ?? [];
+          workIds.books = pending.workIds?.books ?? [];
         }
         if (pending.movies.length >= 3) {
           movies = pending.movies;
           sources.movies = pending.sources?.movies ?? [];
+          workIds.movies = pending.workIds?.movies ?? [];
         }
         if (pending.music.length >= 3) {
           music = pending.music;
           sources.music = pending.sources?.music ?? [];
+          workIds.music = pending.workIds?.music ?? [];
         }
       }
     }
@@ -76,7 +85,7 @@ export function GeneratingReport() {
 
     posthog.capture("report_generation_started");
 
-    analyzeAndCreateReport(books, movies, music, sources)
+    analyzeAndCreateReport(books, movies, music, sources, workIds)
       .then((reportId) => {
         posthog.capture("report_generation_completed");
         // Clear everything only on success
@@ -86,6 +95,9 @@ export function GeneratingReport() {
         sessionStorage.removeItem("books_sources");
         sessionStorage.removeItem("movies_sources");
         sessionStorage.removeItem("music_sources");
+        sessionStorage.removeItem("books_work_ids");
+        sessionStorage.removeItem("movies_work_ids");
+        sessionStorage.removeItem("music_work_ids");
         clearPendingReport();
         navigate("/report/" + reportId);
       })
