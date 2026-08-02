@@ -66,13 +66,26 @@ ekran görüntüsünden veya metinden ${tekil} listesini çıkarmak.
 
 ## ÇIKARIM KURALLARI
 - Girdideki HER eseri çıkar. Satır atlamak, en sık yaptığın hatadır.
-- title (eser adı) opsiyoneldir. Okunamıyorsa veya girdide yoksa boş string ("") döndür
-  ve title_readable alanını false yap.
+- title (eser adı) opsiyoneldir:
+  · Girdide eser adı YOKSA (yalnızca ${yaratici} yazıyorsa) → title: "",
+    title_readable: TRUE. Okunamayan bir şey yok, ortada başlık hiç yok.
+  · Girdide eser adı VAR ama seçemiyorsan (bulanık, kesik) → title: "",
+    title_readable: FALSE.
 - Aynı eseri iki kez listeleme.
 - Kullanıcı arayüzü öğelerini (menü, buton, "Want to Read", takipçi sayısı,
   yıldız/puan, tarih, "Şimdi çalınıyor") eser sanma.
-- Adları girdide yazıldığı gibi, doğru imlayla yaz. Tanıdığın bir eserin adı
-  yanlış yazılmışsa düzelt; tanımadığını düzeltmeye çalışma.
+
+## ADI DEĞİŞTİRME — EN SIK YAPILAN AĞIR HATA
+title alanına GİRDİDE OKUDUĞUN metni yaz. Okuduğun adı BAŞKA BİR ESERİN adıyla
+değiştirmen kesinlikle yasaktır.
+- "Kör Baykuş" okuyorsan çıktın "Kör Baykuş" olur. Onu "Kürk Mantolu Madonna"
+  gibi daha tanıdık bir esere çevirmek uydurmadır.
+- Yalnızca harf düzeyindeki bariz OCR hatalarını düzeltebilirsin
+  ("TutunamayanIar" → "Tutunamayanlar"). Kelime değiştirmek, ad benzetmek yok.
+- Okuduğun ad tanımadığın bir eserse AYNEN yaz, creator'ı boş bırak,
+  creator_inferred: false yap. Tanımamak sorun değil; yanlış eser yazmak felakettir.
+- Adı net seçemiyorsan creator'ı ASLA tamamlama: önce ne okuduğundan emin ol.
+  Emin değilsen confidence: "low" ver ve creator'ı boş bırak.
 
 ## SATIR BİÇİMLERİ — ÜÇÜ DE GEÇERLİ, ÜÇÜNÜ DE İŞLE
 Aynı liste içinde bu üç biçim karışık bulunur. Hiçbirini atlama:
@@ -82,11 +95,13 @@ Aynı liste içinde bu üç biçim karışık bulunur. Hiçbirini atlama:
      creator_inferred: false
 
 2. YALNIZCA ESER ADI — örn. "${ornek.yalnizEser}"
-   → title'a eser adını yaz. Eseri güvenle tanıyorsan ${yaratici} adını SEN TAMAMLA
-     ve creator_inferred: true yap. Bu uydurma DEĞİL, tanımadır: eser zaten girdide
-     duruyor, sen yalnızca kime ait olduğunu söylüyorsun.
-   → Eseri tanımıyorsan yine de döndür: creator: "", creator_inferred: false.
-     Kullanıcı onay ekranında kendisi tamamlar.
+   → title'a OKUDUĞUN adı yaz (değiştirmeden). Bu adı net okuduysan VE eseri
+     güvenle tanıyorsan ${yaratici} adını SEN TAMAMLA, creator_inferred: true yap.
+     Bu uydurma DEĞİL, tanımadır: eser zaten girdide duruyor, sen yalnızca kime
+     ait olduğunu söylüyorsun.
+   → Adı net okuyamadıysan ya da eseri tanımıyorsan: creator: "",
+     creator_inferred: false. Kullanıcı onay ekranında kendisi tamamlar.
+     Tamamlamak zorunda değilsin — emin olmadığın yerde boş bırak.
 
 3. İKİSİ BİRLİKTE — örn. "${ornek.ikisi}"
    → İkisini de yaz, creator_inferred: false. Hangi tarafın eser, hangi tarafın
@@ -114,6 +129,8 @@ yanlıştır: her satır dönmeli, çözülemeyen kısım boş kalmalı.
 ## EN ÖNEMLİ KURAL — ASLA UYDURMA
 Girdide OLMAYAN bir eseri listeye ekleme. Tamamlamana izin verilen tek şey,
 girdide zaten bulunan bir eserin ${yaratici} adıdır — eserin kendisi asla.
+Girdideki bir eseri başka bir eserle DEĞİŞTİRMEK de listeye olmayan eser
+eklemektir; en ağır hata budur.
 
 Girdide net bir ${tekil} listesi yoksa works dizisini BOŞ döndür.
 Bir akış diyagramı, tablo, sohbet ekranı, manzara fotoğrafı, kod ekranı ya da
