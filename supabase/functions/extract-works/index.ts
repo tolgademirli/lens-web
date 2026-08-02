@@ -83,6 +83,9 @@ değiştirmen kesinlikle yasaktır.
   creator_inferred: false yap. Tanımamak sorun değil; yanlış eser yazmak felakettir.
 - Adı net seçemiyorsan creator'ı ASLA tamamlama: önce ne okuduğundan emin ol.
   Emin değilsen confidence: "low" ver ve creator'ı boş bırak.
+- Bir eseri "şuna benziyor" diye bir yazara yakıştırma. Türkçe bir eser adı
+  görüp tanıdık bir Türk yazarı yazmak tipik bir hatadır: eseri gerçekten
+  biliyorsan yaz, bilmiyorsan boş bırak.
 
 ## SATIR BİÇİMLERİ — ÜÇÜ DE GEÇERLİ, ÜÇÜNÜ DE İŞLE
 Aynı liste içinde bu üç biçim karışık bulunur. Hiçbirini atlama:
@@ -116,6 +119,15 @@ satır tek bir ad olarak mı okunuyor?
 Tahmine dayalı isim yazma. Emin değilsen creator'ı boş bırak — yanlış bir
 ${yaratici} adı, boş bırakmaktan çok daha kötüdür. Çözemediğin satırı atlamak da
 yanlıştır: her satır dönmeli, çözülemeyen kısım boş kalmalı.
+
+## creator_inferred — İSTİSNASIZ KURAL
+Bu bayrak "bu yazarı ben mi buldum, yoksa girdide mi yazıyordu" sorusunu yanıtlar.
+- creator adını girdide HARFİ HARFİNE okuduysan → creator_inferred: false
+- creator adı girdide YAZMIYORSA ve sen eserden yola çıkıp buldıysan →
+  creator_inferred: TRUE. İstisna yok. Ne kadar emin olursan ol, ne kadar meşhur
+  olursa olsun, girdide yazmıyorsa bayrak true olmak zorundadır.
+Yanlış bayrak, kullanıcının yanlış bilgiyi kontrol etme şansını elinden alır.
+Bulduğun yazardan emin değilsen zaten yazma: creator'ı boş bırak.
 
 ## GÜVEN SİNYALİ (confidence)
 - "high": ad net okunuyor ve tanıdığın/tutarlı bir eser.
@@ -333,13 +345,24 @@ Deno.serve(async (req) => {
     // yaratıcısı olmayan satır işe yaramaz, ele.
     const works = (parsed.works ?? [])
       .filter((w): w is Record<string, unknown> => !!w && typeof w === "object")
-      .map((w) => ({
-        creator: String(w.creator ?? "").trim(),
-        title: String(w.title ?? "").trim(),
-        confidence: w.confidence as string,
-        creator_inferred: w.creator_inferred === true,
-        source,
-      }))
+      .map((w) => {
+        const confidence = (w.confidence as string) ?? "high";
+        const title = String(w.title ?? "").trim();
+        let creator = String(w.creator ?? "").trim();
+        let inferred = w.creator_inferred === true;
+
+        // Yapısal güvence: düşük güvenli okumada yazar adı GEÇMEZ.
+        // Model prompt'a rağmen bir kez uydurulmuş yazarı "okudum" diye
+        // işaretledi (Bozkırkurdu → "Yaşar Kemal", creator_inferred: false).
+        // Yanlış adı doğrulama rozetiyle göstermek yerine hiç göstermiyoruz:
+        // eser adı korunur, yazarı kullanıcı doldurur. creator zaten opsiyonel.
+        if (confidence === "low" && creator && title) {
+          creator = "";
+          inferred = false;
+        }
+
+        return { creator, title, confidence, creator_inferred: inferred, source };
+      })
       // Yaratıcısı boş satırlar KALIR — kullanıcı onay ekranında tamamlar.
       // Yalnızca tamamen boş satır elenir.
       .filter((w) => w.creator.length > 0 || w.title.length > 0)
