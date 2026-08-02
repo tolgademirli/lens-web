@@ -26,8 +26,9 @@ CREATE TABLE IF NOT EXISTS user_works (
 
   type             TEXT NOT NULL CHECK (type IN ('book', 'film', 'song')),
 
-  -- Creator-first: yaratıcı adı zorunlu, eser başlığı çoğu zaman boş kalır.
-  creator          TEXT NOT NULL,
+  -- Creator-first ama ikisi de opsiyonel: gerçek listelerde satır üç biçimde gelir
+  -- (yalnız yaratıcı / yalnız eser / ikisi). En az biri dolu olmalı.
+  creator          TEXT,
   title            TEXT,
 
   -- Edinim yolu. 'manual' ile 'paste' AYRI tutulur — hangi yolun tuttuğunu
@@ -45,7 +46,9 @@ CREATE TABLE IF NOT EXISTS user_works (
   -- işaretlenir. Böylece geçmiş raporların provenance'ı bozulmaz.
   deleted_at       TIMESTAMPTZ,
 
-  created_at       TIMESTAMPTZ DEFAULT NOW()
+  created_at       TIMESTAMPTZ DEFAULT NOW(),
+
+  CONSTRAINT user_works_needs_name CHECK (creator IS NOT NULL OR title IS NOT NULL)
 );
 
 -- Havuz listeleme: kullanıcının bir kategorideki eserleri, yeniden eskiye.

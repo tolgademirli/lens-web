@@ -62,8 +62,9 @@ export function ImportFlow({
   const yaraticiLabel = YARATICI_LABEL[type];
   const remainingSlots = Math.max(0, MAX_SELECTED - existingCount);
   const selectedCount = rows.filter((r) => r.selected).length;
-  // Yaratıcısı çözülemeyen satırlar — kullanıcı tamamlamadan rapora giremezler.
-  const unresolvedCount = rows.filter((r) => !r.creator.trim()).length;
+  // Yazarı çözülemeyen ama eser adı bilinen satırlar: kullanılabilir, sadece
+  // daha az bilgi taşır. Kullanıcı isterse tamamlar, isterse böyle bırakır.
+  const creatorlessCount = rows.filter((r) => !r.creator.trim() && r.title.trim()).length;
   const canConfirm = selectedCount >= 1 && selectedCount + existingCount >= MIN_SELECTED;
   const hasInput = tab === "screenshot" ? files.length > 0 : text.trim().length > 0;
 
@@ -125,7 +126,7 @@ export function ImportFlow({
           // Üst sınırı aşan satırlar listede kalır ama seçimsiz gelir —
           // kullanıcı hangilerinin rapora gireceğini kendisi belirlesin.
           // Yaratıcısı çözülemeyenler de seçimsiz: önce tamamlanmalı.
-          selected: i < remainingSlots && !!w.creator.trim(),
+          selected: i < remainingSlots && !!(w.creator.trim() || w.title.trim()),
         }))
       );
       setPhase("confirm");
@@ -139,8 +140,8 @@ export function ImportFlow({
     setRows((prev) =>
       prev.map((r) => {
         if (r.id !== id) return r;
-        // Yaratıcısı boş satır rapora giremez — önce düzenlenmeli.
-        if (!r.creator.trim()) return r;
+        // Tamamen boş satır rapora giremez; yaratıcı VEYA eser adı yeterli.
+        if (!r.creator.trim() && !r.title.trim()) return r;
         if (!r.selected && selectedCount + existingCount >= MAX_SELECTED) return r;
         return { ...r, selected: !r.selected };
       })
@@ -177,7 +178,7 @@ export function ImportFlow({
   async function handleConfirm() {
     // Havuza rapora girecekler DEĞİL, onay ekranında bırakılan HER ŞEY yazılır.
     // Kullanıcının sildiği satırlar zaten rows'ta yok; kalanlar kütüphaneye ait.
-    const kept = rows.filter((r) => r.creator.trim());
+    const kept = rows.filter((r) => r.creator.trim() || r.title.trim());
     posthog.capture("extraction_confirmed", {
       type,
       selected_count: kept.filter((r) => r.selected).length,
@@ -298,14 +299,13 @@ export function ImportFlow({
           {MAX_SELECTED} eser rapora girer — kalanlar kütüphanende durur.
         </p>
 
-        {unresolvedCount > 0 && (
-          <p className="text-sm text-amber-100 bg-amber-900/25 border border-amber-500/30 rounded-xl p-3 mb-4">
+        {creatorlessCount > 0 && (
+          <p className="text-sm text-purple-100 bg-slate-700/40 border border-purple-500/25 rounded-xl p-3 mb-4">
             <strong className="font-medium">
-              {unresolvedCount} satırı çözemedim.
+              {creatorlessCount} eserin {yaraticiLabel.toLowerCase()} adını çözemedim.
             </strong>{" "}
-            Bunları tahmin etmek yerine sana bırakıyorum — aşağıda sarı işaretli
-            satırlardaki {yaraticiLabel.toLowerCase()} adını doldurursan rapora
-            girebilirler.
+            Tahmin etmek yerine boş bıraktım. İstersen doldur, istersen böyle bırak —
+            yalnız eser adıyla da rapora girebilirler.
           </p>
         )}
 
@@ -349,7 +349,7 @@ export function ImportFlow({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, x: 20 }}
                 className={`group flex items-start gap-3 p-4 rounded-xl border transition-colors ${
-                  !row.creator.trim()
+                  !row.creator.trim() && !row.title.trim()
                     ? "bg-amber-900/15 border-amber-500/40"
                     : row.selected
                     ? "bg-slate-700/50 border-purple-500/40"
@@ -374,8 +374,10 @@ export function ImportFlow({
                       <Input
                         autoFocus
                         value={row.creator}
-                        onChange={(e) => updateRow(row.id, { creator: e.target.value })}
-                        placeholder="Yaratıcı adı (zorunlu)"
+                        onChange={(e) =>
+                          updateRow(row.id, { creator: e.target.value, creator_inferred: false })
+                        }
+                        placeholder={`${yaraticiLabel} adı`}
                         className="h-10 bg-slate-800 border-purple-500/40 text-white placeholder:text-purple-300/50"
                       />
                       <Input
@@ -383,9 +385,13 @@ export function ImportFlow({
                         onChange={(e) =>
                           updateRow(row.id, { title: e.target.value, title_readable: true })
                         }
-                        placeholder="Eser adı (opsiyonel)"
+                        placeholder="Eser adı"
                         className="h-10 bg-slate-800 border-purple-500/40 text-white placeholder:text-purple-300/50"
                       />
+                      <p className="text-[11px] text-purple-300/70">
+                        İkisinden biri yeterli — ister {yaraticiLabel.toLowerCase()} adı,
+                        ister eser adı yaz.
+                      </p>
                       <Button
                         size="sm"
                         onClick={() => {
@@ -399,11 +405,21 @@ export function ImportFlow({
                     </div>
                   ) : (
                     <>
+                      {/* Creator-first: yaratıcı bilinmiyorsa eser adı başa geçer,
+                          satır "boş" gibi görünmesin. */}
                       <p className="text-purple-50 font-medium truncate">
-                        {row.creator || <span className="text-purple-300/60">Yaratıcı adı gerekli</span>}
+                        {row.creator || row.title || (
+                          <span className="text-purple-300/60">
+                            {yaraticiLabel} ya da eser adı yaz
+                          </span>
+                        )}
                       </p>
                       <p className="text-sm text-purple-300 truncate">
-                        {row.title || "Eser adı — boş kalabilir"}
+                        {row.creator
+                          ? row.title || "Eser adı — boş kalabilir"
+                          : row.title
+                          ? `${yaraticiLabel} bilinmiyor`
+                          : ""}
                       </p>
                       <div className="flex flex-wrap items-center gap-2 mt-2">
                         <span className="px-2 py-0.5 rounded-full bg-purple-900/50 border border-purple-500/30 text-[11px] text-purple-200">
@@ -419,9 +435,13 @@ export function ImportFlow({
                           <span className="px-2 py-0.5 rounded-full bg-amber-900/40 border border-amber-500/40 text-[11px] text-amber-200">
                             yazarı ben tamamladım — kontrol et
                           </span>
-                        ) : !row.creator ? (
+                        ) : !row.creator && row.title ? (
+                          <span className="px-2 py-0.5 rounded-full bg-slate-700/60 border border-purple-500/25 text-[11px] text-purple-200">
+                            {yaraticiLabel.toLowerCase()} adını tahmin etmedim — istersen ekle
+                          </span>
+                        ) : !row.creator && !row.title ? (
                           <span className="px-2 py-0.5 rounded-full bg-amber-900/40 border border-amber-500/40 text-[11px] text-amber-200">
-                            {yaraticiLabel} adı gerekli
+                            doldurulmayı bekliyor
                           </span>
                         ) : row.source !== "manual" ? (
                           <span className="text-[11px] text-purple-300/80">

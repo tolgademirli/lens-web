@@ -70,5 +70,10 @@ export function fileToBase64(file: File): Promise<ExtractImage> {
  * ve `pendingReport` string[] tutuyor. Eski akış bozulmasın.
  */
 export function workToEntry(work: { creator: string; title: string }): string {
-  return work.title.trim() ? `${work.title.trim()} - ${work.creator.trim()}` : work.creator.trim();
+  const creator = work.creator.trim();
+  const title = work.title.trim();
+  if (creator && title) return `${title} - ${creator}`;
+  // Yalnızca biri varsa onu yaz. parseEntry ayırıcı bulamayıp tek ad olarak okur;
+  // analyze zaten "sadece yaratıcı adı verilmiş olabilir" durumunu kaldırıyor.
+  return title || creator;
 }

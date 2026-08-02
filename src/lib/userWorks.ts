@@ -96,7 +96,8 @@ async function insertWorks(
   const rows = works.map((w) => ({
     user_id: userId,
     type,
-    creator: w.creator.trim(),
+    // İkisinden biri yeterli: yalnızca eser adı bilinen kayıtlar da havuza girer.
+    creator: w.creator.trim() || null,
     title: w.title.trim() || null,
     source: w.source,
     confidence: w.confidence ?? null,

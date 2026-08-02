@@ -39,13 +39,15 @@ Kullanıcının eser havuzu. Edinim yolu ne olursa olsun (ekran görüntüsü, y
 | `user_id`          | UUID         | nullable — `auth.users(id)`. Anonim akış için null; login sonrası sahiplenilir. |
 | `telegram_user_id` | BIGINT       | nullable — bot kaynaklı edinim |
 | `type`             | TEXT         | `"book"` \| `"film"` \| `"song"` (CHECK) |
-| `creator`          | TEXT NOT NULL| Yazar / yönetmen / sanatçı — creator-first, zorunlu |
+| `creator`          | TEXT         | nullable — yazar / yönetmen / sanatçı |
 | `title`            | TEXT         | nullable — çoğu zaman boş |
 | `source`           | TEXT         | `"screenshot"` \| `"paste"` \| `"manual"` \| `"form"` (CHECK). `manual` ve `paste` **ayrı** tutulur; edinim analitiği buna bağlı. |
 | `batch_id`         | UUID         | nullable — tek çıkarım işleminden gelen eserleri gruplar |
 | `confidence`       | TEXT         | nullable — `"high"` \| `"medium"` \| `"low"`. Vision per-item güven sinyali; manuel girişte null. |
 | `deleted_at`       | TIMESTAMPTZ  | nullable — soft delete. Dolu satırlar havuz listelemesinde gizlenir, provenance korunur. |
 | `created_at`       | TIMESTAMPTZ  | default NOW() |
+
+**Kısıt:** `CHECK (creator IS NOT NULL OR title IS NOT NULL)` — satır üç biçimde gelebilir (yalnız yaratıcı / yalnız eser / ikisi), ama tamamen boş olamaz.
 
 **RLS:** Kullanıcı yalnızca kendi satırlarını görür/yazar/günceller/siler (`auth.uid() = user_id`). `user_id` null olan satırlar hiçbir client'a görünmez — yalnızca `service_role_key` erişir.
 
