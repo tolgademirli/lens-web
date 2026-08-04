@@ -8,53 +8,79 @@
 -- Bu script iki iş yapar: (1) mevcut çiftleri report_works bağlantılarını
 -- kaybetmeden birleştirir, (2) tekrarını engelleyen unique index'i kurar.
 
-BEGIN;
-
+-- NOT: TEMP TABLE kullanılmıyor. Supabase'in SQL editörü bağlantı havuzu
+-- üzerinden çalıştığı için geçici tablolar ifadeler arasında yaşamıyor
+-- ("relation dup_map does not exist"). Her ifade kendi kendine yeterli:
+-- temsilci hesabı (ranked CTE) üçünde de tekrarlanıyor.
+--
 -- Her (kullanıcı, tür, yaratıcı, eser) grubunda en eski kayıt temsilci seçilir.
 -- Karşılaştırma küçük harfe indirgenir ve NULL'lar '' sayılır; aksi halde
--- "Albert Camus" ile "albert camus" ayrı kayıt olarak kalırdı.
-CREATE TEMP TABLE dup_map ON COMMIT DROP AS
-SELECT
-  id,
-  first_value(id) OVER w AS keep_id,
-  row_number()    OVER w AS rn
-FROM user_works
-WHERE deleted_at IS NULL
-WINDOW w AS (
-  PARTITION BY user_id, type,
-               lower(coalesce(creator, '')),
-               lower(coalesce(title, ''))
-  ORDER BY created_at, id
-);
+-- "Albert Camus" ile "albert camus" ayrı kalır, NULL'lar hiç eşleşmezdi.
 
--- Aynı rapora hem temsilci hem fazlalık bağlıysa, taşımak PK ihlali yaratırdı;
--- önce o çakışan bağlantıyı sil.
+-- 1) Aynı rapora hem temsilci hem fazlalık bağlıysa, taşımak PK ihlali
+--    yaratırdı; önce o çakışan bağlantıyı sil.
+WITH ranked AS (
+  SELECT id,
+         first_value(id) OVER w AS keep_id,
+         row_number()    OVER w AS rn
+  FROM user_works
+  WHERE deleted_at IS NULL
+  WINDOW w AS (
+    PARTITION BY user_id, type,
+                 lower(coalesce(creator, '')),
+                 lower(coalesce(title, ''))
+    ORDER BY created_at, id
+  )
+)
 DELETE FROM report_works rw
-USING dup_map d
-WHERE rw.work_id = d.id
-  AND d.rn > 1
+USING ranked r
+WHERE rw.work_id = r.id
+  AND r.rn > 1
   AND EXISTS (
     SELECT 1 FROM report_works x
-    WHERE x.report_id = rw.report_id AND x.work_id = d.keep_id
+    WHERE x.report_id = rw.report_id AND x.work_id = r.keep_id
   );
 
--- Kalan bağlantılar temsilciye taşınır — provenance kaybolmaz.
+-- 2) Kalan bağlantılar temsilciye taşınır — provenance kaybolmaz.
+WITH ranked AS (
+  SELECT id,
+         first_value(id) OVER w AS keep_id,
+         row_number()    OVER w AS rn
+  FROM user_works
+  WHERE deleted_at IS NULL
+  WINDOW w AS (
+    PARTITION BY user_id, type,
+                 lower(coalesce(creator, '')),
+                 lower(coalesce(title, ''))
+    ORDER BY created_at, id
+  )
+)
 UPDATE report_works rw
-SET work_id = d.keep_id
-FROM dup_map d
-WHERE rw.work_id = d.id AND d.rn > 1;
+SET work_id = r.keep_id
+FROM ranked r
+WHERE rw.work_id = r.id AND r.rn > 1;
 
--- Fazlalık kayıtlar silinir.
-DELETE FROM user_works
-WHERE id IN (SELECT id FROM dup_map WHERE rn > 1);
+-- 3) Fazlalık kayıtlar silinir.
+WITH ranked AS (
+  SELECT id,
+         row_number() OVER (
+           PARTITION BY user_id, type,
+                        lower(coalesce(creator, '')),
+                        lower(coalesce(title, ''))
+           ORDER BY created_at, id
+         ) AS rn
+  FROM user_works
+  WHERE deleted_at IS NULL
+)
+DELETE FROM user_works uw
+USING ranked r
+WHERE uw.id = r.id AND r.rn > 1;
 
--- Bundan sonra tekrarı veritabanı engeller.
--- Partial index: soft-delete edilmiş kayıt tekrar eklenebilsin.
+-- 4) Bundan sonra tekrarı veritabanı engeller.
+--    Partial index: soft-delete edilmiş kayıt tekrar eklenebilsin.
 CREATE UNIQUE INDEX IF NOT EXISTS user_works_unique_per_user
   ON user_works (user_id, type, lower(coalesce(creator, '')), lower(coalesce(title, '')))
   WHERE deleted_at IS NULL;
-
-COMMIT;
 
 
 -- Havuza yazarken tekilliği uygulayan fonksiyon.
