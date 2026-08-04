@@ -86,28 +86,40 @@ export async function flushLibraryStash(): Promise<Record<WorkType, string[]>> {
   return result;
 }
 
-/** Ekler ve id'leri giriş sırasıyla döner; hata olursa null. */
+/**
+ * Havuza yazar ve id'leri giriş sırasıyla döner; hata olursa null.
+ *
+ * Tekillik veritabanında uygulanıyor: upsert_user_works, aynı kullanıcıda aynı
+ * (tür, yaratıcı, eser) zaten varsa yeni satır AÇMAZ, mevcut id'yi döner.
+ * Böylece aynı liste ikinci kez import edilince kütüphane şişmez; eserin yeni
+ * rapora girmesi report_works'te yeni bağlantı olarak kaydedilir.
+ *
+ * user_id parametre olarak gitmez — fonksiyon auth.uid() kullanır, aksi halde
+ * bir kullanıcı başkasının kütüphanesine yazabilirdi.
+ */
 async function insertWorks(
-  userId: string,
+  _userId: string,
   type: WorkType,
   works: LibraryWork[],
   batchId: string
 ): Promise<string[] | null> {
-  const rows = works.map((w) => ({
-    user_id: userId,
-    type,
+  const payload = works.map((w) => ({
     // İkisinden biri yeterli: yalnızca eser adı bilinen kayıtlar da havuza girer.
-    creator: w.creator.trim() || null,
-    title: w.title.trim() || null,
+    creator: w.creator.trim(),
+    title: w.title.trim(),
     source: w.source,
     confidence: w.confidence ?? null,
-    batch_id: batchId,
   }));
 
-  const { data, error } = await supabase.from("user_works").insert(rows).select("id");
-  if (error || !data) {
+  const { data, error } = await supabase.rpc("upsert_user_works", {
+    p_type: type,
+    p_batch_id: batchId,
+    p_works: payload,
+  });
+
+  if (error || !Array.isArray(data)) {
     console.error("[user_works] Havuza yazılamadı:", error);
     return null;
   }
-  return data.map((r: { id: string }) => r.id);
+  return data as string[];
 }

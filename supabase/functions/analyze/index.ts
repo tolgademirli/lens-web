@@ -411,28 +411,64 @@ Deno.serve(async (req) => {
         })),
       ];
 
+      // id'si gelmeyen satırlar (manuel / eski form yolu). Bunlar havuzda zaten
+      // olabilir — aynı eser ikinci kez yazılmasın diye önce mevcutlara bakılır.
+      // Tekillik veritabanında da unique index ile korunuyor; bu kontrol o
+      // index'e çarpıp tüm insert'in düşmesini engelliyor.
       const missing = items.filter((w) => !w.id);
-      let createdIds: string[] = [];
+      const resolvedIds: string[] = [];
       if (missing.length > 0) {
-        const { data: works, error: worksError } = await sb
+        const norm = (v: string | null | undefined) => (v ?? "").trim().toLowerCase();
+        const keyOf = (t: string, c?: string | null, ti?: string | null) =>
+          `${t}|${norm(c)}|${norm(ti)}`;
+
+        const { data: existing } = await sb
           .from("user_works")
-          .insert(
-            missing.map((w) => ({
-              user_id: user.id,
-              type: w.type,
-              creator: w.creator,
-              title: w.title || null, // sadece sanatçı girilmişse boş string gelir
-              source: w.source,
-              batch_id: batchId,
-            }))
-          )
-          .select("id");
-        if (worksError) throw worksError;
-        createdIds = (works ?? []).map((w: { id: string }) => w.id);
+          .select("id, type, creator, title")
+          .eq("user_id", user.id)
+          .is("deleted_at", null);
+
+        const index = new Map<string, string>();
+        for (const row of existing ?? []) {
+          index.set(keyOf(row.type, row.creator, row.title), row.id);
+        }
+
+        // Aynı istek içinde tekrar eden satırlar da tek kayda düşsün.
+        const keys = missing.map((w) => keyOf(w.type, w.creator, w.title));
+        const pending = new Map<string, (typeof missing)[number]>();
+        missing.forEach((w, i) => {
+          if (!index.has(keys[i]) && !pending.has(keys[i])) pending.set(keys[i], w);
+        });
+
+        if (pending.size > 0) {
+          const { data: works, error: worksError } = await sb
+            .from("user_works")
+            .insert(
+              [...pending.values()].map((w) => ({
+                user_id: user.id,
+                type: w.type,
+                creator: w.creator || null,
+                title: w.title || null, // sadece sanatçı girilmişse boş string gelir
+                source: w.source,
+                batch_id: batchId,
+              }))
+            )
+            .select("id");
+          if (worksError) throw worksError;
+          [...pending.keys()].forEach((k, i) => {
+            const created = (works ?? [])[i] as { id: string } | undefined;
+            if (created) index.set(k, created.id);
+          });
+        }
+
+        for (const k of keys) {
+          const id = index.get(k);
+          if (id) resolvedIds.push(id);
+        }
       }
 
       const linkIds = [
-        ...new Set([...items.map((w) => w.id).filter(Boolean) as string[], ...createdIds]),
+        ...new Set([...items.map((w) => w.id).filter(Boolean) as string[], ...resolvedIds]),
       ];
       const { error: linkError } = await sb
         .from("report_works")
