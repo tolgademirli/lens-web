@@ -124,7 +124,8 @@ export interface WeeklyPickFilm {
 /** Mail giriş paragrafını belirler. */
 export type WeeklyPickIntroVariant = "standart" | "sessiz";
 
-export type WeeklyPickStatus = "draft" | "sent" | "failed";
+/** `overpast` = haftası geçtiği için kapatıldı; bir daha gönderim değerlendirmesine girmez. */
+export type WeeklyPickStatus = "draft" | "sent" | "failed" | "overpast";
 
 /** weekly_picks satırı — bir kullanıcının bir haftalık seçkisi. */
 export interface WeeklyPick {

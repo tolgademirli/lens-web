@@ -86,8 +86,10 @@ docs/
 1. Seçki `weekly_picks` tablosuna **elle** girilir (SQL Editor veya dışarıda üretilmiş JSON):
    `user_id`, `week`, `films`, `intro_variant`. Satır `status='draft'` doğar.
 2. `send-weekly-picks` edge function'ı elle invoke edilir (**cron yok**), gövde: `{"week":"YYYY-MM-DD"}`.
-3. Fonksiyon o haftanın `draft` satırlarını çeker, `user_preferences` ile kesişimini alır ve
-   `weekly_picks_enabled = false` olanları **atlar** (satır yoksa varsayılan açık → gönderilir).
+3. Fonksiyon önce **bayat satırları süpürür**: haftası 7 günden fazla geçmiş `draft` satırlar
+   `overpast` ile terminal olarak kapanır. Sonra o haftanın `draft` satırlarını çeker,
+   `user_preferences` ile kesişimini alır ve `weekly_picks_enabled = false` olanları **atlar**
+   (satır yoksa varsayılan açık → gönderilir).
 4. Her alıcı için `email.ts` HTML + düz metin render eder, Resend'e yollanır
    (`from: tolga@lensestetik.com`, `reply_to`: secret'tan gelen gerçek kutu).
 5. Başarı → `status='sent'`, `sent_at=now()`, PostHog `weekly_pick_sent`. Hata → `status='failed'`,
@@ -103,6 +105,9 @@ Gerekli secret'lar (`supabase secrets set`): `RESEND_API_KEY`, `WEEKLY_PICKS_SEC
 - Haftalık seçki maili **görselsiz** kalır (afiş/poster yok) ve link sayısı düşük tutulur —
   bu bir deliverability kararı (Gmail Promotions riski), estetik tercih değil.
 - `send-weekly-picks` film **seçmez**; tek işi göndermektir. Kürasyonu otomatikleştirme dürtüsüne kapılma.
+- Haftası geçmiş seçki **gönderilmez** (`overpast`). Opt-out'tan dönen kullanıcı yalnızca
+  tercihini açtıktan sonraki haftaları alır — birikmiş seçkiler toplu halde gitmez.
+  Geri-doldurma yalnızca açık `allow_overpast: true` bayrağıyla mümkün.
 - `ANTHROPIC_API_KEY` ve `SUPABASE_SERVICE_ROLE_KEY` **sadece edge function ortamında** yaşar. Client koduna asla import edilmez.
 - `.env.local`'a dokunma. Yeni env değişkeni eklenecekse `.env.example`'a belgele.
 - Rota `/report/:id` — eski `/rapor/:id` kaldırıldı (BUG-01).

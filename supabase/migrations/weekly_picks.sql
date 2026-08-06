@@ -82,8 +82,10 @@ CREATE TABLE IF NOT EXISTS weekly_picks (
   intro_variant TEXT NOT NULL DEFAULT 'standart'
                 CHECK (intro_variant IN ('standart', 'sessiz')),
 
+  -- 'overpast' = haftası geçtiği için artık gönderilmeyecek. Terminal durum:
+  -- bayat seçki, geç gelen seçkiden iyidir. Bkz. dosya sonundaki süpürme notu.
   status        TEXT NOT NULL DEFAULT 'draft'
-                CHECK (status IN ('draft', 'sent', 'failed')),
+                CHECK (status IN ('draft', 'sent', 'failed', 'overpast')),
 
   sent_at       TIMESTAMPTZ,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -107,3 +109,21 @@ CREATE POLICY "Users see own weekly picks" ON weekly_picks
 -- INSERT/UPDATE/DELETE policy YOK — bilerek. Seçkiyi yalnızca service_role
 -- (edge function / SQL Editor) yazar ve status'ü yalnızca o günceller.
 -- Kullanıcı kendi seçkisini 'sent' işaretleyip gönderimi atlatamamalı.
+
+
+-- ---------------------------------------------------------------------------
+-- 'overpast' statüsü — daha önce bu migration'ı çalıştırdıysan
+-- ---------------------------------------------------------------------------
+-- CREATE TABLE IF NOT EXISTS mevcut tabloyu değiştirmez, o yüzden CHECK kısıtını
+-- ayrıca tazeliyoruz. Blok idempotent: hem sıfırdan kurulumda hem de tablo
+-- zaten varken doğru sonucu verir.
+ALTER TABLE weekly_picks DROP CONSTRAINT IF EXISTS weekly_picks_status_check;
+ALTER TABLE weekly_picks ADD CONSTRAINT weekly_picks_status_check
+  CHECK (status IN ('draft', 'sent', 'failed', 'overpast'));
+
+-- Süpürme kuralı (send-weekly-picks her çağrıda uygular):
+--   haftası 7 günden fazla geçmiş 'draft' satırlar -> 'overpast'.
+-- Amaç: opt-out yüzünden atlanan ya da hiç çağrılmamış satırlar tabloda
+-- süresiz birikip, kullanıcı tercihini geri açtığında toplu halde patlamasın.
+-- Kullanıcı Ağustos'ta kapatıp Ekim'de açtıysa Ekim'den SONRAKİ haftaları alır;
+-- aradaki haftalar 'overpast' olarak kapanır ve bir daha değerlendirilmez.

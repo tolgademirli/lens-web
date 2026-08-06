@@ -66,12 +66,36 @@ Dönen özet:
 { "week":"2026-08-07", "total":12, "sent":10, "skipped":2, "failed":0, "results":[...] }
 ```
 
-`skipped` = opt-out yapmış kullanıcılar. Satırları `draft` kalır (tercih geri açılırsa
-sonraki çağrıda gönderilir). `failed` satırları için Supabase function loglarına bak;
-düzeltip `status`'ü tekrar `draft`'a çekerek yeniden çalıştırabilirsin.
+`skipped` = bu çağrıda opt-out olduğu için atlananlar. `overpast` = haftası geçtiği
+için kapatılanlar (aşağıya bak).
+
+`failed` satırları için Supabase function loglarına bak; düzeltip `status`'ü tekrar
+`draft`'a çekerek **aynı hafta içinde** yeniden çalıştırabilirsin.
 
 Çağrı idempotent: `sent` olan satır bir daha çekilmez, aynı komutu iki kez çalıştırmak
 çift mail atmaz.
+
+### 3. Bayat seçkiler otomatik kapanır (`overpast`)
+
+Her çağrı, gönderimden **önce** haftası 7 günden fazla geçmiş tüm `draft` satırları
+`overpast` yapar. Terminal durum — bir daha değerlendirmeye girmezler.
+
+Neden: opt-out yüzünden atlanan satırlar aksi halde tabloda süresiz birikirdi.
+Kullanıcı 15 Ağustos'ta kapatıp 15 Ekim'de geri açtığında, aradaki ~8 haftanın seçkisi
+hâlâ `draft` durur ve o haftalardan biri herhangi bir sebeple yeniden invoke edilirse
+2 aylık bayat mail giderdi. Süpürme bunu imkânsız kılar: **kullanıcı tercihini geri
+açtıktan sonraki haftaları alır, öncekileri asla.**
+
+Talep ettiğin haftanın kendisi bayatsa fonksiyon mail atmaz, o haftanın `draft`
+satırlarını kapatır ve `sent: 0` ile açıklama döner. Bilerek geri-doldurmak
+istiyorsan — nadir olmalı — açık bayrak gerekir:
+
+```bash
+-d '{"week":"2026-08-22","allow_overpast":true}'
+```
+
+Eşik `index.ts` içinde `OVERPAST_AFTER_DAYS = 7`. 7 gün = bir sonraki haftanın seçkisi
+zaten bunun yerini alır; Cuma gönderimini ertesi gün telafi edebilmek için tam gün payı bırakır.
 
 ---
 

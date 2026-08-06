@@ -118,7 +118,7 @@ Haftalık film seçkileri. **Kürasyon manuel:** satırlar elle (veya dışarıd
 | `week`          | DATE NOT NULL| O haftanın işareti (örn. gönderim Cuma'sı) |
 | `films`         | JSONB NOT NULL| `[{title: string, year: int, blurb: string, justwatch_url: string}]` |
 | `intro_variant` | TEXT         | `"standart"` \| `"sessiz"` (CHECK), default `standart`. Mail giriş paragrafını belirler. |
-| `status`        | TEXT         | `"draft"` \| `"sent"` \| `"failed"` (CHECK), default `draft` |
+| `status`        | TEXT         | `"draft"` \| `"sent"` \| `"failed"` \| `"overpast"` (CHECK), default `draft` |
 | `sent_at`       | TIMESTAMPTZ  | nullable — başarılı gönderimde dolar |
 | `created_at`    | TIMESTAMPTZ  | NOT NULL, default NOW() |
 
@@ -126,7 +126,7 @@ Haftalık film seçkileri. **Kürasyon manuel:** satırlar elle (veya dışarıd
 
 **RLS:** Kullanıcı yalnızca kendi seçkilerini SELECT edebilir. INSERT/UPDATE/DELETE policy'si **bilerek yok** — yalnızca `service_role_key` yazar. Aksi halde kullanıcı kendi satırını `sent` işaretleyip gönderimi atlatabilirdi.
 
-> Opt-out yapan kullanıcının satırı `draft` bırakılır, `failed` yapılmaz. Tercih geri açılırsa sonraki çağrıda kendiliğinden gönderilir.
+> **`overpast` = haftası geçti, artık gönderilmeyecek.** `send-weekly-picks` her çağrıda, haftası 7 günden fazla geçmiş tüm `draft` satırları bu duruma çeker. Opt-out yapan kullanıcının satırı o hafta içinde `draft` kalır (tercihini hemen geri açarsa seçki hâlâ gidebilir), sonra kapanır. Böylece Ağustos'ta kapatıp Ekim'de açan kullanıcı **yalnızca Ekim sonrası haftaları** alır; aradaki seçkiler birikip toplu halde gitmez. Bilinçli geri-doldurma için gönderim gövdesinde `allow_overpast: true` gerekir.
 
 ---
 

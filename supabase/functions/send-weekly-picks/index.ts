@@ -4,6 +4,12 @@
 // satır YARATMAZ. Kürasyon manuel: seçkiler tabloya elle (veya dışarıda üretilmiş
 // JSON ile) girilir, bu fonksiyon o haftanın draft satırlarını alıp yollar.
 //
+// Her çağrı, gönderimden ÖNCE bayat satırları süpürür: haftası 7 günden fazla
+// geçmiş 'draft' satırlar 'overpast' ile kapanır ve bir daha değerlendirilmez.
+// Böylece opt-out yüzünden atlanan seçkiler tabloda birikip, kullanıcı tercihini
+// aylar sonra geri açtığında toplu halde patlayamaz. Bilerek geri-doldurmak
+// için gövdeye "allow_overpast": true ekle.
+//
 // Çağrı (manuel, cron YOK):
 //   curl -X POST "$SUPABASE_URL/functions/v1/send-weekly-picks" \
 //     -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
@@ -33,6 +39,24 @@ const DEFAULT_SITE_URL = "https://lensestetik.com";
 
 /** Art arda gönderimde nefes payı — patlama halinde spam sinyali olmasın. */
 const SEND_DELAY_MS = 600;
+
+/**
+ * Bir seçkinin haftası bu kadar gün geçtiyse artık gönderilmez; satır 'overpast'
+ * ile kapanır. Bayat seçki, geç gelen seçkiden iyidir.
+ *
+ * 7 gün = bir sonraki haftanın seçkisi bunun yerini alır. Cuma gönderimini
+ * ertesi gün telafi edebilmek için tam gün payı bırakır.
+ */
+const OVERPAST_AFTER_DAYS = 7;
+
+const istanbulToday = () =>
+  new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Istanbul" }).format(new Date());
+
+function minusDays(isoDate: string, days: number): string {
+  const date = new Date(`${isoDate}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() - days);
+  return date.toISOString().slice(0, 10);
+}
 
 type PickRow = {
   id: string;
@@ -148,9 +172,13 @@ Deno.serve(async (req) => {
   const settingsUrl = `${siteUrl}/settings`;
 
   let week: string;
+  let allowOverpast: boolean;
   try {
     const body = await req.json();
     week = typeof body?.week === "string" ? body.week.trim() : "";
+    // Bilinçli geri-doldurma kaçış kapısı. Varsayılan false: eski bir haftayı
+    // yanlışlıkla invoke etmek kimseye bayat mail attırmamalı.
+    allowOverpast = body?.allow_overpast === true;
   } catch {
     return fail("bad_body", 400, "Geçersiz istek gövdesi");
   }
@@ -159,6 +187,59 @@ Deno.serve(async (req) => {
   }
 
   const sb = createClient(supabaseUrl, serviceKey);
+
+  // --- Süpürme -------------------------------------------------------------
+  // Haftası geçmiş 'draft' satırları terminal duruma kapat. Bu, sistemin
+  // kendini koruma mekanizması: opt-out yüzünden atlanan ya da hiç çağrılmamış
+  // satırlar tabloda süresiz birikip, kullanıcı tercihini aylar sonra geri
+  // açtığında toplu halde patlayamaz. Talep edilen hafta bu adımda dışarıda
+  // tutulur; onun kaderi hemen aşağıda ayrıca kararlaştırılır.
+  const cutoff = minusDays(istanbulToday(), OVERPAST_AFTER_DAYS);
+
+  const { data: sweptRows, error: sweepError } = await sb
+    .from("weekly_picks")
+    .update({ status: "overpast" })
+    .eq("status", "draft")
+    .lt("week", cutoff)
+    .neq("week", week)
+    .select("id");
+
+  if (sweepError) {
+    // Süpürme başarısızsa devam ediyoruz: bu adım geleceği korur, bu çağrının
+    // doğruluğunu değil. Talep edilen haftanın kendi kontrolü aşağıda zaten var.
+    console.error("[send-weekly-picks] Süpürme başarısız:", sweepError);
+  }
+  const overpast = sweptRows?.length ?? 0;
+
+  // Talep edilen haftanın kendisi bayatsa: açık bayrak yoksa gönderme, kapat.
+  if (week < cutoff && !allowOverpast) {
+    const { data: closed, error: closeError } = await sb
+      .from("weekly_picks")
+      .update({ status: "overpast" })
+      .eq("status", "draft")
+      .eq("week", week)
+      .select("id");
+
+    if (closeError) {
+      console.error("[send-weekly-picks] Bayat hafta kapatılamadı:", closeError);
+      return fail("overpast_close_failed");
+    }
+
+    const closedCount = closed?.length ?? 0;
+    console.log(
+      `[send-weekly-picks] ${week} bayat (cutoff ${cutoff}); ${closedCount} satır 'overpast' yapıldı, gönderim yok.`
+    );
+    return json({
+      week,
+      total: closedCount,
+      sent: 0,
+      skipped: 0,
+      failed: 0,
+      overpast: overpast + closedCount,
+      note: `Bu haftanın üzerinden ${OVERPAST_AFTER_DAYS} günden fazla geçti; gönderim yapılmadı. Bilerek geri-doldurmak istiyorsan allow_overpast: true gönder.`,
+      results: [],
+    });
+  }
 
   const { data: picks, error: picksError } = await sb
     .from("weekly_picks")
@@ -174,7 +255,7 @@ Deno.serve(async (req) => {
   }
 
   if (!picks || picks.length === 0) {
-    return json({ week, total: 0, sent: 0, skipped: 0, failed: 0, results: [] });
+    return json({ week, total: 0, sent: 0, skipped: 0, failed: 0, overpast, results: [] });
   }
 
   // Opt-out kontrolü. user_preferences satırı OLMAYAN kullanıcı gönderime dahildir
@@ -203,8 +284,10 @@ Deno.serve(async (req) => {
   let failed = 0;
 
   for (const pick of picks) {
-    // Atlanan satır 'draft' kalır: durumu değişmediği için tercih geri açılırsa
-    // sonraki çağrıda kendiliğinden gönderilir.
+    // Atlanan satır 'draft' kalır — ama süresiz değil: haftası geçtiğinde
+    // yukarıdaki süpürme onu 'overpast' yapar. Yani kullanıcı bu hafta içinde
+    // tercihini geri açarsa aynı seçki hâlâ gidebilir; aylar sonra açarsa
+    // aradaki haftalar çoktan kapanmış olur.
     if (optedOut.has(pick.user_id)) {
       skipped += 1;
       results.push({ pick_id: pick.id, user_id: pick.user_id, status: "skipped", reason: "opted_out" });
@@ -294,6 +377,8 @@ Deno.serve(async (req) => {
     await sleep(SEND_DELAY_MS);
   }
 
-  console.log(`[send-weekly-picks] ${week}: ${sent} gönderildi, ${skipped} atlandı, ${failed} hata`);
-  return json({ week, total: picks.length, sent, skipped, failed, results });
+  console.log(
+    `[send-weekly-picks] ${week}: ${sent} gönderildi, ${skipped} atlandı, ${failed} hata, ${overpast} bayat kapatıldı`
+  );
+  return json({ week, total: picks.length, sent, skipped, failed, overpast, results });
 });
