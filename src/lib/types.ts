@@ -106,6 +106,39 @@ export interface ReportWork {
   created_at: string;
 }
 
+/** user_preferences satırı. Satırın yokluğu "hepsi varsayılan" demektir. */
+export interface UserPreferences {
+  user_id: string;
+  weekly_picks_enabled: boolean;
+  updated_at: string;
+}
+
+/** Haftalık seçkideki tek film. Kürasyon manuel — bu satırlar elle girilir. */
+export interface WeeklyPickFilm {
+  title: string;
+  year: number;
+  blurb: string;
+  justwatch_url: string;
+}
+
+/** Mail giriş paragrafını belirler. */
+export type WeeklyPickIntroVariant = "standart" | "sessiz";
+
+export type WeeklyPickStatus = "draft" | "sent" | "failed";
+
+/** weekly_picks satırı — bir kullanıcının bir haftalık seçkisi. */
+export interface WeeklyPick {
+  id: string;
+  user_id: string;
+  /** O haftanın işareti (örn. gönderim Cuma'sı), YYYY-MM-DD. */
+  week: string;
+  films: WeeklyPickFilm[];
+  intro_variant: WeeklyPickIntroVariant;
+  status: WeeklyPickStatus;
+  sent_at?: string | null;
+  created_at: string;
+}
+
 export interface Report {
   id: string;
   created_at: string;

@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router";
 import { ReportPage } from "@/pages/ReportPage";
 import { Dashboard } from "@/pages/Dashboard";
+import { Settings } from "@/pages/Settings";
 import { Welcome } from "@/app/components/Welcome";
 import { BooksStep } from "@/app/components/BooksStep";
 import { MoviesStep } from "@/app/components/MoviesStep";
@@ -24,6 +25,7 @@ export default function App() {
         <Route path="/report/:id" element={<ReportPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/settings" element={<Settings />} />
         <Route
           path="*"
           element={

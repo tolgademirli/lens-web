@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate, Link } from "react-router";
 import { motion } from "motion/react";
-import { Sparkles, Plus, LogOut, ChevronRight, Calendar, User, BookOpen, Film, Music, Lock, Globe2 } from "lucide-react";
+import { Sparkles, Plus, LogOut, ChevronRight, Calendar, User, BookOpen, Film, Music, Lock, Globe2, Settings as SettingsIcon } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { getCurrentUser, fetchUserReports, fetchDailyDiscovery, supabase } from "@/lib/supabase";
 import { posthog } from "@/lib/posthog";
@@ -108,6 +108,14 @@ export function Dashboard() {
               >
                 <Plus className="w-5 h-5" />
                 <span className="hidden sm:inline">Yeni Rapor</span>
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => navigate("/settings")}
+                aria-label="Ayarlar"
+                className="text-purple-200 hover:text-white hover:bg-slate-700/50 rounded-xl"
+              >
+                <SettingsIcon className="w-5 h-5" />
               </Button>
               <Button
                 variant="ghost"

@@ -91,6 +91,45 @@ Günlük keşif önerileri önbelleği. `daily-discovery` edge function, her kul
 
 ---
 
+## `user_preferences`
+
+Kullanıcının kendi tercihleri. Şu an tek alan: haftalık film seçkisi opt-out'u.
+
+| Kolon                  | Tip          | Notlar |
+|------------------------|--------------|--------|
+| `user_id`              | UUID PK      | `auth.users(id)` ON DELETE CASCADE |
+| `weekly_picks_enabled` | BOOLEAN      | NOT NULL, default true |
+| `updated_at`           | TIMESTAMPTZ  | NOT NULL, default NOW(); BEFORE UPDATE trigger'ı tazeler |
+
+**Satırın yokluğu = varsayılan.** Kullanıcı ayara hiç dokunmadıysa burada satırı olmaz ve `weekly_picks_enabled = true` varsayılır. Satır ancak toggle'a ilk dokunuşta (upsert) doğar. Hem client (`src/lib/preferences.ts → DEFAULT_PREFERENCES`) hem gönderim fonksiyonu aynı varsayımı kullanır — birini değiştirirken diğerini de değiştir.
+
+**RLS:** Kullanıcı yalnızca kendi satırını SELECT / INSERT / UPDATE edebilir (`auth.uid() = user_id`). DELETE policy'si yok — tercihi silmek anlamsız, kapatmak yeterli.
+
+---
+
+## `weekly_picks`
+
+Haftalık film seçkileri. **Kürasyon manuel:** satırlar elle (veya dışarıda üretilmiş JSON ile) girilir; hiçbir kod buraya film seçmez. `send-weekly-picks` edge function'ının tek işi bu satırları göndermektir.
+
+| Kolon           | Tip          | Notlar |
+|-----------------|--------------|--------|
+| `id`            | UUID PK      | gen_random_uuid() |
+| `user_id`       | UUID NOT NULL| `auth.users(id)` ON DELETE CASCADE. `reports`'tan farklı olarak nullable **değil** — seçki kişiye özel küre edilir. |
+| `week`          | DATE NOT NULL| O haftanın işareti (örn. gönderim Cuma'sı) |
+| `films`         | JSONB NOT NULL| `[{title: string, year: int, blurb: string, justwatch_url: string}]` |
+| `intro_variant` | TEXT         | `"standart"` \| `"sessiz"` (CHECK), default `standart`. Mail giriş paragrafını belirler. |
+| `status`        | TEXT         | `"draft"` \| `"sent"` \| `"failed"` (CHECK), default `draft` |
+| `sent_at`       | TIMESTAMPTZ  | nullable — başarılı gönderimde dolar |
+| `created_at`    | TIMESTAMPTZ  | NOT NULL, default NOW() |
+
+**Kısıt:** `UNIQUE(user_id, week)` — aynı kullanıcıya aynı hafta iki seçki girilemez. Çift mail, gönderim hatasından pahalı.
+
+**RLS:** Kullanıcı yalnızca kendi seçkilerini SELECT edebilir. INSERT/UPDATE/DELETE policy'si **bilerek yok** — yalnızca `service_role_key` yazar. Aksi halde kullanıcı kendi satırını `sent` işaretleyip gönderimi atlatabilirdi.
+
+> Opt-out yapan kullanıcının satırı `draft` bırakılır, `failed` yapılmaz. Tercih geri açılırsa sonraki çağrıda kendiliğinden gönderilir.
+
+---
+
 ## `auth.users` (Supabase Auth — yönetilir)
 
 Doğrudan sorgulama yapılmaz. `reports.user_id` ve `daily_discoveries.user_id` bu tabloya referans verir.
@@ -104,4 +143,5 @@ Auth yöntemleri: magic link (email OTP) + Google OAuth.
 
 Tüm JSONB kolonlarının TypeScript karşılığı `src/lib/types.ts` içindedir:  
 `Report`, `HeroData`, `TextureData`, `ThreadItem`, `ContrastItem`, `ShadowItem`, `DailyDiscovery`,  
-`UserWork`, `ReportWork`, `WorkType`, `WorkSource`, `WorkConfidence`.
+`UserWork`, `ReportWork`, `WorkType`, `WorkSource`, `WorkConfidence`,  
+`UserPreferences`, `WeeklyPick`, `WeeklyPickFilm`, `WeeklyPickIntroVariant`, `WeeklyPickStatus`.
