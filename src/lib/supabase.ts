@@ -101,7 +101,18 @@ export async function fetchDailyDiscovery(): Promise<DailyDiscovery | null> {
   const { data, error } = await supabase.functions.invoke("daily-discovery", {
     headers: { Authorization: `Bearer ${session.access_token}` },
   });
-  if (error) return null;
+  if (error) {
+    // invoke() hata gövdesini yutar; edge function'ın döndürdüğü `code`
+    // olmadan hangi aşamanın patladığı görünmüyor.
+    let detail: unknown = null;
+    try {
+      detail = await (error as { context?: Response }).context?.json();
+    } catch {
+      /* gövde okunamadıysa sessiz geç */
+    }
+    console.error("[daily-discovery] başarısız:", detail ?? error);
+    return null;
+  }
   return data as DailyDiscovery;
 }
 
