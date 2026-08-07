@@ -46,7 +46,13 @@ interface ImportFlowProps {
 export function ImportFlow({
   type, categoryLabel, sourceChips, textPlaceholder, existingCount, onConfirm, onCancel,
 }: ImportFlowProps) {
-  const [tab, setTab] = useState<"screenshot" | "paste">("screenshot");
+  // Akışın edinim yolu. Bu değişken hem sekme seçimini hem event'lerin `source`
+  // property'sini besler; extract-works aynı payload'dan aynı değeri türetip her
+  // esere damgalar, dolayısıyla event'e düşen değer user_works.source ile birebir
+  // aynı kalır. İkinci bir yerde tekrar hesaplama.
+  const [flowSource, setFlowSource] = useState<Extract<WorkSource, "screenshot" | "paste">>(
+    "screenshot"
+  );
   const [phase, setPhase] = useState<Phase>("input");
   const [files, setFiles] = useState<File[]>([]);
   const [text, setText] = useState("");
@@ -73,11 +79,11 @@ export function ImportFlow({
     (r) => r.source !== "manual" && !r.creator.trim() && r.title.trim()
   ).length;
   const canConfirm = selectedCount >= 1 && selectedCount + existingCount >= MIN_SELECTED;
-  const hasInput = tab === "screenshot" ? files.length > 0 : text.trim().length > 0;
+  const hasInput = flowSource === "screenshot" ? files.length > 0 : text.trim().length > 0;
 
   // Ctrl+V ile panodan ekran görüntüsü yapıştırma (brief §2b).
   useEffect(() => {
-    if (phase !== "input" || tab !== "screenshot") return;
+    if (phase !== "input" || flowSource !== "screenshot") return;
     const onPaste = (e: ClipboardEvent) => {
       const pasted = Array.from(e.clipboardData?.files ?? []).filter((f) =>
         f.type.startsWith("image/")
@@ -86,7 +92,7 @@ export function ImportFlow({
     };
     window.addEventListener("paste", onPaste);
     return () => window.removeEventListener("paste", onPaste);
-  }, [phase, tab, files]);
+  }, [phase, flowSource, files]);
 
   // Onay ekranındaki yan yana karşılaştırma için object URL'leri.
   // Güveni en çok artıran unsur bu: kullanıcı çıkarımı kaynağıyla karşılaştırabiliyor.
@@ -108,23 +114,23 @@ export function ImportFlow({
   async function handleExtract() {
     setError(null);
     setPhase("processing");
-    posthog.capture("screenshot_upload_started", { type, mode: tab });
+    posthog.capture("screenshot_upload_started", { type, source: flowSource });
 
     try {
       const payload =
-        tab === "screenshot"
+        flowSource === "screenshot"
           ? { type, images: await Promise.all(files.map(fileToBase64)) }
           : { type, text: text.trim() };
 
       const result = await extractWorks(payload);
 
       if (result.works.length === 0) {
-        posthog.capture("extraction_empty", { type, mode: tab });
+        posthog.capture("extraction_empty", { type, source: flowSource });
         setPhase("empty");
         return;
       }
 
-      posthog.capture("works_extracted", { type, mode: tab, count: result.works.length });
+      posthog.capture("works_extracted", { type, source: flowSource, count: result.works.length });
       setBatchId(result.batch_id);
       setRows(
         result.works.map((w, i) => ({
@@ -221,6 +227,9 @@ export function ImportFlow({
     const kept = rows.filter((r) => r.creator.trim() || r.title.trim());
     posthog.capture("extraction_confirmed", {
       type,
+      // Partinin edinim yolu. Onay ekranında elle eklenen satırlar kendi
+      // source'uyla ("manual") adım bileşenindeki source_path_selected'a düşer.
+      source: flowSource,
       selected_count: kept.filter((r) => r.selected).length,
       saved_count: kept.length,
     });
@@ -567,9 +576,9 @@ export function ImportFlow({
         {(["screenshot", "paste"] as const).map((t) => (
           <button
             key={t}
-            onClick={() => setTab(t)}
+            onClick={() => setFlowSource(t)}
             className={`h-11 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
-              tab === t ? "bg-purple-500 text-white" : "text-purple-200 hover:bg-slate-700/50"
+              flowSource === t ? "bg-purple-500 text-white" : "text-purple-200 hover:bg-slate-700/50"
             }`}
           >
             {t === "screenshot" ? <Upload className="w-4 h-4" /> : <ClipboardList className="w-4 h-4" />}
@@ -578,7 +587,7 @@ export function ImportFlow({
         ))}
       </div>
 
-      {tab === "screenshot" ? (
+      {flowSource === "screenshot" ? (
         <>
           <div
             onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
