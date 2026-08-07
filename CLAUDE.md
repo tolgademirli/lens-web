@@ -13,11 +13,14 @@ Lens (lensestetik.com): kullanıcıların kitap/film/müzik zevkinden "estetik a
 
 ## Komutlar
 ```
-npm run dev      # geliştirme sunucusu
-npm run build    # production build → dist/
-supabase functions deploy <name>   # edge function deploy
+npm run dev:local   # geliştirme — LOKAL Supabase stack'e bağlanır
+npm run dev         # geliştirme — PRODUCTION Supabase'e bağlanır
+npm run build       # production build → dist/
+npx supabase start / stop / db reset / db push
+npx supabase functions deploy <name>   # edge function deploy
 ```
 Test komutu yok. TypeScript kontrolü Vite build sırasında çalışır.
+Geliştirme, test ve deploy akışının tamamı: [`docs/gelistirme.md`](docs/gelistirme.md).
 
 ## Yapı
 

@@ -1,1 +1,17 @@
 project_id = "lubqjfyumqlkippeijah"
+
+# Logflare tabanlı lokal log toplayıcı. Windows/WSL2 üzerinde sağlık kontrolünü
+# geçemeyip `supabase start`'ın tamamını düşürüyordu. Lokal geliştirme için
+# gerekli değil — kapalıyken Studio'nun "Logs" sekmesi çalışmaz, gerisi çalışır.
+[analytics]
+enabled = false
+
+# Lokal auth, Vite dev sunucusunun portuna (5173) dönmeli. Varsayılan 3000'dir
+# ve magic link tıklandığında boş bir adrese düşer.
+[auth]
+site_url = "http://localhost:5173"
+additional_redirect_urls = [
+  "http://localhost:5173",
+  "http://localhost:5173/auth/callback",
+  "http://127.0.0.1:5173/auth/callback",
+]
