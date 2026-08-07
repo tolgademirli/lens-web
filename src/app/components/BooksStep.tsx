@@ -5,7 +5,7 @@ import { StepLayout } from "./StepLayout";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { motion, AnimatePresence } from "motion/react";
-import { posthog } from "@/lib/posthog";
+import { posthog, captureSourcePath } from "@/lib/posthog";
 import { ImportFlow } from "./ImportFlow";
 import { QuickImportHero } from "./QuickImportHero";
 import { markImportUsed } from "./CategoryHandoff";
@@ -34,12 +34,17 @@ export function BooksStep() {
 
   const handleAdd = () => {
     if (currentInput.trim() && canAddMore) {
+      // Kaynak tek yerde belirlenir: aynı değişken hem listeye (oradan analyze →
+      // user_works.source) hem event'e gider.
+      const source: WorkSource = "manual";
       if (!formStartedRef.current) {
         formStartedRef.current = true;
         posthog.capture("form_started");
+        // Yol başına bir kez — her giriş için ayrı event düşmesin.
+        captureSourcePath("book", [source]);
       }
       setEntries([...entries, currentInput.trim()]);
-      setSources([...sources, "manual"]);
+      setSources([...sources, source]);
       setWorkIds([...workIds, ""]); // elle girilen havuza analyze tarafından yazılır
       setCurrentInput("");
     }
@@ -67,6 +72,8 @@ export function BooksStep() {
     setEntries([...entries, ...imported].slice(0, maxEntries));
     setSources([...sources, ...importedSources].slice(0, maxEntries));
     setWorkIds([...workIds, ...importedIds].slice(0, maxEntries));
+    // Kütüphaneye yazılan source dizisinin ta kendisi event'e geçer.
+    captureSourcePath("book", importedSources);
     markImportUsed("Kitaplar");
     setMode("manual");
   };
@@ -104,10 +111,10 @@ export function BooksStep() {
       <>
       <QuickImportHero
         hint="Goodreads rafın ya da elle yazdığın bir liste — ekran görüntüsünü at, biz okuyup dolduralım."
-        onClick={() => {
-          posthog.capture("source_path_selected", { type: "book", path: "import" });
-          setMode("import");
-        }}
+        // source_path_selected buradan atılmaz: tıklama anında kaynak (ekran
+        // görüntüsü mü, yapıştırma mı) henüz belli değil. Event, eserler
+        // kütüphaneye yazılırken gerçek source'uyla düşer.
+        onClick={() => setMode("import")}
       />
       <div className="space-y-4 mb-8">
         <AnimatePresence>

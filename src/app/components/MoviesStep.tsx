@@ -5,7 +5,7 @@ import { StepLayout } from "./StepLayout";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { motion, AnimatePresence } from "motion/react";
-import { posthog } from "@/lib/posthog";
+import { posthog, captureSourcePath } from "@/lib/posthog";
 import { ImportFlow } from "./ImportFlow";
 import { QuickImportHero } from "./QuickImportHero";
 import { CategoryHandoff, markImportUsed } from "./CategoryHandoff";
@@ -18,6 +18,8 @@ export function MoviesStep() {
   const [workIds, setWorkIds] = useState<string[]>([]);
   const [mode, setMode] = useState<"manual" | "import">("manual");
   const [currentInput, setCurrentInput] = useState("");
+  /** Elle giriş yolu event'i kategori başına bir kez düşsün. */
+  const manualPathRef = useRef(false);
 
   const listEndRef = useRef<HTMLDivElement>(null);
 
@@ -34,8 +36,15 @@ export function MoviesStep() {
 
   const handleAdd = () => {
     if (currentInput.trim() && canAddMore) {
+      // Kaynak tek yerde belirlenir: aynı değişken hem listeye (oradan analyze →
+      // user_works.source) hem event'e gider.
+      const source: WorkSource = "manual";
+      if (!manualPathRef.current) {
+        manualPathRef.current = true;
+        captureSourcePath("film", [source]);
+      }
       setEntries([...entries, currentInput.trim()]);
-      setSources([...sources, "manual"]);
+      setSources([...sources, source]);
       setWorkIds([...workIds, ""]);
       setCurrentInput("");
     }
@@ -62,6 +71,8 @@ export function MoviesStep() {
     setEntries([...entries, ...imported].slice(0, maxEntries));
     setSources([...sources, ...importedSources].slice(0, maxEntries));
     setWorkIds([...workIds, ...importedIds].slice(0, maxEntries));
+    // Kütüphaneye yazılan source dizisinin ta kendisi event'e geçer.
+    captureSourcePath("film", importedSources);
     markImportUsed("Filmler");
     setMode("manual");
   };
@@ -100,10 +111,10 @@ export function MoviesStep() {
       <CategoryHandoff hint="Sıradaki: filmler. Aynı şekilde Letterboxd ya da IMDb ekranını atabilirsin." />
       <QuickImportHero
         hint="Letterboxd listen ya da IMDb ekranın — görüntüyü at, biz okuyup dolduralım."
-        onClick={() => {
-          posthog.capture("source_path_selected", { type: "film", path: "import" });
-          setMode("import");
-        }}
+        // source_path_selected buradan atılmaz: tıklama anında kaynak (ekran
+        // görüntüsü mü, yapıştırma mı) henüz belli değil. Event, eserler
+        // kütüphaneye yazılırken gerçek source'uyla düşer.
+        onClick={() => setMode("import")}
       />
       <div className="space-y-4 mb-8">
         <AnimatePresence>

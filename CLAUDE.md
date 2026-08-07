@@ -76,7 +76,10 @@ docs/
    Okuma/temizleme mantığı `src/lib/pendingReport.ts` içinde; kayıt 60 dakika sonra otomatik geçersizleşir.
 3. `/generating` sayfası `analyzeAndCreateReport()` → `supabase.functions.invoke("analyze")` çağırır.
 4. `analyze` edge function: Claude API → JSON rapor → `reports` tablosuna insert → `reportId` döner.
-   Ardından eserler `user_works` havuzuna (`source: "form"`), rapor↔eser ilişkisi `report_works`'e yazılır.
+   Ardından eserler `user_works` havuzuna, rapor↔eser ilişkisi `report_works`'e yazılır.
+   Eserin `source`'u istemciden girişlerle **aynı sırada** gelir (`screenshot` | `paste` | `manual`);
+   hiç gelmezse ya da tanınmayan bir değerse `form`'a düşer. `form` bir varsayılan — form akışının
+   damgası değil, elle yazılan eser de `manual` olarak yazılır.
    Bu yazım **best-effort**: hata alırsa loglanır ve yutulur, rapor dönüşünü asla bloklamaz.
 5. Client `/report/:id`'ye yönlendirilir; `fetchReport()` RLS'e göre raporu çeker.
 
@@ -108,6 +111,10 @@ Gerekli secret'lar (`supabase secrets set`): `RESEND_API_KEY`, `WEEKLY_PICKS_SEC
 - Haftası geçmiş seçki **gönderilmez** (`overpast`). Opt-out'tan dönen kullanıcı yalnızca
   tercihini açtıktan sonraki haftaları alır — birikmiş seçkiler toplu halde gitmez.
   Geri-doldurma yalnızca açık `allow_overpast: true` bayrağıyla mümkün.
+- PostHog'da edinim yolu `source` property'siyle ve `user_works.source` sözlüğüyle gider
+  (`screenshot` | `paste` | `manual` | `form`); şemsiye bir `import` değeri **YOK**. Event'e düşen
+  değer kütüphaneye yazılanla aynı değişkenden türer (`captureSourcePath`, ImportFlow'da `flowSource`) —
+  event için ayrı bir kaynak hesaplaması açma, ikisi ayrışır.
 - `ANTHROPIC_API_KEY` ve `SUPABASE_SERVICE_ROLE_KEY` **sadece edge function ortamında** yaşar. Client koduna asla import edilmez.
 - `.env.local`'a dokunma. Yeni env değişkeni eklenecekse `.env.example`'a belgele.
 - Rota `/report/:id` — eski `/rapor/:id` kaldırıldı (BUG-01).

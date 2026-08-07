@@ -7,7 +7,7 @@ import { Input } from "./ui/input";
 import { EmailOptInModal } from "./EmailOptInModal";
 import { motion, AnimatePresence } from "motion/react";
 import { getCurrentUser } from "@/lib/supabase";
-import { posthog } from "@/lib/posthog";
+import { posthog, captureSourcePath } from "@/lib/posthog";
 import { ImportFlow } from "./ImportFlow";
 import { QuickImportHero } from "./QuickImportHero";
 import { CategoryHandoff, markImportUsed } from "./CategoryHandoff";
@@ -21,6 +21,8 @@ export function MusicStep() {
   const [mode, setMode] = useState<"manual" | "import">("manual");
   const [currentInput, setCurrentInput] = useState("");
   const [showEmailModal, setShowEmailModal] = useState(false);
+  /** Elle giriş yolu event'i kategori başına bir kez düşsün. */
+  const manualPathRef = useRef(false);
 
   const listEndRef = useRef<HTMLDivElement>(null);
 
@@ -37,8 +39,15 @@ export function MusicStep() {
 
   const handleAdd = () => {
     if (currentInput.trim() && canAddMore) {
+      // Kaynak tek yerde belirlenir: aynı değişken hem listeye (oradan analyze →
+      // user_works.source) hem event'e gider.
+      const source: WorkSource = "manual";
+      if (!manualPathRef.current) {
+        manualPathRef.current = true;
+        captureSourcePath("song", [source]);
+      }
       setEntries([...entries, currentInput.trim()]);
-      setSources([...sources, "manual"]);
+      setSources([...sources, source]);
       setWorkIds([...workIds, ""]);
       setCurrentInput("");
     }
@@ -65,6 +74,8 @@ export function MusicStep() {
     setEntries([...entries, ...imported].slice(0, maxEntries));
     setSources([...sources, ...importedSources].slice(0, maxEntries));
     setWorkIds([...workIds, ...importedIds].slice(0, maxEntries));
+    // Kütüphaneye yazılan source dizisinin ta kendisi event'e geçer.
+    captureSourcePath("song", importedSources);
     markImportUsed("Müzik");
     setMode("manual");
   };
@@ -143,10 +154,10 @@ export function MusicStep() {
       <CategoryHandoff hint="Son adım: müzik. Spotify Wrapped ekranını da aynı şekilde atabilirsin." />
       <QuickImportHero
         hint="Spotify Wrapped ekranın ya da çalma listen — görüntüyü at, biz okuyup dolduralım."
-        onClick={() => {
-          posthog.capture("source_path_selected", { type: "song", path: "import" });
-          setMode("import");
-        }}
+        // source_path_selected buradan atılmaz: tıklama anında kaynak (ekran
+        // görüntüsü mü, yapıştırma mı) henüz belli değil. Event, eserler
+        // kütüphaneye yazılırken gerçek source'uyla düşer.
+        onClick={() => setMode("import")}
       />
       <div className="space-y-4 mb-8">
         <AnimatePresence>
