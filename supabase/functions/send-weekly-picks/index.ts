@@ -305,10 +305,11 @@ Deno.serve(async (req) => {
         throw new Error(`kullanıcı e-postası bulunamadı: ${userError?.message ?? "email yok"}`);
       }
 
+      // intro_variant şablona GEÇMİYOR: mail tek girişe düştü. Kolon ve PostHog
+      // property'si duruyor (ileride varyant denemesi geri gelebilir).
       const { subject, html, text } = renderWeeklyPicksEmail({
         name: displayName(user),
         films,
-        introVariant: pick.intro_variant === "sessiz" ? "sessiz" : "standart",
         settingsUrl,
       });
 
