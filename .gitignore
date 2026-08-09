@@ -3,3 +3,7 @@ node_modules/
 dist/
 .env.local
 .env
+
+# `supabase start` tarafından üretilen lokal çalışma dosyaları
+supabase/.branches/
+supabase/.temp/start-secrets/

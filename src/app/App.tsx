@@ -1,10 +1,9 @@
-import { BrowserRouter, Routes, Route } from "react-router";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router";
 import { ReportPage } from "@/pages/ReportPage";
 import { Dashboard } from "@/pages/Dashboard";
+import { Settings } from "@/pages/Settings";
 import { Welcome } from "@/app/components/Welcome";
-import { BooksStep } from "@/app/components/BooksStep";
-import { MoviesStep } from "@/app/components/MoviesStep";
-import { MusicStep } from "@/app/components/MusicStep";
+import { TasteForm } from "@/app/components/TasteForm";
 import { GeneratingReport } from "@/app/components/GeneratingReport";
 import { AuthCallback } from "@/app/components/AuthCallback";
 import { TelegramConnect } from "@/app/components/TelegramConnect";
@@ -15,15 +14,19 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Welcome />} />
-        <Route path="/books" element={<BooksStep />} />
-        <Route path="/movies" element={<MoviesStep />} />
-        <Route path="/music" element={<MusicStep />} />
+        <Route path="/start" element={<TasteForm />} />
+        {/* Üç adımlı akışın eski rotaları. BUG-01'in dersi: rota silinmez,
+            yönlendirilir — kullanıcı geçmişinde ve dış bağlantılarda yaşıyorlar. */}
+        <Route path="/books" element={<Navigate to="/start" replace />} />
+        <Route path="/movies" element={<Navigate to="/start" replace />} />
+        <Route path="/music" element={<Navigate to="/start" replace />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/connect" element={<TelegramConnect />} />
         <Route path="/generating" element={<GeneratingReport />} />
         <Route path="/report/:id" element={<ReportPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/settings" element={<Settings />} />
         <Route
           path="*"
           element={

@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate, Link } from "react-router";
 import { motion } from "motion/react";
-import { Sparkles, Plus, LogOut, ChevronRight, Calendar, User, BookOpen, Film, Music, Lock, Globe2 } from "lucide-react";
+import { Sparkles, Plus, LogOut, ChevronRight, Calendar, User, BookOpen, Film, Music, Lock, Globe2, Settings as SettingsIcon } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { getCurrentUser, fetchUserReports, fetchDailyDiscovery, supabase } from "@/lib/supabase";
 import { posthog } from "@/lib/posthog";
@@ -103,11 +103,19 @@ export function Dashboard() {
 
             <div className="flex items-center gap-3">
               <Button
-                onClick={() => navigate("/books")}
+                onClick={() => navigate("/start")}
                 className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-xl gap-2 shadow-lg"
               >
                 <Plus className="w-5 h-5" />
                 <span className="hidden sm:inline">Yeni Rapor</span>
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => navigate("/settings")}
+                aria-label="Ayarlar"
+                className="text-purple-200 hover:text-white hover:bg-slate-700/50 rounded-xl"
+              >
+                <SettingsIcon className="w-5 h-5" />
               </Button>
               <Button
                 variant="ghost"
@@ -146,7 +154,7 @@ export function Dashboard() {
                         İlk estetik kimlik raporunuzu oluşturun ve size özel günlük keşiflere erişin
                       </p>
                       <Button
-                        onClick={() => navigate("/books")}
+                        onClick={() => navigate("/start")}
                         className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-8 py-6 text-lg rounded-xl gap-2 shadow-2xl"
                       >
                         <Plus className="w-5 h-5" />

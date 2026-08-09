@@ -63,17 +63,3 @@ export function fileToBase64(file: File): Promise<ExtractImage> {
     reader.readAsDataURL(file);
   });
 }
-
-/**
- * Onaylanan satırı adım akışının/analyze'in beklediği string formatına çevirir.
- * Bu format kasıtlı: `analyze` " - " ile bölüp [title, creator] çıkarıyor,
- * ve `pendingReport` string[] tutuyor. Eski akış bozulmasın.
- */
-export function workToEntry(work: { creator: string; title: string }): string {
-  const creator = work.creator.trim();
-  const title = work.title.trim();
-  if (creator && title) return `${title} - ${creator}`;
-  // Yalnızca biri varsa onu yaz. parseEntry ayırıcı bulamayıp tek ad olarak okur;
-  // analyze zaten "sadece yaratıcı adı verilmiş olabilir" durumunu kaldırıyor.
-  return title || creator;
-}

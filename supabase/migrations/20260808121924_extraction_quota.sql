@@ -1,13 +1,12 @@
 -- extraction_quota: extract-works için günlük kota sayacı.
--- Supabase Dashboard > SQL Editor'de çalıştırın.
 --
 -- extract-works anonim erişime açık (kullanıcı onboarding'de henüz giriş yapmamış
 -- oluyor). Vision çağrıları maliyetli olduğu için kimlik varsa kullanıcıya, yoksa
--- IP'ye günlük tavan uygulanır.
+-- IP'ye günlük tavan uygulanır. Sayaç ÇAĞRI başına artar: bir "Eserleri Çıkar"
+-- tıklaması = 1, kaç görsel eklendiğinden veya kaç eser döndüğünden bağımsız.
 --
--- Bu migration ÇALIŞTIRILMAZSA endpoint yine çalışır: quotaExceeded() fail-open
--- yazıldı, tablo yoksa istek engellenmez. Yani kota koruması opsiyoneldir,
--- ama üretimde çalıştırılması önerilir.
+-- Uygulanmazsa endpoint yine çalışır: quotaExceeded() fail-open yazıldı, tablo
+-- yoksa istek engellenmez. Yani koruma opsiyonel, ama üretimde önerilir.
 
 CREATE TABLE IF NOT EXISTS extraction_quota (
   client_key TEXT NOT NULL,          -- auth.users(id) ya da IP adresi
@@ -19,9 +18,11 @@ CREATE TABLE IF NOT EXISTS extraction_quota (
 
 ALTER TABLE extraction_quota ENABLE ROW LEVEL SECURITY;
 -- Policy tanımlanmıyor: hiçbir policy = client erişimi tamamen kapalı.
--- Yalnızca edge function service_role_key ile erişir.
+-- Tabloya yalnızca edge function service_role_key ile erişir.
 
 -- Sayacı atomik artırır ve yeni değeri döner.
+-- SECURITY DEFINER: anonim kullanıcı da sayacı artırabilmeli ama tabloyu
+-- okuyup yazma yetkisi olmamalı. Fonksiyon yalnızca sayıyı döndürür.
 CREATE OR REPLACE FUNCTION bump_extraction_quota(p_client_key TEXT, p_date DATE)
 RETURNS INTEGER
 LANGUAGE plpgsql

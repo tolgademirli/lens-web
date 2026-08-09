@@ -25,7 +25,11 @@ Claude API tarafından üretilen estetik kimlik raporları. `analyze` edge funct
 | `shadow`          | JSONB        | `[{type: "Kitap"\|"Film"\|"Müzik", title: string\|null, author_or_artist: string, year: string\|null, description: string}]` — tam 3 öğe |
 | `is_public`       | BOOLEAN      | default false. true ise auth'suz okunabilir. |
 
+> **`is_public` varsayılanı yazıcılar tarafından hiç kullanılmıyor.** Her iki insert yolu da değeri açıkça veriyor: `analyze` edge function `false`, lens bot `true` (`bot.py`). Yani Telegram kaynaklı raporlar **herkese açık doğar** — bu bir ürün kararı, varsayılanın yan etkisi değil. Varsayılan yalnızca ileride `is_public` vermeyi unutan bir insert yolu eklenirse devreye girer.
+
 **RLS:** `is_public = true` olan raporlar herkese açık. Özel raporlar yalnızca `auth.uid() = user_id` koşuluyla okunabilir. Bkz. `src/lib/supabase.ts → fetchReport`.
+
+Politikalar: iki SELECT (herkese açık raporlar / kendi raporları) + bir UPDATE (kendi raporu). INSERT ve DELETE policy'si **yok** — yazma yalnızca `service_role_key` ile edge function'dan yapılır.
 
 ---
 
@@ -91,6 +95,86 @@ Günlük keşif önerileri önbelleği. `daily-discovery` edge function, her kul
 
 ---
 
+## `user_preferences`
+
+Kullanıcının kendi tercihleri. Şu an tek alan: haftalık film seçkisi opt-out'u.
+
+| Kolon                  | Tip          | Notlar |
+|------------------------|--------------|--------|
+| `user_id`              | UUID PK      | `auth.users(id)` ON DELETE CASCADE |
+| `weekly_picks_enabled` | BOOLEAN      | NOT NULL, default true |
+| `updated_at`           | TIMESTAMPTZ  | NOT NULL, default NOW(); BEFORE UPDATE trigger'ı tazeler |
+
+**Satırın yokluğu = varsayılan.** Kullanıcı ayara hiç dokunmadıysa burada satırı olmaz ve `weekly_picks_enabled = true` varsayılır. Satır ancak toggle'a ilk dokunuşta (upsert) doğar. Hem client (`src/lib/preferences.ts → DEFAULT_PREFERENCES`) hem gönderim fonksiyonu aynı varsayımı kullanır — birini değiştirirken diğerini de değiştir.
+
+**RLS:** Kullanıcı yalnızca kendi satırını SELECT / INSERT / UPDATE edebilir (`auth.uid() = user_id`). DELETE policy'si yok — tercihi silmek anlamsız, kapatmak yeterli.
+
+---
+
+## `weekly_picks`
+
+Haftalık film seçkileri. **Kürasyon manuel:** satırlar elle (veya dışarıda üretilmiş JSON ile) girilir; hiçbir kod buraya film seçmez. `send-weekly-picks` edge function'ının tek işi bu satırları göndermektir.
+
+| Kolon           | Tip          | Notlar |
+|-----------------|--------------|--------|
+| `id`            | UUID PK      | gen_random_uuid() |
+| `user_id`       | UUID NOT NULL| `auth.users(id)` ON DELETE CASCADE. `reports`'tan farklı olarak nullable **değil** — seçki kişiye özel küre edilir. |
+| `week`          | DATE NOT NULL| O haftanın işareti (örn. gönderim Cuma'sı) |
+| `films`         | JSONB NOT NULL| `[{title: string, year: int, blurb: string, justwatch_url: string}]` |
+| `intro_variant` | TEXT         | `"standart"` \| `"sessiz"` (CHECK), default `standart`. Mail giriş paragrafını belirler. |
+| `status`        | TEXT         | `"draft"` \| `"sent"` \| `"failed"` \| `"overpast"` (CHECK), default `draft` |
+| `sent_at`       | TIMESTAMPTZ  | nullable — başarılı gönderimde dolar |
+| `created_at`    | TIMESTAMPTZ  | NOT NULL, default NOW() |
+
+**Kısıt:** `UNIQUE(user_id, week)` — aynı kullanıcıya aynı hafta iki seçki girilemez. Çift mail, gönderim hatasından pahalı.
+
+**RLS:** Kullanıcı yalnızca kendi seçkilerini SELECT edebilir. INSERT/UPDATE/DELETE policy'si **bilerek yok** — yalnızca `service_role_key` yazar. Aksi halde kullanıcı kendi satırını `sent` işaretleyip gönderimi atlatabilirdi.
+
+> **`overpast` = haftası geçti, artık gönderilmeyecek.** `send-weekly-picks` her çağrıda, haftası 7 günden fazla geçmiş tüm `draft` satırları bu duruma çeker. Opt-out yapan kullanıcının satırı o hafta içinde `draft` kalır (tercihini hemen geri açarsa seçki hâlâ gidebilir), sonra kapanır. Böylece Ağustos'ta kapatıp Ekim'de açan kullanıcı **yalnızca Ekim sonrası haftaları** alır; aradaki seçkiler birikip toplu halde gitmez. Bilinçli geri-doldurma için gönderim gövdesinde `allow_overpast: true` gerekir.
+
+---
+
+## `telegram_link_codes`
+
+Telegram hesabı bağlama akışının tek kullanımlık kodları. Bot kodu üretir, kullanıcı `/connect` sayfasında girer, `link-telegram` edge function doğrular ve `telegram_users`'a satır yazar.
+
+| Kolon              | Tip            | Notlar |
+|--------------------|----------------|--------|
+| `code`             | TEXT PK        | Tek kullanımlık bağlama kodu |
+| `telegram_user_id` | BIGINT NOT NULL| Kodu isteyen Telegram kullanıcısı |
+| `expires_at`       | TIMESTAMPTZ NOT NULL | Süre sonu; `telegram_link_codes_expires_at_idx` ile indeksli |
+| `created_at`       | TIMESTAMPTZ    | default NOW() |
+
+**RLS:** Açık, policy'si **yok** — yalnızca `service_role_key` erişir. Kodlar client'a okutulsaydı başkasının hesabı bağlanabilirdi.
+
+---
+
+## `telegram_users`
+
+Telegram hesabı ↔ Lens hesabı eşlemesi. `link-telegram` edge function `telegram_link_codes` üzerinden doğrulama yaptıktan sonra buraya satır yazar.
+
+| Kolon              | Tip           | Notlar |
+|--------------------|---------------|--------|
+| `telegram_user_id` | BIGINT PK     | Telegram'ın kullanıcı kimliği |
+| `user_id`          | UUID NOT NULL | `auth.users(id)` |
+| `created_at`       | TIMESTAMPTZ   | NOT NULL, default NOW() |
+
+**Kısıt:** `PRIMARY KEY (telegram_user_id)` — bir Telegram hesabı en fazla bir Lens hesabına bağlanır.
+
+**RLS:** Açık, ama **hiç policy'si yok.** Bu kasıtlı: hiçbir client (anon ya da authenticated) tabloyu okuyamaz veya yazamaz; erişim yalnızca `service_role_key` ile edge function'dan olur. Eşleme tablosunu client'a açmak, Telegram kimliklerini Lens hesaplarıyla ilişkilendirmeyi mümkün kılardı.
+
+---
+
+## `extraction_quota` — **production'da YOK**
+
+`extract-works` edge function günlük çıkarım kotası için `bump_extraction_quota(p_client_key, p_date)` RPC'sini çağırır (`DAILY_EXTRACTIONS = 30`). `supabase/migrations/extraction_quota.sql` hem tabloyu hem fonksiyonu tanımlar, **ancak bu dosya production'a hiç uygulanmamıştır** — ne tablo ne fonksiyon canlıda mevcut.
+
+Fonksiyon **fail-open** tasarlanmış (`extract-works/index.ts → quotaExceeded`): RPC hata verirse `false` döner ve istek geçer. Dolayısıyla çökme yok — ama **günlük 30 çıkarım limiti şu an hiç uygulanmıyor.** Her kullanıcı sınırsız ekran görüntüsü/yapıştırma çıkarımı yapabilir; her biri bir Claude vision çağrısı maliyetindedir.
+
+Kotayı devreye almak için `extraction_quota.sql` içeriğinin zaman damgalı bir migration'a taşınıp `supabase db push` ile uygulanması gerekir. Bu bir **davranış değişikliğidir** (bugün limitsiz olan kullanıcılar limite tabi olur), o yüzden bilinçli karar ister.
+
+---
+
 ## `auth.users` (Supabase Auth — yönetilir)
 
 Doğrudan sorgulama yapılmaz. `reports.user_id` ve `daily_discoveries.user_id` bu tabloya referans verir.
@@ -104,4 +188,5 @@ Auth yöntemleri: magic link (email OTP) + Google OAuth.
 
 Tüm JSONB kolonlarının TypeScript karşılığı `src/lib/types.ts` içindedir:  
 `Report`, `HeroData`, `TextureData`, `ThreadItem`, `ContrastItem`, `ShadowItem`, `DailyDiscovery`,  
-`UserWork`, `ReportWork`, `WorkType`, `WorkSource`, `WorkConfidence`.
+`UserWork`, `ReportWork`, `WorkType`, `WorkSource`, `WorkConfidence`,  
+`UserPreferences`, `WeeklyPick`, `WeeklyPickFilm`, `WeeklyPickIntroVariant`, `WeeklyPickStatus`.

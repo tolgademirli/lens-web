@@ -58,6 +58,26 @@ export type WorkSource = "screenshot" | "paste" | "manual" | "form";
 
 export type WorkConfidence = "high" | "medium" | "low";
 
+/**
+ * Rapora giren tek sinyal — formun ve `analyze` payload'ının taşıdığı birim.
+ *
+ * `title` ve `creator` ayrı tutuluyor çünkü kullanıcı ikisini ayrı ayrı
+ * düzenleyebiliyor. Eski tek-string biçimi ("Başlık - Yaratıcı") yalnızca
+ * geriye dönük okuma yollarında kaldı: orada yalnızca-eser-adı girdisi
+ * ayırıcı bulunamadığı için yaratıcı sanılıyordu.
+ *
+ * İkisi birden boş olamaz; biri boş olabilir ("sadece yazar adı da yeterli").
+ * `source` ve `workId` nesnenin içinde durur — eskiden paralel dizilerdeydi ve
+ * indeks kayması sessizce yanlış edinim yolu yazıyordu.
+ */
+export interface WorkEntry {
+  title: string;
+  creator: string;
+  source: WorkSource;
+  /** Havuzdaki (user_works) karşılığı; yoksa "" — analyze o zaman kendisi yazar. */
+  workId: string;
+}
+
 /** user_works satırı — kullanıcının sınırsız eser havuzu. */
 export interface UserWork {
   id: string;
@@ -103,6 +123,40 @@ export interface ExtractWorksResponse {
 export interface ReportWork {
   report_id: string;
   work_id: string;
+  created_at: string;
+}
+
+/** user_preferences satırı. Satırın yokluğu "hepsi varsayılan" demektir. */
+export interface UserPreferences {
+  user_id: string;
+  weekly_picks_enabled: boolean;
+  updated_at: string;
+}
+
+/** Haftalık seçkideki tek film. Kürasyon manuel — bu satırlar elle girilir. */
+export interface WeeklyPickFilm {
+  title: string;
+  year: number;
+  blurb: string;
+  justwatch_url: string;
+}
+
+/** Mail giriş paragrafını belirler. */
+export type WeeklyPickIntroVariant = "standart" | "sessiz";
+
+/** `overpast` = haftası geçtiği için kapatıldı; bir daha gönderim değerlendirmesine girmez. */
+export type WeeklyPickStatus = "draft" | "sent" | "failed" | "overpast";
+
+/** weekly_picks satırı — bir kullanıcının bir haftalık seçkisi. */
+export interface WeeklyPick {
+  id: string;
+  user_id: string;
+  /** O haftanın işareti (örn. gönderim Cuma'sı), YYYY-MM-DD. */
+  week: string;
+  films: WeeklyPickFilm[];
+  intro_variant: WeeklyPickIntroVariant;
+  status: WeeklyPickStatus;
+  sent_at?: string | null;
   created_at: string;
 }
 
