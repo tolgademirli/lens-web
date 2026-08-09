@@ -19,7 +19,11 @@ npm run build       # production build → dist/
 npx supabase start / stop / db reset / db push
 npx supabase functions deploy <name>   # edge function deploy
 ```
-Test komutu yok. TypeScript kontrolü Vite build sırasında çalışır.
+Test komutu yok. **`vite build` tip denetimi YAPMAZ** (esbuild tipleri sadece siler) ve
+typescript projede bağımlı değil. Gerçek denetim için:
+`npx --yes --package typescript@5.6 tsc --noEmit -p tsconfig.json`
+(Mevcut, bu değişiklikten önce de var olan hatalar: `vite/client` ve `@types/react-dom`
+tanımlarının eksikliği, `preferences.ts` boolean daralması, ImportFlow'un `source` karşılaştırmaları.)
 Geliştirme, test ve deploy akışının tamamı: [`docs/gelistirme.md`](docs/gelistirme.md).
 
 ## Yapı
@@ -34,7 +38,9 @@ src/
   lib/
     supabase.ts    # Tüm Supabase sorguları ve auth yardımcıları
     preferences.ts # user_preferences okuma/yazma + varsayılanlar
-    types.ts       # TypeScript arayüzleri (Report, DailyDiscovery vb.)
+    types.ts       # TypeScript arayüzleri (Report, WorkEntry, DailyDiscovery vb.)
+    formLimits.ts  # MIN_TOTAL_ENTRIES / MAX_ENTRIES_PER_CATEGORY — tek kaynak
+    tasteDraft.ts  # sessionStorage taslak sözleşmesi + normalizasyon
   pages/
     ReportPage.tsx     # /report/:id — rapor görüntüleme + paylaşım kontrolü
     Dashboard.tsx      # /dashboard — kullanıcının raporları
@@ -63,7 +69,8 @@ docs/
 | Rota | Bileşen | Açıklama |
 |------|---------|----------|
 | `/` | `Welcome` | Giriş / onboarding |
-| `/books` → `/movies` → `/music` | Step bileşenleri | Kullanıcı girdisi — sessionStorage'da birikir |
+| `/start` | `TasteForm` | Tek ekran, üç sekme — kullanıcı girdisi sessionStorage'da birikir |
+| `/books` `/movies` `/music` | — | Eski adım rotaları; `/start`'a yönlenir (silinmedi, BUG-01 dersi) |
 | `/generating` | `GeneratingReport` | `analyze` edge function'ı çağırır, rapor ID'siyle yönlendirir |
 | `/report/:id` | `ReportPage` | Raporu gösterir; sahip ise public/private toggle |
 | `/dashboard` | `Dashboard` | Kullanıcının tüm raporları |
@@ -72,19 +79,25 @@ docs/
 | `/connect` | `TelegramConnect` | Telegram hesap bağlama |
 
 ## Veri akışı: rapor oluşturma
-1. Kullanıcı 3 adımda 3–5'er kitap/film/müzik girer; veriler `sessionStorage`'a yazılır.
-2. MusicStep tamamlanınca form verisi **çift yazılır**: `sessionStorage` (aynı sekme, doğrudan giriş yolu)
-   + `localStorage["lens_pending_report"]` (OAuth/magic link redirect'i sekme sessionStorage'ını sıfırlar,
-   localStorage köprüyü sağlar). İkisi kasıtlı — tek kaynağa indirme dürtüsüne kapılma.
-   Okuma/temizleme mantığı `src/lib/pendingReport.ts` içinde; kayıt 60 dakika sonra otomatik geçersizleşir.
-3. `/generating` sayfası `analyzeAndCreateReport()` → `supabase.functions.invoke("analyze")` çağırır.
-4. `analyze` edge function: Claude API → JSON rapor → `reports` tablosuna insert → `reportId` döner.
+1. Kullanıcı `/start`'ta tek ekranda sinyal girer. Eşik **toplamda 6**, dağılım serbest —
+   6+0+0 da geçerli, kategori boş kalabilir. Kategori başına tavan 8. Sınırlar
+   `src/lib/formLimits.ts`'te; `analyze`'daki kardeşleri elle senkron tutulur (ayrı Deno bundle).
+2. Her sinyal yapılı bir `WorkEntry`: `{title, creator, source, workId}`. Yazar ve eser adı
+   ayrı tutuluyor çünkü kullanıcı ikisini ayrı düzenleyebiliyor; `source`/`workId` nesnenin
+   içinde durur — eskiden paralel dizilerdeydi ve indeks kayması sessizce yanlış edinim yolu yazardı.
+3. Gönderimde taslak **çift yazılır**: `sessionStorage` (aynı sekme, doğrudan giriş yolu)
+   + `localStorage["lens_pending_report"]` (OAuth/magic link redirect'i sekme sessionStorage'ını
+   sıfırlar, localStorage köprüyü sağlar). İkisi kasıtlı — tek kaynağa indirme dürtüsüne kapılma.
+   Okuma/yazma `src/lib/tasteDraft.ts` + `src/lib/pendingReport.ts`; kayıt 60 dakika sonra geçersizleşir.
+   İkisi de eski 9-anahtarlı / string[] biçimini okuyup yükseltir (deploy anındaki kullanıcı kaybolmasın).
+4. `/generating` **bütün taslağı** seçer (kategori kategori karıştırmaz — taze bir kategoriyi
+   bayat bir kategoriyle birleştirmek sessizce yanlış rapor üretirdi), sonra `analyzeAndCreateReport()`.
+5. `analyze` edge function: Claude API → JSON rapor → `reports` insert → `reportId`.
    Ardından eserler `user_works` havuzuna, rapor↔eser ilişkisi `report_works`'e yazılır.
-   Eserin `source`'u istemciden girişlerle **aynı sırada** gelir (`screenshot` | `paste` | `manual`);
-   hiç gelmezse ya da tanınmayan bir değerse `form`'a düşer. `form` bir varsayılan — form akışının
-   damgası değil, elle yazılan eser de `manual` olarak yazılır.
+   `source` sinyalin kendi içinden gelir (`screenshot` | `paste` | `manual`); tanınmayan değer
+   `form`'a düşer. `form` bir varsayılan — form akışının damgası değil, elle yazılan eser `manual`.
    Bu yazım **best-effort**: hata alırsa loglanır ve yutulur, rapor dönüşünü asla bloklamaz.
-5. Client `/report/:id`'ye yönlendirilir; `fetchReport()` RLS'e göre raporu çeker.
+6. Client `/report/:id`'ye yönlendirilir; `fetchReport()` RLS'e göre raporu çeker.
 
 ## Veri akışı: haftalık film seçkisi
 **Kürasyon manuel.** Hiçbir kod film seçmez — Claude bu akışa hiç girmez.
@@ -108,6 +121,15 @@ Gerekli secret'lar (`supabase secrets set`): `RESEND_API_KEY`, `WEEKLY_PICKS_SEC
 `WEEKLY_PICKS_REPLY_TO`. Opsiyonel: `WEEKLY_PICKS_FROM`, `SITE_URL`, `POSTHOG_KEY`, `POSTHOG_HOST`.
 
 ## Kritik kurallar
+- Onboarding eşiği **toplamda 6 sinyal**, kategori başına değil. Kategori zorunluluğuna geri
+  dönme: "3 favori film yaz", film izlemeyen kullanıcıyı daha portresi çıkmadan eliyordu.
+  Boş kategori bir kusur değil — rapor bunu bir kez, dürüstçe söyler.
+- `shadow` **her zaman tam 3 öneri** (1 Kitap + 1 Film + 1 Müzik), kullanıcı o kategoride hiçbir
+  şey vermemiş olsa bile: boş kategori bir keşif kapısıdır. `analyze` bunu insert öncesi
+  doğrular; `ShadowSection`'ın `md:grid-cols-3` düzeni ve `data.map`'i buna dayanıyor.
+- Sinyalin `title` ve `creator`'ı **ayrı taşınır** (`WorkEntry`). Tek string'e ("Başlık - Yaratıcı")
+  geri dönme: ayırıcısız bir satır hep yaratıcı sanılıyordu, yalnız eser adı yanlış kolona yazılıyordu.
+  `analyze`'daki `parseEntry` yalnızca 60 dk TTL'deki eski kayıtlar için duruyor.
 - Haftalık seçki maili **görselsiz** kalır (afiş/poster yok) ve link sayısı düşük tutulur —
   bu bir deliverability kararı (Gmail Promotions riski), estetik tercih değil.
 - `send-weekly-picks` film **seçmez**; tek işi göndermektir. Kürasyonu otomatikleştirme dürtüsüne kapılma.
@@ -120,7 +142,9 @@ Gerekli secret'lar (`supabase secrets set`): `RESEND_API_KEY`, `WEEKLY_PICKS_SEC
   event için ayrı bir kaynak hesaplaması açma, ikisi ayrışır.
 - `ANTHROPIC_API_KEY` ve `SUPABASE_SERVICE_ROLE_KEY` **sadece edge function ortamında** yaşar. Client koduna asla import edilmez.
 - `.env.local`'a dokunma. Yeni env değişkeni eklenecekse `.env.example`'a belgele.
-- Rota `/report/:id` — eski `/rapor/:id` kaldırıldı (BUG-01).
+- Rota `/report/:id` — eski `/rapor/:id` kaldırıldı (BUG-01). Rota dili İngilizce.
+- `/start`, `Welcome` ile birlikte yeni düz koyu görsel dili kullanır (`--lens-*` tokenları,
+  `src/styles/theme.css`). Rapor ve panel gradyan dilinde kalır — geçişteki kontrast kasıtlı.
 - `is_public = false` olan rapor **asla** auth'suz endpoint'ten dönmemeli. `fetchReport()` içindeki RLS sorgusunu bozmadan koru.
 - `src/app/supabase.ts` ve `src/app/types.ts` deprecated — bunlara yeni kod yazma, `src/lib/` kullan.
 

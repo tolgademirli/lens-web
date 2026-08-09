@@ -3,30 +3,41 @@ import { useNavigate } from "react-router";
 import { motion } from "motion/react";
 import { Sparkles, BookOpen, Film, Music } from "lucide-react";
 import { analyzeAndCreateReport, AnalyzeError } from "@/lib/supabase";
-import { readPendingReport, clearPendingReport } from "@/lib/pendingReport";
+import {
+  readPendingReport,
+  clearPendingReport,
+  pendingReportIsComplete,
+} from "@/lib/pendingReport";
+import {
+  clearSessionDraft,
+  draftTotal,
+  readSessionDraft,
+  type TasteDraft,
+} from "@/lib/tasteDraft";
+import { MIN_TOTAL_ENTRIES } from "@/lib/formLimits";
 import { flushLibraryStash } from "@/lib/userWorks";
 import { Button } from "./ui/button";
 import { posthog } from "@/lib/posthog";
+import type { WorkEntry } from "@/lib/types";
 
 function abandonAndGoToDashboard(nav: (path: string) => void) {
-  sessionStorage.removeItem("books");
-  sessionStorage.removeItem("movies");
-  sessionStorage.removeItem("music");
+  clearSessionDraft();
   clearPendingReport();
   nav("/dashboard");
 }
 
 /**
- * Girişten sonra havuza yazılan eserlerin id'lerini, import'tan gelen girişlere
+ * Girişten sonra havuza yazılan eserlerin id'lerini, import'tan gelen sinyallere
  * sırayla yerleştirir. Sıra güvenilir: ImportFlow seçilenleri liste sırasında
- * ekliyor, adım da aynı sırayla girişlere yazıyor.
+ * ekliyor, form da aynı sırayla taslağa yazıyor.
  */
-function fillImportedIds(sources: string[], ids: string[], flushed: string[]) {
+function fillImportedIds(entries: WorkEntry[], flushed: string[]): WorkEntry[] {
   let next = 0;
-  for (let i = 0; i < sources.length && next < flushed.length; i++) {
-    const imported = sources[i] === "screenshot" || sources[i] === "paste";
-    if (imported && !ids[i]) ids[i] = flushed[next++];
-  }
+  return entries.map((entry) => {
+    const imported = entry.source === "screenshot" || entry.source === "paste";
+    if (!imported || entry.workId || next >= flushed.length) return entry;
+    return { ...entry, workId: flushed[next++] };
+  });
 }
 
 type ErrorKind = "auth" | "quota" | "generic";
@@ -44,60 +55,33 @@ export function GeneratingReport() {
   const [error, setError] = useState<{ kind: ErrorKind; message: string } | null>(null);
 
   useEffect(() => {
-    // Primary source: individual sessionStorage keys (direct logged-in path)
-    let books = JSON.parse(sessionStorage.getItem("books") ?? "[]") as string[];
-    let movies = JSON.parse(sessionStorage.getItem("movies") ?? "[]") as string[];
-    let music = JSON.parse(sessionStorage.getItem("music") ?? "[]") as string[];
+    // Birincil kaynak: sessionStorage (aynı sekme, doğrudan giriş yolu).
+    // Yedek: OAuth öncesi yazılan konsolide kayıt (max 60 dk).
+    //
+    // Kategori kategori KARIŞTIRMA: eşik artık toplamda olduğundan, taze bir
+    // kategoriyi bayat bir kategoriyle birleştirmek sessizce yanlış rapor üretir.
+    // Karışık durum zaten doğamaz — ikisi de aynı gönderim anında yazılıyor.
+    const session = readSessionDraft();
+    const pending = readPendingReport();
+    let draft: TasteDraft | null =
+      draftTotal(session) >= MIN_TOTAL_ENTRIES
+        ? session
+        : pendingReportIsComplete(pending)
+        ? pending
+        : null;
 
-    // Edinim yolları (screenshot / paste / manual), girişlerle aynı sırada.
-    const readSources = (key: string) => {
-      try {
-        return JSON.parse(sessionStorage.getItem(key) ?? "[]") as string[];
-      } catch {
-        return [];
-      }
-    };
-    const sources = {
-      books: readSources("books_sources"),
-      movies: readSources("movies_sources"),
-      music: readSources("music_sources"),
-    };
-    // Havuzda zaten oluşturulmuş kayıtların id'leri (import yolundan gelenler).
-    const workIds = {
-      books: readSources("books_work_ids"),
-      movies: readSources("movies_work_ids"),
-      music: readSources("music_work_ids"),
-    };
-
-    // Fallback: consolidated pending report saved before OAuth redirect (max 60 dk).
-    // Girişler oradan geliyorsa source'lar da oradan gelmeli — yoksa hepsi 'form'a düşer.
-    if (books.length < 3 || movies.length < 3 || music.length < 3) {
-      const pending = readPendingReport();
-      if (pending) {
-        if (pending.books.length >= 3) {
-          books = pending.books;
-          sources.books = pending.sources?.books ?? [];
-          workIds.books = pending.workIds?.books ?? [];
-        }
-        if (pending.movies.length >= 3) {
-          movies = pending.movies;
-          sources.movies = pending.sources?.movies ?? [];
-          workIds.movies = pending.workIds?.movies ?? [];
-        }
-        if (pending.music.length >= 3) {
-          music = pending.music;
-          sources.music = pending.sources?.music ?? [];
-          workIds.music = pending.workIds?.music ?? [];
-        }
-      }
-    }
-
-    if (books.length < 3 || movies.length < 3 || music.length < 3) {
-      navigate("/");
+    if (!draft) {
+      // Taslağı olan kullanıcıyı pazarlama sayfasına atma — formuna geri koy.
+      navigate("/start", { replace: true });
       return;
     }
 
-    posthog.capture("report_generation_started");
+    posthog.capture("report_generation_started", {
+      total: draftTotal(draft),
+      books: draft.books.length,
+      movies: draft.movies.length,
+      music: draft.music.length,
+    });
 
     void (async () => {
       // Anonim akışta onaylanan eserler localStorage'da bekliyordu. Artık oturum
@@ -105,26 +89,20 @@ export function GeneratingReport() {
       // aynı eseri ikinci kez oluşturmasın.
       try {
         const flushed = await flushLibraryStash();
-        fillImportedIds(sources.books, workIds.books, flushed.book);
-        fillImportedIds(sources.movies, workIds.movies, flushed.film);
-        fillImportedIds(sources.music, workIds.music, flushed.song);
+        draft = {
+          books: fillImportedIds(draft.books, flushed.book),
+          movies: fillImportedIds(draft.movies, flushed.film),
+          music: fillImportedIds(draft.music, flushed.song),
+        };
       } catch (err) {
         console.error("[generating] Bekleyen kütüphane yazılamadı:", err);
       }
 
-      analyzeAndCreateReport(books, movies, music, sources, workIds)
+      analyzeAndCreateReport(draft)
       .then((reportId) => {
         posthog.capture("report_generation_completed");
         // Clear everything only on success
-        sessionStorage.removeItem("books");
-        sessionStorage.removeItem("movies");
-        sessionStorage.removeItem("music");
-        sessionStorage.removeItem("books_sources");
-        sessionStorage.removeItem("movies_sources");
-        sessionStorage.removeItem("music_sources");
-        sessionStorage.removeItem("books_work_ids");
-        sessionStorage.removeItem("movies_work_ids");
-        sessionStorage.removeItem("music_work_ids");
+        clearSessionDraft();
         clearPendingReport();
         navigate("/report/" + reportId);
       })
@@ -149,7 +127,7 @@ export function GeneratingReport() {
               <p className="text-white text-lg">Giriş yapman gerekiyor.</p>
               <p className="text-purple-200 text-sm">{error.message}</p>
               <Button
-                onClick={() => navigate("/music")}
+                onClick={() => navigate("/start")}
                 className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-xl px-8"
               >
                 Geri dön ve giriş yap
@@ -178,7 +156,7 @@ export function GeneratingReport() {
               <p className="text-red-400 text-lg">Bir hata oluştu.</p>
               <p className="text-slate-400 text-sm">{error.message}</p>
               <Button
-                onClick={() => navigate("/music")}
+                onClick={() => navigate("/start")}
                 className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-xl px-8"
               >
                 Tekrar dene

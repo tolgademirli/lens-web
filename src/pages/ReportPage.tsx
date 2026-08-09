@@ -239,7 +239,7 @@ function OwnerClosing({ archetype, isPublic, toggling, shareLabel, onShare, onMa
 
         {/* Footer nav links */}
         <div className="flex items-center gap-6 justify-center pt-4">
-          <Link to="/books" className="text-slate-500 hover:text-purple-300 text-sm transition-colors">
+          <Link to="/start" className="text-slate-500 hover:text-purple-300 text-sm transition-colors">
             Yeni Rapor Oluştur
           </Link>
           <span className="text-slate-700">·</span>

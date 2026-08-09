@@ -40,11 +40,12 @@ const TYPE_LABELS: Record<string, TypeLabel> = {
     },
   },
   film: {
-    tekil: "film",
+    // Kategori arayüzde "Film & Diziler" — dizi satırlarını da çıkarması gerekiyor.
+    tekil: "film ve dizi",
     yaratici: "yönetmen",
     ornek: {
       yalnizYaratici: "Nuri Bilge Ceylan",
-      yalnizEser: "Masumiyet",
+      yalnizEser: "Leyla ile Mecnun",
       ikisi: "Uzak - Nuri Bilge Ceylan",
     },
   },

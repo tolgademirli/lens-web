@@ -25,9 +25,13 @@ BLOK3 ile Saramago'yu eşit saygıyla analiz et — hiçbir eser küçümsenmez.
 - Kullanıcıya "sen" diye hitap et, doğrudan konuş
 
 ## GÖREVİN
-Kullanıcının paylaştığı kitap, film ve müzisyen/sanatçı listeleri üzerinden
+Kullanıcının paylaştığı kitap, film/dizi ve müzisyen/sanatçı listeleri üzerinden
 'Estetik Kimlik Raporu' çıkar. Aşağıdaki JSON şemasına uygun şekilde üret.
 Her kategorideki eser sayısı değişkendir — listede kaç eser varsa onunla çalış.
+Kullanıcı kategorilerden birini, hatta ikisini hiç doldurmamış olabilir; toplamda
+en az altı sinyal gelir ama dağılımı tamamen serbesttir. Eksik kategori bir kusur
+değil — o kullanıcının sana verdiği malzeme o kadar. Sana ULAŞMAYAN bir listeyi
+VAR SAYMA: bu prompt'ta başlığı geçmeyen kategoriden konuşma, oraya dair çıkarım yapma.
 
 ## ÖNEMLİ KURALLAR
 1. Raporu Türkçe yaz
@@ -37,11 +41,20 @@ Her kategorideki eser sayısı değişkendir — listede kaç eser varsa onunla 
 4. Emoji kullanma (JSON değerlerinin içine emoji koyma)
 5. Kullanıcıda sadece yazar/yönetmen/sanatçı adı varsa, o sanatçının genel estetiği
    ve bilinen eserleri üzerinden analiz yap. Kullanıcıdan ek bilgi isteme.
-6. Analizini listenin TAMAMINA dayandır — birkaç esere bakıp gerisini atlama.
-   Ama bu, hepsini isimlendirmek demek DEĞİL: eser adları yalnızca contrasts
-   kutup başlıklarında geçer. Envanter çıkarma, bütünün hissini yaz.
-   Liste uzunsa (kategori başına 8'e kadar çıkabilir) tek tek saymaya çalışmak
-   raporu bir isim listesine çevirir; istenen bu değil.
+6. Analizini sana verilen eserlerin TAMAMINA dayandır — birkaçına bakıp gerisini
+   atlama. Ama bu, hepsini isimlendirmek demek DEĞİL: eser adları yalnızca
+   contrasts kutup başlıklarında geçer. Envanter çıkarma, bütünün hissini yaz.
+   Toplam altı ile yirmi dört arasında eser gelir (kategori başına en fazla 8);
+   uzun listede tek tek saymaya çalışmak raporu bir isim listesine çevirir,
+   istenen bu değil. Tek kategoriden gelen altı eser de portre çıkarmaya yeter —
+   az malzemeyle temkinli ol ama çekingen yazma; "yeterli veri yok" deyip
+   geçiştirme, elindekinden gerçekten okunanı yaz.
+7. Bir kategori hiç gelmediyse raporu ondan bahsediyormuş gibi yazma. Bu boşluğu
+   TEK bir yerde — hero.summary'nin ya da texture.descriptions'ın son cümlesinde —
+   portrenin hangi malzemeden dokunduğunu söyleyerek belli et: "bu portre bütünüyle
+   okuduklarından ve dinlediklerinden çıktı" gibi. Sitem etme, özür dileme, eksik
+   bırakılan alanı kullanıcıya ödev gibi sunma; sadece dürüst ol. Aynı şeyi iki
+   ayrı bölümde tekrarlama. threads ve contrasts'ta bu boşluğa hiç değinme.
 
 ## ÇIKTI FORMATI
 SADECE geçerli JSON döndür. Başka hiçbir şey yazma. JSON şeması:
@@ -120,7 +133,9 @@ SADECE geçerli JSON döndür. Başka hiçbir şey yazma. JSON şeması:
 - summary: tek cümle, açıklayıcı
 
 ### texture
-- Üç listenin birlikte yarattığı ortak atmosferi tek bir his olarak tarif et
+- Sana ULAŞAN listelerin birlikte yarattığı ortak atmosferi tek bir his olarak
+  tarif et; tek liste geldiyse onun kendi atmosferini yaz. Olmayan kategorilere
+  gönderme yapma, "üç alan" gibi ifadeler kullanma
 - Eserleri tek tek açıklama veya isimlendirme
 - Varsayımsal zaman/mekan bilgisi kullanma (saat kaç, nerede olduğu gibi)
 - descriptions: maksimum 3 kısa cümle, sade ve doğrudan dil
@@ -134,14 +149,22 @@ SADECE geçerli JSON döndür. Başka hiçbir şey yazma. JSON şeması:
 
 ### contrasts
 - Max 2 kontrast, minimum 1
-- 2 güçlü zıtlık yoksa tek kontrast yeterli
-- Kutup başlıklarında (left/right title) eser isimlerini kullan
+- 2 güçlü zıtlık yoksa tek kontrast yeterli — tek kategoriden gelen kısa bir
+  listede genelde bir kontrast doğrudur, ikinciyi zorlama
+- Kutup başlıklarında (left/right title) eser isimlerini kullan. İsimlerin
+  hepsinin aynı kategoriden gelmesi sorun değil; kutupların farklı alanlardan
+  olma zorunluluğu yok
 - Her kutba max 1 kısa betimleme ekle (subtitle alanı, 3-4 kelime)
 - left/right description alanını BOŞ bırak — açıklama yazma
 - explanation metni: max 2-3 cümle, sade ve ilgi çekici
 
 ### shadow
-- Tam olarak 3 öneri: 1 Kitap, 1 Film, 1 Müzik (bu sırayla)
+- Tam olarak 3 öneri: 1 Kitap, 1 Film, 1 Müzik (bu sırayla). Kullanıcı o
+  kategoride hiçbir şey paylaşmamış olsa bile üçü de gelir — bu kural asla esnemez
+- Boş bıraktığı kategorinin önerisi bir kapı işlevi görsün: elindeki diğer
+  listelerden köprü kur ("okuduklarının perdedeki karşılığı buradan başlar" gibi)
+  ve oradan gir. O alanda zevkini biliyormuş gibi konuşma; öneriyi bir davet
+  olarak yaz, bir teşhis olarak değil
 - Her öneri max 2 cümle
 - Birinci cümle: kullanıcının listesindeki eserlerle bağlantı kur —
   bu eser o dünyaya neden ait
@@ -152,20 +175,49 @@ SADECE geçerli JSON döndür. Başka hiçbir şey yazma. JSON şeması:
 - Keşif tonu — merak uyandır, dayatma
 `;
 
-// Rapora giren eser sayısı: kategori başına 3-8 ("kütüphane sınırsız, rapor bounded").
-// Havuzun (user_works) üst sınırı yoktur; bu tavan yalnızca rapora giren seçim içindir.
-const MAX_ITEMS = 8;
+// Rapora giren sinyal sayısı bounded ("kütüphane sınırsız, rapor bounded").
+// Havuzun (user_works) üst sınırı yoktur; bunlar yalnızca rapora giren seçim içindir.
+//
+// ALT SINIR TOPLAMDIR, kategori başına değil: 6+0+0 geçerli bir dağılımdır.
+// Kategori zorunluluğu bilinçli kaldırıldı — kitap okuyup film izlemeyen
+// kullanıcıyı daha portresi çıkmadan eliyordu.
+//
+// İstemci karşılıkları src/lib/formLimits.ts içinde ve ELLE senkron tutulur
+// (Deno bundle'ı src/'ten import edemez).
+const MIN_TOTAL = 6;
+const MAX_ITEMS = 8; // kategori başına
 const MAX_CHARS = 120;
 const DAILY_LIMIT = 3;
+
+const VALID_SOURCES = ["screenshot", "paste", "manual", "form"];
+
+/** Normalize edilmiş tek sinyal — istemci hangi biçimi göndermiş olursa olsun. */
+interface Signal {
+  title: string;
+  creator: string;
+  source: string;
+  /** Havuzda zaten varsa id'si; yoksa null (analyze kendisi yazar). */
+  workId: string | null;
+}
+
+/** 400 ile dönülecek girdi hataları; beklenmeyen hatalardan ayrılsın diye ayrı tip. */
+class InvalidInput extends Error {}
 
 function getTodayInIstanbul(): string {
   return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Istanbul" }).format(new Date());
 }
 
+/**
+ * Eski tek-string biçimini ("Başlık - Yaratıcı") ayırır.
+ *
+ * SON " - " ile bölünür, ilk değil: eser adının kendisi tire içerebiliyor
+ * ("Sıcak - Soğuk Mevsimler - Camus" → başlık "Sıcak - Soğuk Mevsimler").
+ *
+ * Yalnızca 60 dk TTL'deki eski bekleyen kayıtlar için duruyor. Yeni istemci
+ * title/creator'ı ayrı gönderiyor — çünkü bu ayırma, ayırıcısız bir satırı
+ * (yalnızca eser adı) hep yaratıcı sanıyor ve veriyi yanlış kolona yazıyordu.
+ */
 function parseEntry(text: string): [string, string] {
-  // SON " - " ile bölünür, ilk değil: eser adının kendisi tire içerebiliyor
-  // ("Sıcak - Soğuk Mevsimler - Camus" → başlık "Sıcak - Soğuk Mevsimler").
-  // Yaratıcı adı sona ekleniyor, dolayısıyla son ayırıcı doğru olanıdır.
   const idx = text.lastIndexOf(" - ");
   if (idx !== -1) {
     return [text.slice(0, idx).trim(), text.slice(idx + 3).trim()];
@@ -173,49 +225,107 @@ function parseEntry(text: string): [string, string] {
   return ["", text.trim()];
 }
 
-function buildPrompt(
-  books: string[],
-  movies: string[],
-  music: string[]
-): string {
-  const booksText = books
-    .map((e, i) => {
-      const [title, author] = parseEntry(e);
-      return title
-        ? `  ${i + 1}. *${title}* — ${author}`
-        : `  ${i + 1}. ${author}`;
-    })
-    .join("\n");
+function at(arr: unknown, i: number): unknown {
+  return Array.isArray(arr) ? arr[i] : undefined;
+}
 
-  const moviesText = movies
-    .map((e, i) => {
-      const [title, director] = parseEntry(e);
-      return title
-        ? `  ${i + 1}. *${title}* — yön. ${director}`
-        : `  ${i + 1}. ${director}`;
-    })
-    .join("\n");
+/**
+ * İki girdi biçimini tek iç temsile indirir:
+ *  - yeni istemci: {title, creator, source, work_id} nesneleri
+ *  - eski istemci: string[] + üst düzey paralel sources/work_ids dizileri
+ * Bundan sonrası biçimi bilmez.
+ */
+function normalizeCategory(
+  raw: unknown,
+  legacySources: unknown,
+  legacyIds: unknown
+): Signal[] {
+  if (!Array.isArray(raw)) {
+    throw new InvalidInput("Beklenen biçimde veri gelmedi. Lütfen tekrar deneyin.");
+  }
+  if (raw.length > MAX_ITEMS) {
+    throw new InvalidInput(`Her kategoride en fazla ${MAX_ITEMS} sinyal olabilir.`);
+  }
 
-  const musicText = music
-    .map((e, i) => {
-      const [title, artist] = parseEntry(e);
-      return title
-        ? `  ${i + 1}. "${title}" — ${artist}`
-        : `  ${i + 1}. ${artist}`;
-    })
-    .join("\n");
+  return raw.map((item, i) => {
+    let title: string;
+    let creator: string;
+    let source: unknown;
+    let workId: unknown;
+
+    if (typeof item === "string") {
+      [title, creator] = parseEntry(item);
+      source = at(legacySources, i);
+      workId = at(legacyIds, i);
+    } else if (typeof item === "object" && item !== null) {
+      const rec = item as Record<string, unknown>;
+      title = typeof rec.title === "string" ? rec.title.trim() : "";
+      creator = typeof rec.creator === "string" ? rec.creator.trim() : "";
+      source = rec.source;
+      workId = rec.work_id;
+    } else {
+      throw new InvalidInput("Beklenen biçimde veri gelmedi. Lütfen tekrar deneyin.");
+    }
+
+    // İkisi birden boş bir sinyalden portre çıkmaz.
+    if (!title && !creator) {
+      throw new InvalidInput("Her sinyalde en az bir ad olmalı.");
+    }
+    if (title.length > MAX_CHARS || creator.length > MAX_CHARS) {
+      throw new InvalidInput(`Her ad en fazla ${MAX_CHARS} karakter olabilir.`);
+    }
+
+    return {
+      title,
+      creator,
+      // Tanınmayan değer 'form'a düşer (Screenshot-to-DNA öncesi akış).
+      source: VALID_SOURCES.includes(source as string) ? (source as string) : "form",
+      workId: typeof workId === "string" && workId.length > 0 ? workId : null,
+    };
+  });
+}
+
+/** Üç biçim de geçerli: ikisi birlikte, yalnız yaratıcı, yalnız eser adı. */
+function formatSignal(s: Signal, i: number, creatorPrefix = ""): string {
+  const creator = s.creator ? `${creatorPrefix}${s.creator}` : "";
+  if (s.title && creator) return `  ${i + 1}. *${s.title}* — ${creator}`;
+  if (s.title) return `  ${i + 1}. *${s.title}*`;
+  return `  ${i + 1}. ${creator}`;
+}
+
+function buildPrompt(books: Signal[], movies: Signal[], music: Signal[]): string {
+  // Boş kategori için BAŞLIK YAZILMAZ: çıplak bir "### Filmler ve Diziler"
+  // başlığı modele "burada bir şey vardı" izlenimi verir ve uydurmaya davet eder.
+  const sections: string[] = [];
+  const missing: string[] = [];
+
+  if (books.length) {
+    sections.push(`### Kitaplar\n${books.map((s, i) => formatSignal(s, i)).join("\n")}`);
+  } else missing.push("kitap");
+
+  if (movies.length) {
+    sections.push(
+      `### Filmler ve Diziler\n${movies.map((s, i) => formatSignal(s, i, "yön. ")).join("\n")}`
+    );
+  } else missing.push("film/dizi");
+
+  if (music.length) {
+    sections.push(`### Müzik\n${music.map((s, i) => formatSignal(s, i)).join("\n")}`);
+  } else missing.push("müzik");
+
+  const missingNote = missing.length
+    ? `
+Kullanıcı ${missing.join(" ve ")} listesi paylaşmadı — o alanda hiçbir verin yok.
+Oradan gelmiş gibi tek bir cümle bile kurma. Raporun bu boşluğu bildiğini bir kez,
+doğal bir yerde belli etsin (bkz. sistem kuralı 7). shadow yine tam 3 öneri içerir;
+boş kalan alanın önerisi bir kapı olsun.
+`
+    : "";
 
   return `Aşağıda bir kullanıcının kültürel zevklerini gösteren veriler var:
 
-### Favori Kitaplar
-${booksText}
-
-### Favori Filmler
-${moviesText}
-
-### Favori Şarkılar / Sanatçılar
-${musicText}
-
+${sections.join("\n\n")}
+${missingNote}
 ---
 
 Bu verilerden yola çıkarak kullanıcı için Estetik Kimlik Raporu üret.
@@ -251,41 +361,32 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { books, movies, music, sources, work_ids } = await req.json();
+    const body = await req.json();
+    const { books: rawBooks, movies: rawMovies, music: rawMusic, sources, work_ids } = body;
 
-    if (
-      !Array.isArray(books) ||
-      !Array.isArray(movies) ||
-      !Array.isArray(music) ||
-      books.length < 3 ||
-      movies.length < 3 ||
-      music.length < 3
-    ) {
+    let books: Signal[];
+    let movies: Signal[];
+    let music: Signal[];
+    try {
+      books = normalizeCategory(rawBooks, sources?.books, work_ids?.books);
+      movies = normalizeCategory(rawMovies, sources?.movies, work_ids?.movies);
+      music = normalizeCategory(rawMusic, sources?.music, work_ids?.music);
+    } catch (err) {
+      if (!(err instanceof InvalidInput)) throw err;
       return new Response(
-        JSON.stringify({ error: "Her kategoride en az 3 giriş gerekli." }),
-        {
-          status: 400,
-          headers: { ...CORS, "Content-Type": "application/json" },
-        }
+        JSON.stringify({ error: err.message }),
+        { status: 400, headers: { ...CORS, "Content-Type": "application/json" } }
       );
     }
 
-    // Input sınırları: max 7 eleman, max 120 karakter
-    for (const arr of [books, movies, music]) {
-      if (arr.length > MAX_ITEMS) {
-        return new Response(
-          JSON.stringify({ error: `Her kategoride en fazla ${MAX_ITEMS} giriş yapabilirsin.` }),
-          { status: 400, headers: { ...CORS, "Content-Type": "application/json" } }
-        );
-      }
-      for (const item of arr) {
-        if (typeof item !== "string" || item.length > MAX_CHARS) {
-          return new Response(
-            JSON.stringify({ error: "Her giriş en fazla 120 karakter olabilir." }),
-            { status: 400, headers: { ...CORS, "Content-Type": "application/json" } }
-          );
-        }
-      }
+    // Eşik TOPLAMDA: dağılım serbest, kategori boş kalabilir.
+    if (books.length + movies.length + music.length < MIN_TOTAL) {
+      return new Response(
+        JSON.stringify({
+          error: `Portreni çıkarabilmem için toplam en az ${MIN_TOTAL} sinyal gerekli — hangi kategoriden geldikleri fark etmez.`,
+        }),
+        { status: 400, headers: { ...CORS, "Content-Type": "application/json" } }
+      );
     }
 
     // Günlük kota: Istanbul gününe göre maks 3 rapor
@@ -344,15 +445,21 @@ Deno.serve(async (req) => {
     const jsonStr = jsonMatch ? jsonMatch[1] : responseText.trim();
     const report = JSON.parse(jsonStr);
 
-    const parsedBooks = books
-      .map(parseEntry)
-      .map(([t, a]) => ({ title: t, author: a }));
-    const parsedFilms = movies
-      .map(parseEntry)
-      .map(([t, d]) => ({ title: t, director: d }));
-    const parsedSongs = music
-      .map(parseEntry)
-      .map(([t, a]) => ({ title: t, artist: a }));
+    // "shadow tam 3 öneri" artık bir kaza değil sözleşme: boş kategorinin önerisi
+    // keşif kapısı olarak duruyor ve ShadowSection md:grid-cols-3 buna dayanıyor.
+    // Burada tutmazsak eksik dizi, kullanıcı API çağrısını harcadıktan SONRA
+    // rapor sayfasını çökertiyor (ShadowSection'daki data.map korumasız).
+    if (!Array.isArray(report.shadow) || report.shadow.length !== 3) {
+      console.error("[analyze] shadow beklenen 3 öneriyi içermiyor:", report.shadow);
+      return new Response(
+        JSON.stringify({ error: "Bir hata oluştu. Lütfen tekrar deneyin." }),
+        { status: 500, headers: { ...CORS, "Content-Type": "application/json" } }
+      );
+    }
+
+    const parsedBooks = books.map((s) => ({ title: s.title, author: s.creator }));
+    const parsedFilms = movies.map((s) => ({ title: s.title, director: s.creator }));
+    const parsedSongs = music.map((s) => ({ title: s.title, artist: s.creator }));
 
     const { data, error } = await sb
       .from("reports")
@@ -380,35 +487,16 @@ Deno.serve(async (req) => {
     try {
       const batchId = crypto.randomUUID();
 
-      // Edinim yolu istemciden girişlerle aynı sırada gelir. Gelmezse ya da
-      // tanınmayan bir değerse 'form' (Screenshot-to-DNA öncesi akış) varsayılır.
-      const VALID_SOURCES = ["screenshot", "paste", "manual", "form"];
-      const sourceAt = (key: string, i: number) => {
-        const value = sources?.[key]?.[i];
-        return VALID_SOURCES.includes(value) ? value : "form";
-      };
-
+      // Edinim yolu ve havuz id'si sinyalin kendi içinde geliyor — eskiden paralel
+      // dizilerden konumsal okunuyordu ve bir kayma sessizce yanlış source yazardı.
+      //
       // Import yolunda eserler onay ekranında zaten havuza yazıldı ve id'leri geldi.
-      // O satırlar için YENİDEN yazmıyoruz, yalnızca rapora bağlıyoruz — aksi halde
+      // O satırları YENİDEN yazmıyoruz, yalnızca rapora bağlıyoruz — aksi halde
       // her eser havuzda iki kez görünürdü.
-      const existingId = (key: string, i: number) => {
-        const value = work_ids?.[key]?.[i];
-        return typeof value === "string" && value.length > 0 ? value : null;
-      };
-
       const items = [
-        ...parsedBooks.map((b, i) => ({
-          type: "book", creator: b.author, title: b.title,
-          source: sourceAt("books", i), id: existingId("books", i),
-        })),
-        ...parsedFilms.map((f, i) => ({
-          type: "film", creator: f.director, title: f.title,
-          source: sourceAt("movies", i), id: existingId("movies", i),
-        })),
-        ...parsedSongs.map((s, i) => ({
-          type: "song", creator: s.artist, title: s.title,
-          source: sourceAt("music", i), id: existingId("music", i),
-        })),
+        ...books.map((s) => ({ type: "book", creator: s.creator, title: s.title, source: s.source, id: s.workId })),
+        ...movies.map((s) => ({ type: "film", creator: s.creator, title: s.title, source: s.source, id: s.workId })),
+        ...music.map((s) => ({ type: "song", creator: s.creator, title: s.title, source: s.source, id: s.workId })),
       ];
 
       // id'si gelmeyen satırlar (manuel / eski form yolu). Bunlar havuzda zaten

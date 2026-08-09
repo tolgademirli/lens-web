@@ -58,6 +58,26 @@ export type WorkSource = "screenshot" | "paste" | "manual" | "form";
 
 export type WorkConfidence = "high" | "medium" | "low";
 
+/**
+ * Rapora giren tek sinyal — formun ve `analyze` payload'ının taşıdığı birim.
+ *
+ * `title` ve `creator` ayrı tutuluyor çünkü kullanıcı ikisini ayrı ayrı
+ * düzenleyebiliyor. Eski tek-string biçimi ("Başlık - Yaratıcı") yalnızca
+ * geriye dönük okuma yollarında kaldı: orada yalnızca-eser-adı girdisi
+ * ayırıcı bulunamadığı için yaratıcı sanılıyordu.
+ *
+ * İkisi birden boş olamaz; biri boş olabilir ("sadece yazar adı da yeterli").
+ * `source` ve `workId` nesnenin içinde durur — eskiden paralel dizilerdeydi ve
+ * indeks kayması sessizce yanlış edinim yolu yazıyordu.
+ */
+export interface WorkEntry {
+  title: string;
+  creator: string;
+  source: WorkSource;
+  /** Havuzdaki (user_works) karşılığı; yoksa "" — analyze o zaman kendisi yazar. */
+  workId: string;
+}
+
 /** user_works satırı — kullanıcının sınırsız eser havuzu. */
 export interface UserWork {
   id: string;

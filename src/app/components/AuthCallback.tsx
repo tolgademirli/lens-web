@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import { motion } from "motion/react";
 import { Sparkles } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { readPendingReport } from "@/lib/pendingReport";
+import { readPendingReport, pendingReportIsComplete } from "@/lib/pendingReport";
 import { posthog } from "@/lib/posthog";
 
 export function AuthCallback() {
@@ -17,8 +17,10 @@ export function AuthCallback() {
         posthog.capture("auth_completed", { method });
         localStorage.removeItem("lens_auth_method");
       }
-      const hasPending = Boolean(readPendingReport());
-      navigate(hasPending ? "/generating" : "/dashboard", { replace: true });
+      // Sadece "var mı" yetmez: eksik bir kayıt kullanıcıyı /generating'e atar,
+      // orası da onu geri fırlatır. Eşiği burada da uygula.
+      const ready = pendingReportIsComplete(readPendingReport());
+      navigate(ready ? "/generating" : "/dashboard", { replace: true });
     }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {

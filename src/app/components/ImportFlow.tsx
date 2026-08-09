@@ -1,18 +1,21 @@
 import { useState, useRef, useEffect } from "react";
 import {
   Upload, ClipboardList, X, Check, Pencil, Trash2, AlertTriangle, Loader2, Plus,
+  ChevronLeft,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { motion, AnimatePresence } from "motion/react";
 import { posthog } from "@/lib/posthog";
-import { extractWorks, fileToBase64, workToEntry, ExtractError } from "@/lib/extractWorks";
+import { extractWorks, fileToBase64, ExtractError } from "@/lib/extractWorks";
 import { saveWorksToLibrary } from "@/lib/userWorks";
-import type { ExtractedWork, WorkSource, WorkType } from "@/lib/types";
+import { MAX_ENTRIES_PER_CATEGORY } from "@/lib/formLimits";
+import type { ExtractedWork, WorkEntry, WorkSource, WorkType } from "@/lib/types";
 
-// Rapora giren eser sayısı bounded: kategori başına 3-8 ("kütüphane sınırsız, rapor bounded").
-const MIN_SELECTED = 3;
-const MAX_SELECTED = 8;
+// Rapora giren eser sayısı bounded: kategori başına en fazla 8
+// ("kütüphane sınırsız, rapor bounded"). ALT SINIR BURADA YOK — eşik toplamdır
+// ve TasteForm'un sayacında yaşar; 2 kitap + 4 şarkı geçerli bir dağılımdır.
+const MAX_SELECTED = MAX_ENTRIES_PER_CATEGORY;
 const MAX_FILES = 5;
 
 const YARATICI_LABEL: Record<WorkType, string> = {
@@ -31,20 +34,18 @@ interface Row extends ExtractedWork {
 
 interface ImportFlowProps {
   type: WorkType;
-  /** "Kitap" | "Film" | "Müzik" — kullanıcıya dönük metinlerde geçer. */
-  categoryLabel: string;
   /** Bu kategoride en iyi sonucu veren kaynaklar (brief §2b çipleri). */
   sourceChips: string[];
   textPlaceholder: string;
   /** Halihazırda listede olan giriş sayısı — üst sınır buna göre daralır. */
   existingCount: number;
-  /** workIds: rapora giren satırların havuzdaki karşılıkları (yoksa boş string). */
-  onConfirm: (entries: string[], sources: WorkSource[], workIds: string[]) => void;
+  /** Rapora giren satırlar; her biri kendi edinim yolunu ve havuz id'sini taşır. */
+  onConfirm: (entries: WorkEntry[]) => void;
   onCancel: () => void;
 }
 
 export function ImportFlow({
-  type, categoryLabel, sourceChips, textPlaceholder, existingCount, onConfirm, onCancel,
+  type, sourceChips, textPlaceholder, existingCount, onConfirm, onCancel,
 }: ImportFlowProps) {
   // Akışın edinim yolu. Bu değişken hem sekme seçimini hem event'lerin `source`
   // property'sini besler; extract-works aynı payload'dan aynı değeri türetip her
@@ -78,7 +79,9 @@ export function ImportFlow({
   const creatorlessCount = rows.filter(
     (r) => r.source !== "manual" && !r.creator.trim() && r.title.trim()
   ).length;
-  const canConfirm = selectedCount >= 1 && selectedCount + existingCount >= MIN_SELECTED;
+  // Bu ekranın tek yerel kuralı: boş onay olmaz. Toplam 6 eşiği burada değil,
+  // TasteForm'un sayacında — 2 eserlik bir import da geçerli bir katkıdır.
+  const canConfirm = selectedCount >= 1;
   const hasInput = flowSource === "screenshot" ? files.length > 0 : text.trim().length > 0;
 
   // Ctrl+V ile panodan ekran görüntüsü yapıştırma (brief §2b).
@@ -253,11 +256,15 @@ export function ImportFlow({
     }
 
     // ids yalnızca seçilenleri, seçilme sırasıyla içerir.
-    const chosen = kept.filter((r) => r.selected);
     onConfirm(
-      chosen.map(workToEntry),
-      chosen.map((r) => r.source),
-      chosen.map((_, i) => ids[i] ?? "")
+      kept
+        .filter((r) => r.selected)
+        .map((r, i) => ({
+          title: r.title.trim(),
+          creator: r.creator.trim(),
+          source: r.source,
+          workId: ids[i] ?? "",
+        }))
     );
   }
 
@@ -543,8 +550,8 @@ export function ImportFlow({
 
         {!canConfirm && (
           <p className="text-sm text-amber-200 bg-amber-900/30 border border-amber-500/30 rounded-xl p-3 mb-4 text-center">
-            Devam etmek için en az {MIN_SELECTED} eser gerekiyor
-            {existingCount > 0 && ` (listende ${existingCount} tane var)`}.
+            Rapora girecek en az bir eser işaretle. Hiçbiri sana ait değilse elle
+            yazmaya dönebilirsin.
           </p>
         )}
 
@@ -572,6 +579,20 @@ export function ImportFlow({
   // ------------------------------------------------------------ yükle / yapıştır
   return (
     <div>
+      {/* Bu ekran sekme panelinin yerine geçiyor; formun kendi footer'ı gizli,
+          dolayısıyla geri dönüş yolu burada olmak zorunda. */}
+      <button
+        onClick={onCancel}
+        className="flex items-center gap-1 text-sm text-purple-300 hover:text-white transition-colors mb-6"
+      >
+        <ChevronLeft className="w-4 h-4" /> Geri
+      </button>
+
+      <h3 className="text-2xl text-white mb-1">Yükle / Yapıştır</h3>
+      <p className="text-purple-200 text-sm mb-6">
+        Ekran görüntüsü at ya da metni yapıştır — okuyup buraya doldururum, sen onaylarsın.
+      </p>
+
       <div className="grid grid-cols-2 gap-2 p-1 bg-slate-900/50 rounded-xl mb-6">
         {(["screenshot", "paste"] as const).map((t) => (
           <button
@@ -606,9 +627,15 @@ export function ImportFlow({
               <Upload className="w-6 h-6 text-white" />
             </div>
             <p className="text-white mb-1">Ekran görüntüsünü buraya sürükle</p>
-            <p className="text-sm text-purple-300">
+            <p className="text-sm text-purple-300 mb-1">
+              Birden fazla görsel · aynı kategoriden birden çok liste olabilir
+            </p>
+            <p className="text-xs text-purple-300/70 mb-4">
               PNG, JPG · en fazla {MAX_FILES} dosya · dosya başına 10 MB
             </p>
+            <span className="inline-flex items-center h-10 px-4 rounded-xl border border-purple-500/30 text-sm text-purple-100 hover:border-purple-400 transition-colors">
+              Bilgisayardan dosya seç
+            </span>
             <input
               ref={fileInputRef}
               type="file"
@@ -636,7 +663,7 @@ export function ImportFlow({
                 >
                   <span className="flex-1 text-sm text-purple-100 truncate">{f.name}</span>
                   <span className="text-xs text-purple-300 shrink-0">
-                    {(f.size / 1024 / 1024).toFixed(1)} MB
+                    {(f.size / 1024 / 1024).toFixed(1)} MB · ekran görüntüsü
                   </span>
                   <button
                     onClick={() => setFiles(files.filter((_, idx) => idx !== i))}
@@ -701,7 +728,7 @@ export function ImportFlow({
           size="lg"
           className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-8 rounded-xl disabled:opacity-50"
         >
-          {hasInput ? `${categoryLabel} eserlerini çıkar` : "Önce görsel ya da metin ekle"}
+          {hasInput ? "Eserleri çıkar" : "Önce görsel ya da metin ekle"}
         </Button>
       </div>
     </div>

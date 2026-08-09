@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
-import type { Report, DailyDiscovery } from "./types";
+import type { Report, DailyDiscovery, WorkEntry } from "./types";
+import type { TasteDraft } from "./tasteDraft";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -39,23 +40,28 @@ export class AnalyzeError extends Error {
   }
 }
 
-/** Girişlerle aynı sırada edinim yolları. Verilmezse edge function 'form' varsayar. */
-export interface EntrySources {
-  books?: string[];
-  movies?: string[];
-  music?: string[];
+/**
+ * Sinyaller `analyze`'a yapılı gider: edinim yolu ve havuz id'si her nesnenin
+ * içindedir. Eskiden paralel dizilerdi ve indeks kayması sessizce yanlış
+ * `source` yazıyordu. Edge function eski string biçimini de kabul ediyor —
+ * o yol yalnızca 60 dk TTL'deki bekleyen kayıtlar için.
+ */
+function toWire(entry: WorkEntry) {
+  return {
+    title: entry.title,
+    creator: entry.creator,
+    source: entry.source,
+    work_id: entry.workId,
+  };
 }
 
-export async function analyzeAndCreateReport(
-  books: string[],
-  movies: string[],
-  music: string[],
-  sources?: EntrySources,
-  /** Havuzda zaten yazılmış kayıtların id'leri; verilirse analyze tekrar yazmaz. */
-  workIds?: EntrySources
-): Promise<string> {
+export async function analyzeAndCreateReport(draft: TasteDraft): Promise<string> {
   const { data, error } = await supabase.functions.invoke("analyze", {
-    body: { books, movies, music, sources, work_ids: workIds },
+    body: {
+      books: draft.books.map(toWire),
+      movies: draft.movies.map(toWire),
+      music: draft.music.map(toWire),
+    },
   });
 
   if (error) {

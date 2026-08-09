@@ -98,7 +98,7 @@ export function ReportsPage() {
             <p className="text-purple-300/60 text-sm mt-1">{reports.length} rapor</p>
           </div>
           <Button
-            onClick={() => navigate("/books")}
+            onClick={() => navigate("/start")}
             className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-full text-sm px-5 shadow-lg shadow-purple-900/40"
           >
             <Plus className="w-4 h-4 mr-1.5" />
@@ -117,13 +117,13 @@ export function ReportsPage() {
               <Sparkles className="w-10 h-10 text-purple-400" />
             </div>
             <div className="space-y-1.5">
-              <p className="text-white text-lg font-medium">Henüz raporunuz yok</p>
+              <p className="text-white text-lg font-medium">Henüz raporun yok</p>
               <p className="text-purple-300/60 text-sm max-w-xs">
-                Favori eserlerinizi girerek estetik kimliğinizi keşfetmeye başlayın.
+                Birkaç sinyal bırak, estetik kimliğini çıkarayım.
               </p>
             </div>
             <Button
-              onClick={() => navigate("/books")}
+              onClick={() => navigate("/start")}
               className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-full px-8 mt-2"
             >
               İlk Raporunu Oluştur
