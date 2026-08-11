@@ -178,8 +178,19 @@ export function DiscoveryCard({
       </div>
 
       <div className="min-w-0 flex-1">
-        {title && <p className="font-medium text-white">{title}</p>}
-        {creator && <p className="mt-0.5 text-sm text-purple-200/70">{creator}</p>}
+        {/*
+          Ana satır title DEĞİL, "title || creator". Müzik önerilerinde title
+          tasarım gereği boştur (sanatçı adı creator'da durur); sabit rol
+          verilseydi kartın asıl konusu alt-satır tipografisiyle, üstünde hiçbir
+          şey olmadan görünürdü. Alt satır yalnızca ikisi de doluysa çıkar.
+          MyList'teki satır düzeni de aynı kuralı kullanıyor.
+        */}
+        {(title || creator) && (
+          <p className="font-medium text-white">{title || creator}</p>
+        )}
+        {title && creator && (
+          <p className="mt-0.5 text-sm text-purple-200/70">{creator}</p>
+        )}
         {reason && (
           <p className="mt-2 text-sm italic leading-relaxed text-purple-300/70">{reason}</p>
         )}
