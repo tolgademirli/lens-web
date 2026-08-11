@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import type { Report, DailyDiscovery, WorkEntry } from "./types";
+import type { Report, DailyDiscovery, WeeklyPick, WorkEntry } from "./types";
 import type { TasteDraft } from "./tasteDraft";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
@@ -120,6 +120,37 @@ export async function fetchDailyDiscovery(): Promise<DailyDiscovery | null> {
     return null;
   }
   return data as DailyDiscovery;
+}
+
+/**
+ * Bu haftanın seçkisi — uygulama içinde gösterilir ("artık maili beklemeden burada").
+ *
+ * Kürasyon manuel kalır: burada seçki ÜRETİLMEZ, yalnızca elle girilmiş satır okunur.
+ * Statüye bakılmaz — mail gitmemiş (`draft`) bir seçki de uygulamada görünür; iki
+ * kanal birbirinin önkoşulu değildir.
+ */
+export async function fetchCurrentWeeklyPick(): Promise<WeeklyPick | null> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return null;
+
+  // Haftası 7 günden fazla geçmiş seçki gösterilmez — bayat seçki, geç gelen
+  // seçkiden iyidir (send-weekly-picks'teki `overpast` kuralıyla aynı mantık).
+  const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+  const { data, error } = await supabase
+    .from("weekly_picks")
+    .select("*")
+    .eq("user_id", session.user.id)
+    .gte("week", cutoff)
+    .order("week", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[weekly-picks] okunamadı:", error);
+    return null;
+  }
+  return (data as WeeklyPick | null) ?? null;
 }
 
 export async function fetchUserReports(): Promise<Report[]> {

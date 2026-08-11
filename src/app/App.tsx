@@ -1,6 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router";
 import { ReportPage } from "@/pages/ReportPage";
 import { Dashboard } from "@/pages/Dashboard";
+import { DashboardReports } from "@/pages/DashboardReports";
+import { MyList } from "@/pages/MyList";
 import { Settings } from "@/pages/Settings";
 import { Welcome } from "@/app/components/Welcome";
 import { TasteForm } from "@/app/components/TasteForm";
@@ -25,7 +27,10 @@ export default function App() {
         <Route path="/generating" element={<GeneratingReport />} />
         <Route path="/report/:id" element={<ReportPage />} />
         <Route path="/login" element={<Login />} />
+        {/* Panel sekmeleri. Rota dili İngilizce (BUG-01 dersi). */}
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/dashboard/reports" element={<DashboardReports />} />
+        <Route path="/dashboard/list" element={<MyList />} />
         <Route path="/settings" element={<Settings />} />
         <Route
           path="*"
