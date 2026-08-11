@@ -43,12 +43,42 @@ export interface ShadowItem {
   description: string;
 }
 
+/** Keşif kartındaki tek öneri. `slot` kart kimliğinin yarısıdır (diğer yarısı keşif id'si). */
+export interface DiscoveryItem {
+  slot: DiscoverySlot;
+  title: string;
+  creator: string;
+  /** Kartta italik görünen kısa gerekçe (max 12 kelime). */
+  reason: string;
+  /** Eksen ayarının girdisi — bkz. `taste_profile.axes`. Eski satırlarda yok. */
+  genre?: string;
+  /** -1 aydınlık .. +1 karanlık */
+  tone?: number;
+  /** -1 niş .. +1 popüler */
+  popularity?: number;
+  /** -1 klasik .. +1 çağdaş */
+  era?: number;
+}
+
+export type DiscoverySlot = "book" | "film" | "music";
+
 export interface DailyDiscovery {
   book: string;
   film: string;
   music: string;
   reasons: { book: string; film: string; music: string };
   date: string;
+  /** Keşif satırının id'si — geri bildirim buna bağlanır. Eski cache'lerde yok. */
+  id?: string;
+  /**
+   * Yapılandırılmış öneriler. Yoksa (eski satır) client `book`/`film`/`music`
+   * string'lerini bölerek gösterir — yalnızca geriye dönük okuma yolu.
+   */
+  items?: DiscoveryItem[];
+  /** O çağrıda haftalık eksen ayarı çalıştıysa true (ücretsiz pakette işaret gösterilir). */
+  profile_refreshed?: boolean;
+  /** Eşik dolmadıysa kalan sinyal sayısı; dolduysa 0. */
+  signals_until_profile?: number;
 }
 
 export type WorkType = "book" | "film" | "song";
@@ -126,11 +156,123 @@ export interface ReportWork {
   created_at: string;
 }
 
+/**
+ * Üyelik paketi. Geri bildirim VERMEK iki pakette de tamamen açıktır; ayrım
+ * yalnızca sistemin ne sıklıkta güncellendiği ve ne kadar geriye baktığındadır.
+ * Kullanıcı bu değeri kendi değiştiremez — `user_preferences` üzerindeki
+ * `guard_user_preferences_plan` trigger'ı yazımı yutar.
+ */
+export type UserPlan = "free" | "premium";
+
 /** user_preferences satırı. Satırın yokluğu "hepsi varsayılan" demektir. */
 export interface UserPreferences {
   user_id: string;
   weekly_picks_enabled: boolean;
+  plan: UserPlan;
   updated_at: string;
+}
+
+/* ---------------------------------------------------------------------------
+ * Geri bildirim (US-05)
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Kullanıcının bir keşif kartında verebileceği kararlar.
+ * `interested`/`not_interested` karttan, `known_*` "bunu biliyorum" alt sorusundan,
+ * `hit`/`partial`/`miss` Listem'deki "isabet miydi" sorusundan gelir.
+ */
+export type FeedbackDecision =
+  | "interested"
+  | "not_interested"
+  | "known_liked"
+  | "known_disliked"
+  | "known_neutral"
+  | "hit"
+  | "partial"
+  | "miss";
+
+/**
+ * Sinyalin güvenilirlik sınıfı. Üçü ASLA eşit işlenmez — bkz. `SIGNAL_WEIGHT`.
+ * Rezonans tüketim ÖNCESİ verilir: kullanıcı kartta yazan gerekçenin ikna gücünü
+ * oylar, eseri değil.
+ */
+export type SignalType = "resonance" | "taste" | "calibration";
+
+/** "İlgimi çekmedi" nedeni. Opsiyoneldir; verilmemesi geri bildirimi geçersiz kılmaz. */
+export type FeedbackReason = "too_dark" | "too_popular" | "mood_mismatch" | "genre_mismatch";
+
+/** Sinyalin hangi yüzeyden geldiği. `chat` (US-06) ve `onboarding` henüz üretilmiyor. */
+export type FeedbackOrigin = "daily_discovery" | "weekly_pick" | "chat" | "onboarding";
+
+/** discovery_feedback satırı — append-only sinyal defteri. */
+export interface DiscoveryFeedback {
+  id: string;
+  user_id: string;
+  work_type: WorkType;
+  work_creator?: string | null;
+  work_title?: string | null;
+  /** GENERATED kolon — client hesaplamaz, yalnızca okur. */
+  work_key: string;
+  decision: FeedbackDecision;
+  signal_type: SignalType;
+  weight: number;
+  reason?: FeedbackReason | null;
+  /** Yalnız `mood_mismatch`: bu tarihe kadar önerilmez, sonra tekrar aday olur. */
+  defer_until?: string | null;
+  origin: FeedbackOrigin;
+  daily_discovery_id?: string | null;
+  weekly_pick_id?: string | null;
+  slot?: string | null;
+  /** Dolu ise bu sinyal daha güçlü bir sinyalle aşıldı — SİLİNMİŞ değil, hata kaydı. */
+  superseded_by?: string | null;
+  created_at: string;
+}
+
+export type ListItemStatus = "pending" | "completed";
+
+/** "İsabet miydi?" yanıtı — Bitirdiklerim'deki rozet. */
+export type HitResult = "hit" | "partial" | "miss";
+
+/** list_items satırı — "Listem". */
+export interface ListItem {
+  id: string;
+  user_id: string;
+  work_type: WorkType;
+  work_creator?: string | null;
+  work_title?: string | null;
+  work_key: string;
+  status: ListItemStatus;
+  hit_result?: HitResult | null;
+  added_from: FeedbackOrigin;
+  daily_discovery_id?: string | null;
+  weekly_pick_id?: string | null;
+  slot?: string | null;
+  completed_at?: string | null;
+  /** Soft delete: listeden çıkarıldı ama motor unutmadı (tekrar önerilmez). */
+  removed_at?: string | null;
+  created_at: string;
+}
+
+/** Profilin eksenleri; her biri [-1, 1]. */
+export interface TasteAxes {
+  /** -1 aydınlık .. +1 karanlık */
+  tone?: number;
+  /** -1 niş .. +1 popüler */
+  popularity?: number;
+  /** -1 klasik .. +1 çağdaş */
+  era?: number;
+}
+
+/** taste_profile satırı — biriken ağırlıklı sinyallerden TÜRETİLİR, elle yazılmaz. */
+export interface TasteProfile {
+  user_id: string;
+  /** null = eşik (5 ağırlıklı sinyal) henüz dolmadı, profil hiç yazılmadı. */
+  axes: TasteAxes | null;
+  genre_weights: Record<string, number> | null;
+  signal_weight_total: number;
+  calibration_weight_total: number;
+  computed_at: string;
+  computed_through?: string | null;
 }
 
 /** Haftalık seçkideki tek film. Kürasyon manuel — bu satırlar elle girilir. */
@@ -139,6 +281,8 @@ export interface WeeklyPickFilm {
   year: number;
   blurb: string;
   justwatch_url: string;
+  /** Yönetmen — uygulama içi kartta başlığın altında görünür. Mailde kullanılmaz. */
+  director?: string;
 }
 
 /** Mail giriş paragrafını belirler. */

@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import type { UserPreferences } from "./types";
+import type { UserPlan, UserPreferences } from "./types";
 
 /**
  * Tercih varsayılanları. `user_preferences` satırı OLMAYAN kullanıcı için
@@ -8,9 +8,18 @@ import type { UserPreferences } from "./types";
  */
 export const DEFAULT_PREFERENCES = {
   weekly_picks_enabled: true,
+  /**
+   * Paket. Satırı olmayan kullanıcı ücretsizdir; DB kolonunun DEFAULT'u da 'free'.
+   * Kullanıcı bu değeri kendi yazamaz (guard_user_preferences_plan trigger'ı),
+   * o yüzden aşağıdaki upsert'lerde hiç gönderilmez.
+   */
+  plan: "free",
 } as const;
 
-export type PreferenceValues = typeof DEFAULT_PREFERENCES;
+export type PreferenceValues = {
+  weekly_picks_enabled: boolean;
+  plan: UserPlan;
+};
 
 /**
  * Oturum açmış kullanıcının tercihleri. Satır yoksa varsayılanlar döner —
@@ -22,9 +31,9 @@ export async function fetchPreferences(): Promise<PreferenceValues> {
 
   const { data, error } = await supabase
     .from("user_preferences")
-    .select("weekly_picks_enabled")
+    .select("weekly_picks_enabled, plan")
     .eq("user_id", session.user.id)
-    .maybeSingle<Pick<UserPreferences, "weekly_picks_enabled">>();
+    .maybeSingle<Pick<UserPreferences, "weekly_picks_enabled" | "plan">>();
 
   if (error) {
     console.error("[preferences] okunamadı:", error);
@@ -33,6 +42,7 @@ export async function fetchPreferences(): Promise<PreferenceValues> {
 
   return {
     weekly_picks_enabled: data?.weekly_picks_enabled ?? DEFAULT_PREFERENCES.weekly_picks_enabled,
+    plan: (data?.plan ?? DEFAULT_PREFERENCES.plan) as UserPlan,
   };
 }
 

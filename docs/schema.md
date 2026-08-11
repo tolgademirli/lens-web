@@ -88,7 +88,18 @@ Günlük keşif önerileri önbelleği. `daily-discovery` edge function, her kul
 | `film`       | TEXT NOT NULL| `"Film Adı - Yönetmen"` formatı |
 | `music`      | TEXT NOT NULL| Sanatçı adı |
 | `reasons`    | JSONB        | `{book: string, film: string, music: string}` — her öneri için max 12 kelime açıklama |
+| `items`      | JSONB        | `[{slot, title, creator, reason, genre, tone, popularity, era}]` — nullable, eski satırlarda yok |
 | `created_at` | TIMESTAMPTZ  | default NOW() |
+
+> **`items` yeni kaynak, `book`/`film`/`music` ondan türetilir.** Eski TEXT kolonları
+> (`"Başlık - Yaratıcı"`) değişmedi ve yazılmaya devam ediyor — Telegram botu ve eski
+> satırlar okumayı sürdürsün diye. Client önce `items`'a bakar; yoksa eski string'i
+> böler (yalnızca geriye dönük okuma yolu, `src/lib/discovery.ts → splitLegacy`).
+>
+> `tone` / `popularity` / `era` [-1, 1] aralığında normalize edilir
+> (aydınlık→karanlık, niş→popüler, klasik→çağdaş), `genre` kısa bir tür etiketidir.
+> Bu etiketler **eksen ayarının girdisidir**: "Fazla karanlık" tek başına yönü verir, ama
+> olumlu bir sinyalin profili hangi yöne çekeceği ancak eserin kendi etiketlerinden okunur.
 
 **Kısıt:** `UNIQUE(user_id, date)` — bir kullanıcı günde bir keşif alır.  
 **RLS:** Kullanıcı yalnızca kendi satırlarını okuyabilir. Insert yalnızca `service_role_key` ile yapılır (edge function).
@@ -97,13 +108,21 @@ Günlük keşif önerileri önbelleği. `daily-discovery` edge function, her kul
 
 ## `user_preferences`
 
-Kullanıcının kendi tercihleri. Şu an tek alan: haftalık film seçkisi opt-out'u.
+Kullanıcının kendi tercihleri ve üyelik paketi.
 
 | Kolon                  | Tip          | Notlar |
 |------------------------|--------------|--------|
 | `user_id`              | UUID PK      | `auth.users(id)` ON DELETE CASCADE |
 | `weekly_picks_enabled` | BOOLEAN      | NOT NULL, default true |
+| `plan`                 | TEXT         | NOT NULL, default `free`. `free` \| `premium` (CHECK) |
 | `updated_at`           | TIMESTAMPTZ  | NOT NULL, default NOW(); BEFORE UPDATE trigger'ı tazeler |
+
+> **`plan`'ı kullanıcı kendi değiştiremez.** RLS, kullanıcının kendi satırını UPDATE
+> etmesine izin verir (toggle bunu gerektiriyor), dolayısıyla tek başına yeterli değildi:
+> `guard_user_preferences_plan` BEFORE INSERT/UPDATE trigger'ı, çağıran rol `authenticated`
+> ya da `anon` ise `plan` değişimini sessizce yutar (INSERT'te `free`'ye sabitler).
+> `service_role`, `postgres` ve bakım rolleri yazabilir — ödeme akışı (US-08) buradan yazacak.
+> Okuma tek noktadan: `src/lib/entitlements.ts → fetchPlan()`.
 
 **Satırın yokluğu = varsayılan.** Kullanıcı ayara hiç dokunmadıysa burada satırı olmaz ve `weekly_picks_enabled = true` varsayılır. Satır ancak toggle'a ilk dokunuşta (upsert) doğar. Hem client (`src/lib/preferences.ts → DEFAULT_PREFERENCES`) hem gönderim fonksiyonu aynı varsayımı kullanır — birini değiştirirken diğerini de değiştir.
 
@@ -131,6 +150,135 @@ Haftalık film seçkileri. **Kürasyon manuel:** satırlar elle (veya dışarıd
 **RLS:** Kullanıcı yalnızca kendi seçkilerini SELECT edebilir. INSERT/UPDATE/DELETE policy'si **bilerek yok** — yalnızca `service_role_key` yazar. Aksi halde kullanıcı kendi satırını `sent` işaretleyip gönderimi atlatabilirdi.
 
 > **`overpast` = haftası geçti, artık gönderilmeyecek.** `send-weekly-picks` her çağrıda, haftası 7 günden fazla geçmiş tüm `draft` satırları bu duruma çeker. Opt-out yapan kullanıcının satırı o hafta içinde `draft` kalır (tercihini hemen geri açarsa seçki hâlâ gidebilir), sonra kapanır. Böylece Ağustos'ta kapatıp Ekim'de açan kullanıcı **yalnızca Ekim sonrası haftaları** alır; aradaki seçkiler birikip toplu halde gitmez. Bilinçli geri-doldurma için gönderim gövdesinde `allow_overpast: true` gerekir.
+
+---
+
+## `discovery_feedback`
+
+Keşif kartlarına verilen sinyallerin **append-only** defteri (US-05). Üzerine yazılmaz.
+
+| Kolon | Tip | Notlar |
+|-------|-----|--------|
+| `id` | UUID PK | |
+| `user_id` | UUID NOT NULL | `auth.users(id)` ON DELETE CASCADE |
+| `work_type` | TEXT | `book` \| `film` \| `song` (CHECK) — `user_works.type` ile aynı sözlük |
+| `work_creator`, `work_title` | TEXT | En az biri dolu (CHECK). Öneri `user_works`'e **yazılmaz** |
+| `work_key` | TEXT GENERATED STORED | `lens_work_key(work_type, work_creator, work_title)` |
+| `decision` | TEXT | `interested`, `not_interested`, `known_liked`, `known_disliked`, `known_neutral`, `hit`, `partial`, `miss` (CHECK) |
+| `signal_type` | TEXT | `resonance` \| `taste` \| `calibration` (CHECK) |
+| `weight` | SMALLINT NOT NULL | 1 / 3 / 5. Sunucuda karardan türetilir, **saklanır** |
+| `reason` | TEXT | `too_dark`, `too_popular`, `mood_mismatch`, `genre_mismatch` (CHECK), nullable |
+| `defer_until` | TIMESTAMPTZ | Yalnız `mood_mismatch`: NOW() + 60 gün. Erteleme kuyruğu bu kolonun kendisi |
+| `origin` | TEXT | `daily_discovery`, `weekly_pick`, `chat`, `onboarding` (CHECK) |
+| `daily_discovery_id`, `weekly_pick_id` | UUID | **ON DELETE SET NULL** |
+| `slot` | TEXT | `book`/`film`/`music` ya da seçkideki film indeksi |
+| `superseded_by` | UUID | Kendine FK. Dolu = daha güçlü sinyalle aşıldı (**silinmiş değil**) |
+| `created_at` | TIMESTAMPTZ | NOT NULL, default NOW() |
+
+**`ON DELETE SET NULL` bilinçli:** sinyal, onu doğuran kartı aşmalı. CASCADE olsaydı eski bir
+keşif satırı temizlendiğinde motorun hafızası sessizce silinirdi.
+
+**Çakışma — `work_key` başına tek aktif satır.** Yeni sinyal mevcut kazanandan güçlü ya da eşitse
+tüm aktif satırları kapatır; zayıfsa kendisi aşılmış doğar. Eşitlik dahil olması şart: aynı eser
+hem günlük keşiften hem seçkiden `interested` alırsa (ikisi de 1×) eksene çift katkı verirdi.
+Aşılan satır **asla silinmez** — "ilgimi çekti → bitirdim → isabet değildi" zinciri motorun kendi
+öngörü hatasını görebildiği tek veridir.
+
+**RLS:** yalnızca SELECT (kendi satırları). INSERT/UPDATE/DELETE policy'si **yok** — yazma
+yalnızca `record_feedback` / `retract_feedback` RPC'lerinden. Doğrudan INSERT açık olsaydı client
+kendi ağırlığını seçebilirdi.
+
+---
+
+## `list_items`
+
+"Listem" — Bekleyenler ve Bitirdiklerim.
+
+| Kolon | Tip | Notlar |
+|-------|-----|--------|
+| `id` | UUID PK | |
+| `user_id` | UUID NOT NULL | `auth.users(id)` ON DELETE CASCADE |
+| `work_type`, `work_creator`, `work_title` | | `discovery_feedback` ile aynı biçim |
+| `work_key` | TEXT GENERATED STORED | Aynı `lens_work_key()` — iki tablo ayrışamaz |
+| `status` | TEXT | `pending` \| `completed` (CHECK), default `pending` |
+| `hit_result` | TEXT | `hit` \| `partial` \| `miss` (CHECK), nullable — arşivdeki rozet |
+| `added_from` | TEXT | `origin` ile aynı sözlük |
+| `daily_discovery_id`, `weekly_pick_id`, `slot` | | Köken |
+| `completed_at`, `removed_at`, `created_at` | TIMESTAMPTZ | |
+
+**Kısıt:** `UNIQUE (user_id, work_key)` — aynı eser hem günlük keşiften hem seçkiden gelirse
+çift satır olmaz.
+
+**`removed_at` soft delete:** satır gerçekten silinseydi eser tekrar önerilebilir hale gelirdi;
+kural "listeye eklenen eser tekrar önerilmez" diyor. Kullanıcı listeden çıkarır, motor unutmaz.
+
+> **"Bunu biliyorum → Sevdim" buraya satır AÇMAZ** — bilinçli karar. Sinyal 3× zevk ağırlığıyla
+> deftere yazılır ama arşiv "**Lens ile** bitirdiklerim" anlamını taşır; Lens önermeden önce
+> zaten bilinen bir eser orada bir başarı kaydı değildir.
+
+**RLS:** SELECT / INSERT / UPDATE kendi satırları. DELETE policy'si yok — çıkarma `removed_at` ile.
+
+---
+
+## `taste_profile`
+
+Biriken ağırlıklı sinyallerden **türetilen** eksen profili. Elle yazılmaz; kaybolursa defterden
+yeniden hesaplanabilir.
+
+| Kolon | Tip | Notlar |
+|-------|-----|--------|
+| `user_id` | UUID PK | `auth.users(id)` ON DELETE CASCADE |
+| `axes` | JSONB | `{tone, popularity, era}`, her biri [-1, 1]. **NULL = eşik henüz dolmadı** |
+| `genre_weights` | JSONB | `{"<tür>": ağırlık}` |
+| `signal_weight_total` | NUMERIC | Bayatlama sonrası toplam ağırlık; eksen ayarı eşiği (5) buna bakar |
+| `calibration_weight_total` | NUMERIC | Arketip revizyonu eşiği (15) için sayaç — **bu iterasyonda okunmuyor** |
+| `computed_at`, `computed_through` | TIMESTAMPTZ | Haftalık tempoyu yönetir |
+
+**RLS:** yalnızca SELECT (kendi satırı). Yazma policy'si yok — türetilmiş veri.
+
+---
+
+## US-05 fonksiyonları
+
+| Fonksiyon | Şema | Notlar |
+|-----------|------|--------|
+| `lens_work_key(type, creator, title)` | public | IMMUTABLE. Parantez atar, Türkçe diyakritikleri katlar, `COLLATE "C"` ile küçültür, alfanümerik olmayanı siler |
+| `lens_signal_type` / `_weight` / `_valence` | public | IMMUTABLE karar sözlüğü. **Ağırlık** = güven kütlesi, **valans** = yön/şiddet (`partial`: 5× kütle, +0.5 valans) |
+| `record_feedback(...)` | public | Sinyali yazar, çakışma invaryantını kurar, `interested` ise listeye ekler, tempoya göre profili hesaplar |
+| `retract_feedback(id)` | public | Kaydı **siler** ve invaryantı yeniden kurar (`weight DESC, created_at DESC`) |
+| `lens_blocked_works(user_id)` | public | JSONB. "Tekrar önerme" kümesinin tek tanımı |
+| `lens_refresh_profile_if_due(user_id)` | public | Ücretsizin haftalık tempo kapısı; `{profile_refreshed, signals_until_profile}` döner |
+| `lens_work_keys(jsonb)` | public | Aday önerilerin anahtarlarını toplu üretir |
+| `lens_active_signals(user_id, window)` | **lens_private** | Bayatlama + valans uygulanmış aktif sinyaller |
+| `recompute_taste_profile(user_id, window)` | **lens_private** | Eksen ayarı |
+
+> ### ⚠️ `public` şemadaki fonksiyonlardan yetki GERİ ALMA
+> PostgreSQL 17.6'da gerçek bir hata var: EXECUTE yetkisi olmayan bir rol **IMMUTABLE olmayan**
+> bir fonksiyonu çağırdığında backend `permission denied` döndürmek yerine **SEGFAULT** ediyor ve
+> veritabanı crash recovery'ye giriyor. Üç satırlık `RETURNS INT LANGUAGE sql STABLE ... SELECT 1`
+> ile de yeniden üretilir; kod içeriğiyle ilgisi yok. IMMUTABLE fonksiyonlarda ve **şema
+> seviyesindeki** USAGE reddinde sorun yok.
+>
+> `public` şemadaki her fonksiyon PostgREST üzerinden `/rest/v1/rpc/<ad>` olarak çağrılabildiği
+> için, "yetkiyi geri al" savunması oturumu olan herhangi bir kullanıcının tek istekle
+> veritabanını düşürmesi anlamına gelirdi. Bu yüzden:
+> 1. `public`'teki IMMUTABLE olmayan fonksiyonlara `anon` dahil **EXECUTE verilir**; koruma
+>    gövdedeki `auth.uid()` denetimindedir (`lens_blocked_works` başkasının kümesi istenince boş
+>    döner, `lens_refresh_profile_if_due` hata atar).
+> 2. Kimsenin çağırmaması gerekenler `lens_private` şemasında durur — PostgREST orayı görmez.
+>
+> **Şu an açık bir vektör YOK.** `public` şemadaki IMMUTABLE olmayan sekiz fonksiyonun
+> (bu geliştirmeninkiler + `upsert_user_works`, `bump_extraction_quota`, trigger fonksiyonları)
+> hepsinde `authenticated` EXECUTE yetkisine sahip, dolayısıyla izin reddi yolu hiç oluşmuyor.
+> Risk **gizil**: ileride biri "güvenlik sıkılaştırması" diye bu fonksiyonlardan yetki geri
+> alırsa vektör açılır. Denetim sorgusu:
+>
+> ```sql
+> SELECT p.proname, has_function_privilege('authenticated', p.oid, 'EXECUTE') AS ok
+> FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+> WHERE n.nspname = 'public' AND p.provolatile <> 'i' ORDER BY ok;
+> ```
+> `ok = false` çıkan her satır bir DoS vektörüdür.
 
 ---
 
@@ -165,13 +313,16 @@ Telegram hesabı ↔ Lens hesabı eşlemesi. `link-telegram` edge function `tele
 
 ---
 
-## `extraction_quota` — **production'da YOK**
+## `extraction_quota`
 
-`extract-works` edge function günlük çıkarım kotası için `bump_extraction_quota(p_client_key, p_date)` RPC'sini çağırır (`DAILY_EXTRACTIONS = 30`). `supabase/migrations/extraction_quota.sql` hem tabloyu hem fonksiyonu tanımlar, **ancak bu dosya production'a hiç uygulanmamıştır** — ne tablo ne fonksiyon canlıda mevcut.
+`extract-works` edge function günlük çıkarım kotası için `bump_extraction_quota(p_client_key, p_date)` RPC'sini çağırır (`DAILY_EXTRACTIONS = 30`).
 
-Fonksiyon **fail-open** tasarlanmış (`extract-works/index.ts → quotaExceeded`): RPC hata verirse `false` döner ve istek geçer. Dolayısıyla çökme yok — ama **günlük 30 çıkarım limiti şu an hiç uygulanmıyor.** Her kullanıcı sınırsız ekran görüntüsü/yapıştırma çıkarımı yapabilir; her biri bir Claude vision çağrısı maliyetindedir.
+**Production'da uygulanmıştır:** `20260808121924_extraction_quota.sql`, 2026-08-08'de push edilmiş
+ve uzak migration geçmişinde kayıtlıdır (`supabase migration list` ile doğrulanabilir). Bu bölüm
+bir dönem "production'da YOK" diyordu; o bilgi migration zaman damgalı hâle getirilip
+uygulandıktan sonra güncellenmemişti.
 
-Kotayı devreye almak için `extraction_quota.sql` içeriğinin zaman damgalı bir migration'a taşınıp `supabase db push` ile uygulanması gerekir. Bu bir **davranış değişikliğidir** (bugün limitsiz olan kullanıcılar limite tabi olur), o yüzden bilinçli karar ister.
+Fonksiyon **fail-open** tasarlanmış (`extract-works/index.ts → quotaExceeded`): RPC hata verirse `false` döner ve istek geçer. Yani kota altyapısı bozulursa çıkarım durmaz, sınırsız hâle döner.
 
 ---
 
