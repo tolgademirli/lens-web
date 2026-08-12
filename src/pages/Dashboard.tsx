@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import { motion } from "motion/react";
 import { Calendar, Plus, Sparkles } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
+import { CardCarousel } from "@/app/components/CardCarousel";
 import { DashboardShell } from "@/app/components/DashboardShell";
 import { DiscoveryCard } from "@/app/components/DiscoveryCard";
 import {
@@ -134,8 +135,9 @@ export function Dashboard() {
           )}
 
           {discovery ? (
-            /* auto-rows-fr: kartlar satır boyunca aynı yükseklikte kalır. */
-            <div className="grid auto-rows-fr gap-4 md:grid-cols-3">
+            /* Masaüstünde ızgara (auto-rows-fr: kartlar satır boyunca aynı
+               yükseklikte), mobilde yana kaydırmalı carousel. */
+            <CardCarousel>
               {dailyDiscoveryCards(discovery).map((card) => (
                 <DiscoveryCard
                   key={card.key}
@@ -150,7 +152,7 @@ export function Dashboard() {
                   onChange={reloadFeedback}
                 />
               ))}
-            </div>
+            </CardCarousel>
           ) : (
             <p className="rounded-2xl border border-dashed border-purple-500/25 bg-slate-800/30 px-6 py-10 text-center text-sm text-purple-200/80">
               Bugünün keşfi hazırlanamadı. Biraz sonra tekrar dene.
@@ -165,7 +167,7 @@ export function Dashboard() {
               title="Bu Haftanın Film & Dizi Seçkisi"
               subtitle={`${formatWeekTr(weeklyPick.week)} haftası · artık maili beklemeden burada`}
             />
-            <div className="grid auto-rows-fr gap-4 md:grid-cols-3">
+            <CardCarousel>
               {weeklyPickCards(weeklyPick).map((card) => (
                 <DiscoveryCard
                   key={card.key}
@@ -180,7 +182,7 @@ export function Dashboard() {
                   onChange={reloadFeedback}
                 />
               ))}
-            </div>
+            </CardCarousel>
           </section>
         )}
       </motion.div>
