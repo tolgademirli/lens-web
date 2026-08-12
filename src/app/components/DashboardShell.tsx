@@ -48,9 +48,11 @@ export function DashboardShell({ children, loading = false }: DashboardShellProp
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       <div className="sticky top-0 z-10 border-b border-purple-500/20 bg-slate-900/50 backdrop-blur-sm">
         <div className="mx-auto max-w-6xl px-4 md:px-8">
-          <div className="flex items-center justify-between py-4">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 shadow-lg">
+          <div className="flex items-center justify-between gap-2 py-4">
+            {/* min-w-0: sol grup küçülebilmeli, yoksa e-posta satırı kırpılmak yerine
+                sağdaki aksiyonları (shrink-0 butonlar) mobilde ekran dışına iter. */}
+            <div className="flex min-w-0 flex-1 items-center gap-3 md:gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 shadow-lg">
                 <Sparkles className="h-6 w-6 text-white" />
               </div>
               <div className="min-w-0">
@@ -62,9 +64,10 @@ export function DashboardShell({ children, loading = false }: DashboardShellProp
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex shrink-0 items-center gap-1 sm:gap-3">
               <Button
                 onClick={() => navigate("/start")}
+                aria-label="Yeni Rapor"
                 className="gap-2 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg hover:from-purple-600 hover:to-pink-600"
               >
                 <Plus className="h-5 w-5" />
@@ -74,14 +77,15 @@ export function DashboardShell({ children, loading = false }: DashboardShellProp
                 variant="ghost"
                 onClick={() => navigate("/settings")}
                 aria-label="Ayarlar"
-                className="rounded-xl text-purple-200 hover:bg-slate-700/50 hover:text-white"
+                className="rounded-xl px-2 text-purple-200 hover:bg-slate-700/50 hover:text-white sm:px-3"
               >
                 <SettingsIcon className="h-5 w-5" />
               </Button>
               <Button
                 variant="ghost"
                 onClick={handleSignOut}
-                className="gap-2 rounded-xl text-purple-200 hover:bg-slate-700/50 hover:text-white"
+                aria-label="Çıkış"
+                className="gap-2 rounded-xl px-2 text-purple-200 hover:bg-slate-700/50 hover:text-white sm:px-3"
               >
                 <span className="hidden sm:inline">Çıkış</span>
                 <LogOut className="h-5 w-5" />
