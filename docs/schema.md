@@ -18,12 +18,23 @@ Claude API tarafından üretilen estetik kimlik raporları. `analyze` edge funct
 | `books`           | JSONB        | `[{title: string, author: string}]` — title boş olabilir (sadece yazar girilmişse) |
 | `films`           | JSONB        | `[{title: string, director: string}]` |
 | `songs`           | JSONB        | `[{title: string, artist: string}]` |
-| `hero`            | JSONB        | `{archetype: string, summary: string}` |
+| `hero`            | JSONB        | `{archetype: string, archetype_qualifier?: string, archetype_core?: string, summary: string}` |
 | `texture`         | JSONB        | `{descriptions: string[], colors: [{name, hex, description}]}` — tam 3 renk |
 | `threads`         | JSONB        | `[{title: string, description: string}]` — 2-3 öğe |
 | `contrasts`       | JSONB        | `[{left: ContrastSide, right: ContrastSide, explanation: {title, text}}]` — 1-2 öğe |
 | `shadow`          | JSONB        | `[{type: "Kitap"\|"Film"\|"Müzik", title: string\|null, author_or_artist: string, year: string\|null, description: string}]` — tam 3 öğe |
 | `is_public`       | BOOLEAN      | default false. true ise auth'suz okunabilir. |
+| `public_since`    | TIMESTAMPTZ  | nullable. `is_public` false→true olduğunda **trigger** damgalar, true→false olduğunda NULL'lanır. Client yazamaz (`lens_touch_public_since` gönderilen değeri ezer). |
+
+> **`hero.archetype` her zaman DÜZ STRING'dir.** Üretici prompt'u onu
+> `{full, qualifier, core}` nesnesi olarak ister ama `analyze` insert'ten önce
+> düzleştirir (`normalizeArchetype`). Nesne olarak saklanamaz: dokuz frontend
+> noktası ve `daily-discovery`'nin kendi Claude prompt'u onu string olarak
+> okuyor, nesne yazılsa orada sessizce `[object Object]` oluşurdu.
+> `archetype_qualifier` / `archetype_core` yalnızca posterdeki iki katmanlı
+> başlık için var ve **yalnızca 2026-08-13'ten sonraki raporlarda dolu**;
+> ikisi de boşsa poster tek katmana düşer. `ContrastSide.poster` da aynı
+> şekilde opsiyoneldir (posterdeki tek kelimelik kutup etiketi).
 
 > **`is_public` varsayılanı yazıcılar tarafından hiç kullanılmıyor.** Her iki insert yolu da değeri açıkça veriyor: `analyze` edge function `false`, lens bot `true` (`bot.py`). Yani Telegram kaynaklı raporlar **herkese açık doğar** — bu bir ürün kararı, varsayılanın yan etkisi değil. Varsayılan yalnızca ileride `is_public` vermeyi unutan bir insert yolu eklenirse devreye girer.
 

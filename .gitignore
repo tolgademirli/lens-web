@@ -4,6 +4,9 @@ dist/
 .env.local
 .env
 
+# poster-samples.mjs çıktısı — üretilebilir, commit edilmez
+tmp/
+
 # `supabase start` tarafından üretilen lokal çalışma dosyaları
 supabase/.branches/
 supabase/.temp/start-secrets/

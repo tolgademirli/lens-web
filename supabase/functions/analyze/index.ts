@@ -39,6 +39,9 @@ VAR SAYMA: bu prompt'ta başlığı geçmeyen kategoriden konuşma, oraya dair �
    gibi aşınmış metaforlar yasak
 3. Eserler hakkında yanlış bilgi verme — emin olmadığın bir detayı uydurma
 4. Emoji kullanma (JSON değerlerinin içine emoji koyma)
+4b. Yalnızca Türk alfabesi ve Latin harfleri kullan. Kiril ya da Yunan harfi
+   karıştırma — "Zihinден" ve "kaosу" gibi çıktılar veriyorsun, bunlar okunuşu
+   aynı ama farklı harfler ve metni bozuyor
 5. Kullanıcıda sadece yazar/yönetmen/sanatçı adı varsa, o sanatçının genel estetiği
    ve bilinen eserleri üzerinden analiz yap. Kullanıcıdan ek bilgi isteme.
 6. Analizini sana verilen eserlerin TAMAMINA dayandır — birkaçına bakıp gerisini
@@ -61,7 +64,11 @@ SADECE geçerli JSON döndür. Başka hiçbir şey yazma. JSON şeması:
 
 {
   "hero": {
-    "archetype": "Kullanıcıya özgün kimlik etiketi (örn: Kadife Ceketli Sokak Filozofu)",
+    "archetype": {
+      "full": "Kullanıcıya özgün kimlik etiketi (örn: Kadife Ceketli Sokak Filozofu)",
+      "qualifier": "Çekirdeği niteleyen ön kısım (örn: Kadife ceketli) — bölünmüyorsa boş string",
+      "core": "Çekirdek isim tamlaması (örn: Sokak Filozofu)"
+    },
     "summary": "Arketipi açıklayan tam olarak 1 cümle"
   },
   "texture": {
@@ -87,11 +94,13 @@ SADECE geçerli JSON döndür. Başka hiçbir şey yazma. JSON şeması:
       "left": {
         "title": "Sol kutup başlığı",
         "subtitle": "Kısa alt başlık (isteğe bağlı)",
+        "poster": "Sol kutbu tek kelimeyle veren soyut isim (örn: TOZ)",
         "description": "Sol kutbun açıklaması"
       },
       "right": {
         "title": "Sağ kutup başlığı",
         "subtitle": "Kısa alt başlık (isteğe bağlı)",
+        "poster": "Sağ kutbu tek kelimeyle veren soyut isim (örn: IŞIK)",
         "description": "Sağ kutbun açıklaması"
       },
       "explanation": {
@@ -132,6 +141,27 @@ SADECE geçerli JSON döndür. Başka hiçbir şey yazma. JSON şeması:
 - Hem 'salon' hem 'sokak' tarafını kapsasın
 - summary: tek cümle, açıklayıcı
 
+Arketip üç parça halinde döner. Bu bir posterde iki katman olarak dizilecek —
+niteleyici küçük puntoyla üstte, çekirdek büyük puntoyla altta. Bölmeyi sen
+yaparsın çünkü anlamı sen biliyorsun:
+
+- İsim uzunluğuna SINIR KOYMA. Özgün ve şiirsel isimler korunur; kısaltmak için
+  isim seçme
+- "full": arketibin tam hali. Her zaman dolu
+- "core": arketibin çekirdek isim tamlaması. Tek başına söylendiğinde anlamlı ve
+  akılda kalıcı olmalı. Tercihen 18 karakteri geçmesin
+- "qualifier": çekirdeği niteleyen ön kısım. Bölmek anlamı bozuyorsa ya da isim
+  zaten kısaysa BOŞ STRING döndür
+- Bölme kelime sayısına göre değil ANLAM BÜTÜNLÜĞÜNE göre yapılır:
+  · "Gece Vardiyası Varoluşçusu" tek bir anlam birimidir → qualifier BOŞ,
+    core = "Gece Vardiyası Varoluşçusu"
+  · "Kıyıda Ateş Yakan Maceraperest" bölünür → qualifier = "Kıyıda ateş yakan",
+    core = "Maceraperest"
+  · "Kırık Camdan Bakan Nostaljik Mimar" bölünür → qualifier = "Kırık camdan bakan",
+    core = "Nostaljik Mimar"
+- qualifier + " " + core birleşimi her zaman full'ü vermeli. Kelime ekleme,
+  çıkarma ya da sırasını değiştirme; yalnızca qualifier'ın ilk harfi küçülür
+
 ### texture
 - Sana ULAŞAN listelerin birlikte yarattığı ortak atmosferi tek bir his olarak
   tarif et; tek liste geldiyse onun kendi atmosferini yaz. Olmayan kategorilere
@@ -157,6 +187,21 @@ SADECE geçerli JSON döndür. Başka hiçbir şey yazma. JSON şeması:
 - Her kutba max 1 kısa betimleme ekle (subtitle alanı, 3-4 kelime)
 - left/right description alanını BOŞ bırak — açıklama yazma
 - explanation metni: max 2-3 cümle, sade ve ilgi çekici
+- poster: her kutbun özünü veren TEK Türkçe kelime. Posterde "TOZ ⟷ IŞIK" gibi
+  yan yana dizilecek. Kurallar:
+  · KÜÇÜK HARFLE yaz. Büyük harfe çevirmeyi biz yapıyoruz — Türkçede I/İ
+    ayrımı var ve sen "metin" yerine "METIN" yazıyorsun (doğrusu METİN).
+    Sen "metin" yaz, gerisini bırak
+  · YALIN HALDE yaz, ek alma. "ceset" evet, "cesedi" hayır. "metin" evet,
+    "metni" hayır. Poster etiketi cümle içinde değil, tek başına duruyor
+  · İSİM yaz, sıfat değil. "boşluk" evet, "boş" hayır. "kırılma" evet,
+    "kırık" hayır
+  · Gerçek bir Türkçe kelime olsun; "durgu" gibi uydurma kök kullanma
+  · Soyut bir kavram olsun; eser adı, kişi adı ya da yer adı değil
+  · İki kutbun harf sayısı arasında EN FAZLA 3 fark olsun. "devre ⟷ et"
+    dengesiz durur; ikisini de aynı ağırlıkta seç
+  · İyi örnekler: toz ⟷ ışık · salon ⟷ sokak · düzen ⟷ kaos · alev ⟷ kül ·
+    uyku ⟷ nöbet
 
 ### shadow
 - Tam olarak 3 öneri: 1 Kitap, 1 Film, 1 Müzik (bu sırayla). Kullanıcı o
@@ -227,6 +272,95 @@ function parseEntry(text: string): [string, string] {
 
 function at(arr: unknown, i: number): unknown {
   return Array.isArray(arr) ? arr[i] : undefined;
+}
+
+/**
+ * Latin harflerine benzeyen Kiril/Yunan harflerini Latin karşılıklarına çevirir.
+ *
+ * Model ara sıra script karıştırıyor: gerçek çıktılardan "Zihinден gelen isyan"
+ * ve "Hareketin kaosу" (Kiril д-е-н ve у). Okunuşu aynı olduğu için gözle
+ * yakalanmıyor ama metin bozuk: arama tutmuyor, Türkçe collation şaşıyor,
+ * fontta o glif yoksa posterde tofu kutusu çıkıyor.
+ *
+ * Prompt'ta 4b kuralı bunu söylüyor ama kural garanti değil; bu ağ arkada duruyor.
+ * Tek yönlü ve kayıpsız: yalnızca Latin'de birebir karşılığı olan harfler
+ * çevriliyor, gerçekten Kiril bir metin gelseydi bozardı — ama bu rapor Türkçe.
+ */
+const CONFUSABLES: Record<string, string> = {
+  // Kiril → Latin
+  А: "A", В: "B", Е: "E", К: "K", М: "M", Н: "H", О: "O", Р: "P", С: "C",
+  Т: "T", У: "Y", Х: "X", а: "a", в: "b", е: "e", к: "k", м: "m", н: "n",
+  о: "o", р: "p", с: "c", т: "t", у: "u", х: "x", д: "d", и: "i", л: "l",
+  г: "g", з: "z", ф: "f", ш: "s", ч: "c", я: "ya", ы: "i", й: "y", б: "b",
+  // Yunan → Latin
+  Α: "A", Β: "B", Ε: "E", Ζ: "Z", Η: "H", Ι: "I", Κ: "K", Μ: "M", Ν: "N",
+  Ο: "O", Ρ: "P", Τ: "T", Υ: "Y", Χ: "X", ο: "o", ι: "i", κ: "k", ν: "v",
+  ρ: "p", τ: "t", υ: "y", χ: "x",
+};
+
+/** Rapor içindeki bütün string'leri gezip homoglifleri düzeltir. */
+function fixConfusables<T>(value: T): T {
+  if (typeof value === "string") {
+    return value.replace(/[Ѐ-ӿͰ-Ͽ]/g, (ch) => CONFUSABLES[ch] ?? ch) as T;
+  }
+  if (Array.isArray(value)) return value.map(fixConfusables) as T;
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) out[k] = fixConfusables(v);
+    return out as T;
+  }
+  return value;
+}
+
+/** Türkçe karşılaştırma için: boşlukları tekleştirip küçültür (İ/I tuzağı dahil). */
+function loose(s: string): string {
+  return s.replace(/\s+/g, " ").trim().toLocaleLowerCase("tr");
+}
+
+/**
+ * hero.archetype'ı nesneden düz stringe indirir ve iki katmanı yanına yazar.
+ *
+ *   {archetype: {full, qualifier, core}}
+ *     → {archetype: full, archetype_qualifier, archetype_core}
+ *
+ * archetype'ın string kalması ZORUNLU: dokuz frontend noktası ve
+ * daily-discovery'nin prompt'u onu string olarak okuyor.
+ *
+ * qualifier + core birleşimi full'ü vermiyorsa bölmeye güvenilmez ve tek katmana
+ * düşülür — poster yanlış bölünmüş bir isim göstermektense küçük puntoyla tam
+ * adı gösterir. Model "Kırık Camdan Bakan Nostaljik Mimar"ı "Nostaljik" /
+ * "Mimar" diye bölerse bu kontrol yakalar.
+ */
+function normalizeArchetype(hero: Record<string, unknown> | undefined): void {
+  if (!hero) return;
+
+  const a = hero.archetype;
+  if (a && typeof a === "object" && !Array.isArray(a)) {
+    const obj = a as Record<string, unknown>;
+    hero.archetype = String(obj.full ?? "").trim();
+    hero.archetype_qualifier = String(obj.qualifier ?? "").trim();
+    hero.archetype_core = String(obj.core ?? "").trim();
+  } else {
+    hero.archetype = String(a ?? "").trim();
+    hero.archetype_qualifier = "";
+    hero.archetype_core = "";
+  }
+
+  const full = hero.archetype as string;
+  const q = (hero.archetype_qualifier as string) ?? "";
+  const core = (hero.archetype_core as string) ?? "";
+
+  if (!core || loose(`${q} ${core}`) !== loose(full)) {
+    if (core) {
+      console.warn("[analyze] arketip bölünmesi full ile eşleşmedi, tek katmana düşüldü:", {
+        full,
+        qualifier: q,
+        core,
+      });
+    }
+    hero.archetype_qualifier = "";
+    hero.archetype_core = "";
+  }
 }
 
 /**
@@ -443,7 +577,7 @@ Deno.serve(async (req) => {
 
     const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
     const jsonStr = jsonMatch ? jsonMatch[1] : responseText.trim();
-    const report = JSON.parse(jsonStr);
+    const report = fixConfusables(JSON.parse(jsonStr));
 
     // "shadow tam 3 öneri" artık bir kaza değil sözleşme: boş kategorinin önerisi
     // keşif kapısı olarak duruyor ve ShadowSection md:grid-cols-3 buna dayanıyor.
@@ -451,6 +585,22 @@ Deno.serve(async (req) => {
     // rapor sayfasını çökertiyor (ShadowSection'daki data.map korumasız).
     if (!Array.isArray(report.shadow) || report.shadow.length !== 3) {
       console.error("[analyze] shadow beklenen 3 öneriyi içermiyor:", report.shadow);
+      return new Response(
+        JSON.stringify({ error: "Bir hata oluştu. Lütfen tekrar deneyin." }),
+        { status: 500, headers: { ...CORS, "Content-Type": "application/json" } }
+      );
+    }
+
+    // hero.archetype üreticiden {full, qualifier, core} NESNESİ olarak gelir ama
+    // veritabanına DÜZ STRING olarak yazılır. Sebep: archetype dokuz frontend
+    // noktasında ve daily-discovery'nin kendi Claude prompt'unda düz string
+    // olarak okunuyor. Nesne yazarsak orada sessizce "[object Object]" oluşur —
+    // vite build tip denetimi yapmıyor, daily-discovery ayrı bir Deno bundle'ı,
+    // hiçbir şey bunu yakalamaz. Nesne burada, tek noktada düzleşir.
+    normalizeArchetype(report.hero);
+
+    if (!report.hero?.archetype) {
+      console.error("[analyze] hero.archetype boş döndü:", report.hero);
       return new Response(
         JSON.stringify({ error: "Bir hata oluştu. Lütfen tekrar deneyin." }),
         { status: 500, headers: { ...CORS, "Content-Type": "application/json" } }

@@ -1,15 +1,24 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { motion } from "motion/react";
-import { Calendar, ChevronRight, Globe2, Lock } from "lucide-react";
+import { Calendar, ChevronRight, Globe2, Image as ImageIcon, Lock } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/app/components/ui/dialog";
 import { DashboardShell } from "@/app/components/DashboardShell";
-import { fetchUserReports } from "@/lib/supabase";
+import { PosterShare } from "@/app/components/PosterShare";
+import { fetchUserReports, updateReportVisibility } from "@/lib/supabase";
 import type { Report } from "@/lib/types";
 
 export function DashboardReports() {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
+  const [posterFor, setPosterFor] = useState<Report | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   useEffect(() => {
     async function init() {
@@ -18,6 +27,21 @@ export function DashboardReports() {
     }
     init();
   }, []);
+
+  /** Listeyi yeniden çekmeden tek satırın gizliliğini günceller. */
+  function applyVisibility(reportId: string, isPublic: boolean) {
+    setReports((prev) =>
+      prev.map((r) => (r.id === reportId ? { ...r, is_public: isPublic } : r))
+    );
+    setPosterFor((prev) => (prev && prev.id === reportId ? { ...prev, is_public: isPublic } : prev));
+  }
+
+  async function makePrivate(report: Report) {
+    setBusyId(report.id);
+    const ok = await updateReportVisibility(report.id, false);
+    setBusyId(null);
+    if (ok) applyVisibility(report.id, false);
+  }
 
   const formatDate = (dateStr: string) =>
     new Intl.DateTimeFormat("tr-TR", {
@@ -64,9 +88,20 @@ export function DashboardReports() {
                         {report.hero.archetype}
                       </h3>
                       {report.is_public ? (
-                        <span className="inline-flex items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-400">
-                          <Globe2 className="h-3 w-3" /> Paylaşıma Açık
-                        </span>
+                        <>
+                          <span className="inline-flex items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-400">
+                            <Globe2 className="h-3 w-3" /> Paylaşıma Açık
+                          </span>
+                          {/* Paylaşım kararı geri alınabilmeli — kullanıcı bu
+                              kararı posterden vermiş olabilir, listede de dönebilsin. */}
+                          <button
+                            onClick={() => void makePrivate(report)}
+                            disabled={busyId === report.id}
+                            className="text-xs text-slate-400 underline underline-offset-2 transition-colors hover:text-slate-200 disabled:opacity-50"
+                          >
+                            Tekrar özel yap
+                          </button>
+                        </>
                       ) : (
                         <span className="inline-flex items-center gap-1 rounded-md border border-slate-600/40 bg-slate-700/60 px-2 py-0.5 text-xs text-slate-400">
                           <Lock className="h-3 w-3" /> Özel
@@ -79,18 +114,49 @@ export function DashboardReports() {
                     </div>
                   </div>
 
-                  <Link to={`/report/${report.id}`} className="shrink-0">
-                    <Button className="gap-2 rounded-xl border border-purple-500/30 bg-purple-500/20 text-purple-100 transition-all hover:border-purple-400/50 hover:bg-purple-500/30 hover:text-white">
-                      <span className="hidden sm:inline">Raporu Gör</span>
-                      <ChevronRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Button
+                      onClick={() => setPosterFor(report)}
+                      className="gap-2 rounded-xl border border-slate-600/50 bg-slate-700/40 text-slate-200 transition-all hover:border-slate-500 hover:bg-slate-700/70 hover:text-white"
+                    >
+                      <ImageIcon className="h-5 w-5" />
+                      <span className="hidden sm:inline">Poster</span>
                     </Button>
-                  </Link>
+
+                    <Link to={`/report/${report.id}`}>
+                      <Button className="gap-2 rounded-xl border border-purple-500/30 bg-purple-500/20 text-purple-100 transition-all hover:border-purple-400/50 hover:bg-purple-500/30 hover:text-white">
+                        <span className="hidden sm:inline">Raporu Gör</span>
+                        <ChevronRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
               </motion.div>
             ))}
           </div>
         )}
       </motion.div>
+
+      {/* Poster modalı — rapor sayfasındakiyle AYNI bileşen. Gizlilik onayı da
+          onun içinde, iki giriş noktası için ayrı ayrı yazılmıyor. */}
+      <Dialog open={!!posterFor} onOpenChange={(open) => !open && setPosterFor(null)}>
+        <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto border border-purple-500/25 bg-slate-900 text-white">
+          <DialogHeader>
+            <DialogTitle className="font-serif text-white">
+              {posterFor?.hero.archetype}
+            </DialogTitle>
+          </DialogHeader>
+          {posterFor && (
+            <PosterShare
+              key={posterFor.id}
+              report={posterFor}
+              isPublic={posterFor.is_public}
+              onVisibilityChange={(isPublic) => applyVisibility(posterFor.id, isPublic)}
+              compact
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </DashboardShell>
   );
 }

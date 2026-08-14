@@ -160,9 +160,23 @@ Secret'lar geri okunamaz (`secrets list` yalnızca hash gösterir) — değeri k
 git push origin main
 ```
 
-Proje Vercel'e bağlı (`.vercel/project.json` → `lens-web`) ve `main` dalına push otomatik deploy tetikler. Deploy durumunu Vercel panosundan takip et.
+`lensestetik.com`'u besleyen Vercel projesi **`lens-web-9a4e`**. GitHub bağlantısı onda, `main` dalına push otomatik deploy tetikler. Deploy durumunu Vercel panosundan takip et.
 
-Otomatik deploy beklediğin gibi çalışmıyorsa Vercel panosunda projenin GitHub bağlantısını ve production dalı ayarını kontrol et; elle deploy için `npx vercel --prod` da kullanılabilir.
+> **Vercel panosunda iki proje var: `lens-web` ve `lens-web-9a4e`. Canlı olan ikincisi.**
+> `lens-web` eski bir kayıt; hiçbir domain'e bağlı değil ve env değişkenleri eksik.
+>
+> Bu yüzden **CLI ile deploy etmeden önce `.vercel/project.json`'a bak.** Yanlış projeye
+> bağlıysa `npx vercel --prod` "başarılı" der ve canlıda hiçbir şey değişmez — sessiz bir
+> tuzak. Düzeltmek için:
+>
+> ```bash
+> npx vercel link --yes --project lens-web-9a4e
+> ```
+>
+> `.vercel` gitignore'da olduğu için bu bağlantı her makinede ayrı ayrı kurulur ve yeni
+> bir klonda yanlış olabilir.
+
+Otomatik deploy beklediğin gibi çalışmıyorsa Vercel panosunda projenin GitHub bağlantısını ve production dalı ayarını kontrol et.
 
 ### Sonrasında
 

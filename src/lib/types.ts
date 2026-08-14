@@ -1,5 +1,13 @@
 export interface HeroData {
+  /** Arketibin tam hali. Raporda HER ZAMAN bu gösterilir — bölünmüş hali yalnızca posterde. */
   archetype: string;
+  /**
+   * Posterdeki iki katmanlı başlık. Bölmeyi üretici yapar (anlam bütünlüğüne
+   * göre), `analyze` düzleştirerek yazar. Bu değişiklikten ÖNCE üretilmiş
+   * raporlarda yok — poster o durumda tek katmana düşer.
+   */
+  archetype_qualifier?: string;
+  archetype_core?: string;
   summary: string;
 }
 
@@ -22,6 +30,8 @@ export interface ThreadItem {
 export interface ContrastSide {
   title: string;
   subtitle?: string;
+  /** Posterdeki tek kelimelik kutup etiketi ("TOZ ⟷ IŞIK"). Rapor sayfası kullanmaz. */
+  poster?: string;
   description: string;
   footnote?: string;
 }

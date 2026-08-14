@@ -1,3 +1,22 @@
 {
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "functions": {
+    "api/**/*.ts": {
+      "includeFiles": "api/_assets/**",
+      "maxDuration": 20
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/report/:id",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(facebookexternalhit|Facebot|WhatsApp|Twitterbot|TelegramBot|Slackbot|Slack-ImgProxy|Discordbot|LinkedInBot|Pinterest|redditbot|Applebot|SkypeUriPreview|vkShare|Iframely|Embedly).*"
+        }
+      ],
+      "destination": "/api/report-preview?id=:id"
+    },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ]
 }

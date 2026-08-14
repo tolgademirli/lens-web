@@ -1,15 +1,43 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lens Estetik Raporu</title>
+    <meta
+      name="description"
+      content="Okuduklarından, izlediklerinden ve dinlediklerinden estetik kimliğini çıkarır. Sen hangisisin?"
+    />
 
-  <!DOCTYPE html>
-  <html lang="tr">
-    <head>
-      <meta charset="UTF-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <title>Lens Estetik Raporu</title>
-    </head>
+    <!--
+      Varsayılan paylaşım etiketleri: ana sayfa ve rapor dışındaki rotalar için.
+      /report/:id paylaşıldığında crawler'lar api/report-preview.ts'e yönleniyor
+      ve o rapora özel etiketleri alıyor — burası SPA olduğu için buradan
+      rapora özel bir şey üretilemez.
+    -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Lens" />
+    <meta property="og:locale" content="tr_TR" />
+    <meta property="og:title" content="Lens — Estetik Kimlik" />
+    <meta
+      property="og:description"
+      content="Okuduklarından, izlediklerinden ve dinlediklerinden estetik kimliğini çıkarır. Sen hangisisin?"
+    />
+    <meta property="og:image" content="https://lensestetik.com/api/og/lens" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:url" content="https://lensestetik.com/" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Lens — Estetik Kimlik" />
+    <meta
+      name="twitter:description"
+      content="Okuduklarından, izlediklerinden ve dinlediklerinden estetik kimliğini çıkarır. Sen hangisisin?"
+    />
+    <meta name="twitter:image" content="https://lensestetik.com/api/og/lens" />
+  </head>
 
-    <body>
-      <div id="root"></div>
-      <script type="module" src="/src/main.tsx"></script>
-    </body>
-  </html>
-  
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -29,6 +29,16 @@ Geliştirme, test ve deploy akışının tamamı: [`docs/gelistirme.md`](docs/ge
 ## Yapı
 
 ```
+api/                 # Vercel serverless fonksiyonları (Node runtime)
+  _assets/fonts/     # Playfair Display Italic + Inter — poster fontları, lokal
+  _lib/              # color (OKLCH/kontrast) · fonts (ölçüm) · text · poster · render · report
+  poster/[reportId].ts   # Story/Feed posteri — RLS'e göre yetkilendirilir
+  og/[reportId].ts       # 1200×630 link önizleme görseli — özel raporda jenerik döner
+  report-preview.ts      # Crawler'a OG etiketli HTML (asla hata döndürmez)
+scripts/
+  poster-samples.mjs     # Elle kurulmuş verilerle poster örnekleri + inceleme sayfası
+  kapi2-real-reports.mjs # Gerçek analyze çıktısıyla doğrulama (REUSE=1 kredi harcamaz)
+  check-glyphs.mjs       # Font Türkçe glif denetimi
 src/
   app/
     components/   # UI bileşenleri (step akışı + rapor bölümleri)
@@ -127,6 +137,22 @@ oturumu olan herhangi bir kullanıcı fonksiyonu invoke edip tüm haftanın mail
 Gerekli secret'lar (`supabase secrets set`): `RESEND_API_KEY`, `WEEKLY_PICKS_SECRET`,
 `WEEKLY_PICKS_REPLY_TO`. Opsiyonel: `WEEKLY_PICKS_FROM`, `SITE_URL`, `POSTHOG_KEY`, `POSTHOG_HOST`.
 
+## Veri akışı: estetik kimlik posteri
+1. Poster **sunucuda** üretilir: `api/poster/[reportId].ts` (Story 1080×1920 / Feed 1080×1350)
+   ve `api/og/[reportId].ts` (1200×630, link önizlemesi). Motor `satori` + `@resvg/resvg-js`,
+   fontlar `api/_assets/fonts/` altından **lokal dosyadan** okunur — runtime'da ağ isteği yok.
+2. Gizlilik kod ile değil **RLS ile** korunur: endpoint çağıranın JWT'si varsa onunla, yoksa
+   anon anahtarıyla client kurar; kararı veritabanı verir. `SUPABASE_SERVICE_ROLE_KEY` Vercel
+   ortamına **konmaz**. Erişilemeyen rapor → poster'da boş gövdeli 404 (varlığı bile sızmaz),
+   OG'de jenerik marka görseli.
+3. İstemci posteri `<img src>` ile değil `fetch` + `Authorization` ile çeker. Dönen Blob üç işi
+   görür: önizleme, `navigator.share({files})`, indirme. Tek istek, üç kullanım.
+4. Paylaşım/indirme/kopyalama aksiyonlarının **tamamı** gizlilik kapısından geçer
+   (`PosterShare` içindeki onay diyaloğu). Onay olmadan `is_public` asla true olmaz.
+   Geçiş anı `reports.public_since`'e **trigger ile** damgalanır — client yazamaz.
+5. Link önizlemesi: `vercel.json` yalnızca bilinen sosyal crawler'ların User-Agent'ını
+   `api/report-preview.ts`'e yönlendirir. Gerçek kullanıcı ve Googlebot her zamanki SPA'yı alır.
+
 ## Veri akışı: geri bildirim ve öneri motoru (US-05)
 1. Keşif kartında üç seçenek var: **İlgimi çekti** (rezonans, listeye ekler) · **İlgimi çekmedi**
    (rezonans, opsiyonel neden) · **Bunu biliyorum** (zevk, opsiyonel Sevdim/Sevmedim/Kararsızım).
@@ -191,7 +217,23 @@ Gerekli secret'lar (`supabase secrets set`): `RESEND_API_KEY`, `WEEKLY_PICKS_SEC
   tarar (pencere sınırsız). Bugünkü hacimde sorun değil; birkaç yüz satırdan sonra gecikme
   kullanıcının tıklamasına yansır ve geri bildirim vermeyi caydırarak tam da toplamak istediğimiz
   veriyi azaltır. Yavaşlama görülürse artımlı toplama ya da kuyruğa alma — sürpriz değil, planlı borç.
+- Posterde **film grain YOK** ve bu ölçülmüş bir karar: grain her pikseli oynattığı için PNG
+  sıkıştırmasını kırıyor (Story 373 KB → 2273 KB, OG 155 KB → 900 KB). OG'de zaten taşınamazdı,
+  WhatsApp o boyutta bir `og:image`'ı açmıyor. Bedeli: grain dither de yapıyordu, koyu
+  gradyanlarda hafif bant görülebilir. Bant şikâyeti gelirse çözüm grain değil, glow duraklarını
+  çoğaltmak. Ayrıntı: `api/_lib/poster.ts` başındaki not.
+- Posterdeki her büyük harf `toLocaleUpperCase("tr-TR")` ile üretilir ve `contrasts[].poster`
+  üreticiden **küçük harfle** istenir. Model Türkçe I/İ ayrımını tutturamıyor ("metin" yerine
+  "METIN" yazıyor); büyük harfe çevirmeyi modele bırakma.
+- `⟷` (U+27F7) Playfair'de de Inter'de de **yok**. Metin olarak yazma — SVG path olarak çiziliyor.
+- `hero.archetype` **her zaman düz string**. Üretici prompt'u `{full, qualifier, core}` nesnesi
+  ister, `analyze` insert öncesi düzleştirir (`normalizeArchetype`). Nesne olarak saklama:
+  dokuz frontend noktası ve `daily-discovery`'nin prompt'u onu string okuyor.
 - `ANTHROPIC_API_KEY` ve `SUPABASE_SERVICE_ROLE_KEY` **sadece edge function ortamında** yaşar. Client koduna asla import edilmez.
+- Canlıyı besleyen Vercel projesi **`lens-web-9a4e`**; panodaki `lens-web` eski ve boş bir
+  kayıt. `.vercel/project.json` yanlış projeye bağlıysa `npx vercel --prod` "başarılı" der ve
+  canlıda hiçbir şey değişmez. CLI ile deploy etmeden önce kontrol et — ayrıntı:
+  [`docs/gelistirme.md`](docs/gelistirme.md).
 - `.env.local`'a dokunma. Yeni env değişkeni eklenecekse `.env.example`'a belgele.
 - Rota `/report/:id` — eski `/rapor/:id` kaldırıldı (BUG-01). Rota dili İngilizce.
 - `/start`, `Welcome` ile birlikte yeni düz koyu görsel dili kullanır (`--lens-*` tokenları,
