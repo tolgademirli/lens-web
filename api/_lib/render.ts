@@ -7,9 +7,9 @@
  */
 import satori from "satori";
 import { Resvg } from "@resvg/resvg-js";
-import type { Report } from "../../src/lib/types.ts";
-import { satoriFonts } from "./fonts.ts";
-import { genericTree, posterTree, type PosterFormat } from "./poster.ts";
+import type { Report } from "../../src/lib/types.js";
+import { satoriFonts } from "./fonts.js";
+import { genericTree, posterTree, type PosterFormat } from "./poster.js";
 
 export async function renderPoster(
   report: Report,

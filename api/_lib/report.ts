@@ -9,7 +9,7 @@
  * ve bir gün biri unuturdu.
  */
 import { createClient } from "@supabase/supabase-js";
-import type { Report } from "../../src/lib/types.ts";
+import type { Report } from "../../src/lib/types.js";
 
 function env(...names: string[]): string {
   for (const n of names) {

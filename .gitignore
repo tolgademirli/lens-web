@@ -10,3 +10,8 @@ tmp/
 # `supabase start` tarafından üretilen lokal çalışma dosyaları
 supabase/.branches/
 supabase/.temp/start-secrets/
+
+# `vercel link` buraya `.env*` ekliyor — KOYMA. `.env.example` ve
+# `.env.localdb` kasten commit ediliyor (lokal anahtarlar her Supabase
+# kurulumunda aynı olan herkese açık demo anahtarları). Gizlenmesi gerekenler
+# yukarıda tek tek listeli.

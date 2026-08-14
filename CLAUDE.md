@@ -226,6 +226,13 @@ Gerekli secret'lar (`supabase secrets set`): `RESEND_API_KEY`, `WEEKLY_PICKS_SEC
   üreticiden **küçük harfle** istenir. Model Türkçe I/İ ayrımını tutturamıyor ("metin" yerine
   "METIN" yazıyor); büyük harfe çevirmeyi modele bırakma.
 - `⟷` (U+27F7) Playfair'de de Inter'de de **yok**. Metin olarak yazma — SVG path olarak çiziliyor.
+- `api/` içindeki yerel importlar **`.js` uzantısıyla** yazılır (`from "./_lib/render.js"`),
+  dosya `.ts` olsa bile. Vercel her fonksiyonu ayrı ayrı `.js`'e derliyor ama import yolundaki
+  uzantıyı yeniden yazmıyor: kaynakta `.ts` yazarsan derlenmiş çıktıda da `.ts` kalır ve
+  production'da `ERR_MODULE_NOT_FOUND` → 500 olur. Bu bir kez canlıya böyle çıktı.
+  `scripts/` altındaki araçlar aynı modülleri kullanabilsin diye `scripts/_ts-resolve.mjs`
+  hook'u var; poster script'lerini `npm run poster:samples` / `poster:real` ile çalıştır,
+  düz `node scripts/...` ile değil.
 - `hero.archetype` **her zaman düz string**. Üretici prompt'u `{full, qualifier, core}` nesnesi
   ister, `analyze` insert öncesi düzleştirir (`normalizeArchetype`). Nesne olarak saklama:
   dokuz frontend noktası ve `daily-discovery`'nin prompt'u onu string okuyor.

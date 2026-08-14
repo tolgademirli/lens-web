@@ -6,7 +6,10 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite",
-    "dev:local": "vite --mode localdb"
+    "dev:local": "vite --mode localdb",
+    "poster:samples": "node --import ./scripts/_ts-resolve.mjs scripts/poster-samples.mjs",
+    "poster:real": "node --import ./scripts/_ts-resolve.mjs scripts/kapi2-real-reports.mjs",
+    "poster:glyphs": "node scripts/check-glyphs.mjs"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",

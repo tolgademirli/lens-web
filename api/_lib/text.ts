@@ -2,7 +2,7 @@
  * Poster metin mantığı: arketip katmanları, karşıtlık etiketleri, Türkçe
  * büyük harf ve kırpma.
  */
-import type { ContrastItem, HeroData } from "../../src/lib/types.ts";
+import type { ContrastItem, HeroData } from "../../src/lib/types.js";
 
 /**
  * Türkçe büyük harf. `toUpperCase()` KULLANMA:

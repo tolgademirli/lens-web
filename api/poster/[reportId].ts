@@ -7,10 +7,10 @@
  * gerekmiyor, `Authorization` başlığı yeterli.
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { formatOf } from "../_lib/poster.ts";
-import { renderPoster } from "../_lib/render.ts";
-import { bearerToken, loadReport } from "../_lib/report.ts";
-import { slugify } from "../_lib/text.ts";
+import { formatOf } from "../_lib/poster.js";
+import { renderPoster } from "../_lib/render.js";
+import { bearerToken, loadReport } from "../_lib/report.js";
+import { slugify } from "../_lib/text.js";
 
 export default async function handler(
   req: IncomingMessage & { query?: Record<string, string | string[]> },

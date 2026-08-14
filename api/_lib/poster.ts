@@ -9,11 +9,11 @@
  * Instagram link sticker'ını koyacağı yer. Story'nin görevi raporu anlatmak
  * değil, karşı tarafa "bu ne, ben de yapmak istiyorum" dedirtmek.
  */
-import type { Report } from "../../src/lib/types.ts";
-import { box, h, text, type Node } from "./h.ts";
-import { derivePosterTheme, type PosterTheme } from "./color.ts";
-import { fitText, measure, wrapText } from "./fonts.ts";
-import { archetypeLayers, contrastPairs, trUpper, truncateWords } from "./text.ts";
+import type { Report } from "../../src/lib/types.js";
+import { box, h, text, type Node } from "./h.js";
+import { derivePosterTheme, type PosterTheme } from "./color.js";
+import { fitText, measure, wrapText } from "./fonts.js";
+import { archetypeLayers, contrastPairs, trUpper, truncateWords } from "./text.js";
 
 export type PosterFormat = "story" | "feed" | "og";
 

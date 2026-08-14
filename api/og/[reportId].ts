@@ -10,8 +10,8 @@
  * arasında kullanıcı için fark var: ilki paylaşılan mesajı çirkinleştirir.
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { renderGeneric, renderPoster } from "../_lib/render.ts";
-import { loadReport } from "../_lib/report.ts";
+import { renderGeneric, renderPoster } from "../_lib/render.js";
+import { loadReport } from "../_lib/report.js";
 
 export default async function handler(
   req: IncomingMessage & { query?: Record<string, string | string[]> },

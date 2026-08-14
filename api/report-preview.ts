@@ -16,7 +16,7 @@
  * açsa bile önizleme ölü kalır. Her yol 200 + geçerli HTML ile biter.
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { loadReport } from "./_lib/report.ts";
+import { loadReport } from "./_lib/report.js";
 
 const SITE_FALLBACK = "https://lensestetik.com";
 
