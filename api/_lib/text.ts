@@ -50,35 +50,45 @@ export interface ContrastPair {
 }
 
 /** Tek kelimelik kutup etiketi için üst sınır — aşan değer geçersiz sayılır. */
-const POSTER_LABEL_MAX = 10;
+const POSTER_LABEL_MAX = 12;
 
 /**
- * Kutup etiketini seçer: `poster` → `subtitle`'ın ilk kelimesi → `title`.
+ * Kutup etiketini seçer; TEMİZ VE TEK KELİME bulamazsa boş döner.
  *
- * `poster` alanı üreticiden gelir ama garanti değil: uzunluk kuralı yumuşak
- * tutuldu (Türkçede "KALABALIK"/"YALNIZLIK" gibi çiftler sıkışık, sert tavan
- * modeli anlamı bozmaya zorlar). Kural yumuşak, doğrulama burada sert —
- * kırpma yok, geçersizse zincirdeki bir alta düşülür.
+ * Sıra: `poster` → tek kelimelik `subtitle` → tek kelimelik `title`.
+ *
+ * Eskiden son çare `title`'a düşmekti ve `title`'a hiçbir uzunluk disiplini
+ * uygulanmıyordu. Canlıda sonucu şu oldu: "MACONDO," (sonunda virgülle) ve
+ * "DIŞA PATLAYAN ENERJİ" gibi etiketler üç satıra yayılıp posterin düzenini
+ * bozdu. Geniş harf aralığıyla dizilen bir kutup etiketi sarmayı kaldırmıyor.
+ *
+ * Artık kural şu: uygun bir kelime yoksa etiket YOK. Satırı çizmemek, bozuk
+ * çizmekten iyidir — `contrastPairs` eksik satırı tamamen atıyor. Bu
+ * değişiklikten sonra üretilen raporlarda `poster` alanı zaten var.
  */
 function poleLabel(side: { poster?: string; subtitle?: string; title?: string } | undefined): string {
-  const poster = (side?.poster ?? "").trim();
-  if (poster && !/\s/.test(poster) && poster.length <= POSTER_LABEL_MAX) return poster;
+  const clean = (raw: string | undefined): string =>
+    (raw ?? "")
+      .trim()
+      // Baştaki/sondaki noktalama: eser adlarından geliyor ("Macondo,").
+      .replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "")
+      .trim();
 
-  const firstWord = (side?.subtitle ?? "").trim().split(/\s+/)[0] ?? "";
-  if (firstWord && firstWord.length <= POSTER_LABEL_MAX) return firstWord;
+  const single = (raw: string | undefined): string => {
+    const value = clean(raw);
+    if (!value || /\s/.test(value) || value.length > POSTER_LABEL_MAX) return "";
+    return value;
+  };
 
-  const title = (side?.title ?? "").trim();
-  if (title) return title;
-
-  return firstWord || poster;
+  return single(side?.poster) || single(side?.subtitle) || single(side?.title);
 }
 
 /**
  * Posterde çizilecek karşıtlık satırları — en fazla 2, en az 0.
  *
  * Rapor 1 veya 2 kontrast içerebiliyor; "2 satır" bir tavan, garanti değil.
- * Bir kutbun etiketi boş çıkarsa o satır tamamen atlanır (tek taraflı bir ok
- * anlamsız durur).
+ * Bir kutbun etiketi temiz gelmezse o satır tamamen atlanır — tek taraflı bir
+ * ok da, sarmış bir etiket de posterde yanlış durur.
  */
 export function contrastPairs(contrasts: ContrastItem[] | undefined): ContrastPair[] {
   if (!Array.isArray(contrasts)) return [];

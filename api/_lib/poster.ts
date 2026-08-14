@@ -244,11 +244,31 @@ function contrasts(m: Metrics, t: PosterTheme, report: Report): Node | null {
   const pairs = contrastPairs(report.contrasts);
   if (pairs.length === 0) return null;
 
-  const tracking = m.contrastSize * CONTRAST_TRACKING;
+  const innerWidth = m.width - m.pad * 2;
+
+  // Etiketler `poleLabel` sayesinde kısa ve tek kelime, ama satır yine de
+  // taşabilir (iki uzun kelime + ok + geniş harf aralığı). Taşarsa punto
+  // küçülür; SARMAZ — sarmış bir kutup etiketi posterin düzenini bozuyor.
+  let size = m.contrastSize;
+  const rowWidth = (fontSize: number): number => {
+    const track = fontSize * CONTRAST_TRACKING;
+    const gap = fontSize * 1.8 + fontSize * 3.4; // iki yan boşluk + ok genişliği
+    return Math.max(
+      ...pairs.map(
+        (p) =>
+          measure(p.left, "inter-500", fontSize, track) +
+          measure(p.right, "inter-500", fontSize, track) +
+          gap
+      )
+    );
+  };
+  while (size > m.contrastSize * 0.6 && rowWidth(size) > innerWidth) size -= 1;
+
+  const tracking = size * CONTRAST_TRACKING;
   // Oklar alt alta hizalansın diye sol sütun sabit genişlikte: en uzun sol
   // etiket ne kadarsa o kadar. Referansta iki satırın oku aynı x'te duruyor.
   const leftColumn = Math.max(
-    ...pairs.map((p) => measure(p.left, "inter-500", m.contrastSize, tracking))
+    ...pairs.map((p) => measure(p.left, "inter-500", size, tracking))
   );
   const arrow = arrowDataUri(t.textMuted);
 
@@ -256,12 +276,12 @@ function contrasts(m: Metrics, t: PosterTheme, report: Report): Node | null {
     { flexDirection: "column", marginTop: m.contrastsTop },
     ...pairs.map((pair, i) =>
       box(
-        { alignItems: "center", marginTop: i === 0 ? 0 : m.contrastSize * 0.85 },
+        { alignItems: "center", marginTop: i === 0 ? 0 : size * 0.85 },
         box(
           { width: Math.ceil(leftColumn) },
           text(
             {
-              fontFamily: "Inter", fontSize: m.contrastSize, fontWeight: 500,
+              fontFamily: "Inter", fontSize: size, fontWeight: 500,
               letterSpacing: tracking, color: t.text,
             },
             pair.left
@@ -269,13 +289,13 @@ function contrasts(m: Metrics, t: PosterTheme, report: Report): Node | null {
         ),
         h("img", {
           src: arrow,
-          width: Math.round(m.contrastSize * 3.4),
-          height: Math.round(m.contrastSize * 0.68),
-          style: { marginLeft: m.contrastSize * 0.9, marginRight: m.contrastSize * 0.9 },
+          width: Math.round(size * 3.4),
+          height: Math.round(size * 0.68),
+          style: { marginLeft: size * 0.9, marginRight: size * 0.9 },
         }),
         text(
           {
-            fontFamily: "Inter", fontSize: m.contrastSize, fontWeight: 500,
+            fontFamily: "Inter", fontSize: size, fontWeight: 500,
             letterSpacing: tracking, color: t.text,
           },
           pair.right
