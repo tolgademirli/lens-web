@@ -42,8 +42,9 @@ VAR SAYMA: bu prompt'ta başlığı geçmeyen kategoriden konuşma, oraya dair �
 4b. Yalnızca Türk alfabesi ve Latin harfleri kullan. Kiril ya da Yunan harfi
    karıştırma — "Zihinден" ve "kaosу" gibi çıktılar veriyorsun, bunlar okunuşu
    aynı ama farklı harfler ve metni bozuyor
-5. Kullanıcıda sadece yazar/yönetmen/sanatçı adı varsa, o sanatçının genel estetiği
-   ve bilinen eserleri üzerinden analiz yap. Kullanıcıdan ek bilgi isteme.
+5. Bir satırda tek bir ad varsa: ad bir kişiyse o sanatçının genel estetiği ve bilinen
+   eserleri üzerinden, bir eser adıysa eserin kendisi üzerinden analiz yap. Hangisi
+   olduğunu adı tanıyarak sen ayırt et. Kullanıcıdan ek bilgi isteme.
 6. Analizini sana verilen eserlerin TAMAMINA dayandır — birkaçına bakıp gerisini
    atlama. Ama bu, hepsini isimlendirmek demek DEĞİL: eser adları yalnızca
    contrasts kutup başlıklarında geçer. Envanter çıkarma, bütünün hissini yaz.
@@ -419,12 +420,115 @@ function normalizeCategory(
   });
 }
 
-/** Üç biçim de geçerli: ikisi birlikte, yalnız yaratıcı, yalnız eser adı. */
+/**
+ * Üç biçim de geçerli: ikisi birlikte, yalnız yaratıcı, yalnız eser adı.
+ *
+ * `creatorPrefix` ("yön. ") yalnızca BAŞLIK DA geldiğinde yazılır. Sebep: tek ad
+ * gelen satırın eser mi kişi mi olduğunu bilmiyoruz — form tek satırlık girişi
+ * ayıraç yoksa olduğu gibi creator'a yazıyor (bkz. src/lib/tasteDraft.ts).
+ * Önek koşulsuzken prompt "yön. Asmalı Konak" diyor, yani modele olmayan bir
+ * yönetmeni OLGU olarak dayatıyordu. Belirsizliği belirsiz bırak: ayrımı ada
+ * bakarak model yapar, biz tahminimizi gerçek diye sunmayız.
+ */
 function formatSignal(s: Signal, i: number, creatorPrefix = ""): string {
-  const creator = s.creator ? `${creatorPrefix}${s.creator}` : "";
-  if (s.title && creator) return `  ${i + 1}. *${s.title}* — ${creator}`;
+  if (s.title && s.creator) return `  ${i + 1}. *${s.title}* — ${creatorPrefix}${s.creator}`;
   if (s.title) return `  ${i + 1}. *${s.title}*`;
-  return `  ${i + 1}. ${creator}`;
+  return `  ${i + 1}. ${s.creator}`;
+}
+
+/** Tek ad taşıyan (başlıksız) satır — prompt'ta yıldızsız görünen biçim. */
+function isBare(s: Signal): boolean {
+  return !s.title && Boolean(s.creator);
+}
+
+const KIND_LABEL: Record<string, string> = {
+  book: "kitap",
+  film: "film/dizi",
+  song: "müzik",
+};
+
+/**
+ * Tek ad gelen sinyallerin eser mi kişi mi olduğunu ayırır ve eser olanları
+ * `title`'a taşır.
+ *
+ * Neden ayrı ve KÜÇÜK bir çağrı:
+ * - Rapor çağrısına eklemek `max_tokens: 2048`'i paylaştırırdı; taşan JSON yarım
+ *   kalıyor ve kullanıcı krediyi harcadıktan SONRA 500 alıyor.
+ * - `extract-works` bu ayrımı zaten yapıyor ama Opus 5 + açık thinking ile:
+ *   aynı iş için rapor başına ~30 kat maliyet. Buradaki iş sınıflandırma,
+ *   okuma değil — Haiku yeter.
+ *
+ * Model yalnızca HANGİ ALAN olduğunu söyler; yaratıcı adını TAMAMLAMAZ.
+ * Tanımadığı ad `unknown` döner ve satır olduğu gibi kalır — yanlış bir yazar
+ * adı, boş bırakmaktan çok daha kötü (aynı kural extract-works'te de var).
+ *
+ * Best-effort: hata, timeout ya da bozuk JSON'da sessizce bugünkü davranışa
+ * düşer. Prompt zaten belirsizliği dürüstçe taşıyor (bkz. formatSignal), yani
+ * bu adım başarısız olduğunda rapor bozulmaz — sadece daha az bilgiyle çıkar.
+ */
+async function resolveBareSignals(
+  apiKey: string,
+  groups: { type: string; signals: Signal[] }[]
+): Promise<void> {
+  const bare: { type: string; signal: Signal }[] = [];
+  for (const g of groups) {
+    for (const s of g.signals) if (isBare(s)) bare.push({ type: g.type, signal: s });
+  }
+  // Belirsiz satır yoksa çağrı da yok: bu yolun maliyeti tam olarak sıfır.
+  if (bare.length === 0) return;
+
+  const list = bare
+    .map((b, i) => `${i}. [${KIND_LABEL[b.type] ?? b.type}] ${b.signal.creator}`)
+    .join("\n");
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5",
+        max_tokens: 512,
+        system:
+          "Sana bir kullanıcının kültürel zevk listesinden gelen adlar verilecek. " +
+          "Her ad ya bir ESER adıdır (kitap/film/dizi/şarkı/albüm) ya da bir KİŞİ " +
+          "adıdır (yazar/yönetmen/sanatçı/grup). Her satır için hangisi olduğuna karar ver.\n" +
+          'Tanımadığın adı "unknown" işaretle — tahmin etme, ad uydurma, ' +
+          "eksik bilgiyi tamamlama. Emin değilsen unknown.\n" +
+          'YALNIZCA şu biçimde JSON dizisi döndür, başka metin yazma: ' +
+          '[{"i":0,"kind":"work"},{"i":1,"kind":"person"},{"i":2,"kind":"unknown"}]',
+        messages: [{ role: "user", content: list }],
+      }),
+    });
+    if (!res.ok) {
+      console.error(`[analyze] ad çözümleme ${res.status}; sinyaller olduğu gibi kaldı.`);
+      return;
+    }
+
+    const data = await res.json();
+    const text: string = data.content?.[0]?.text ?? "";
+    const match = text.match(/\[[\s\S]*\]/);
+    if (!match) return;
+
+    const parsed = JSON.parse(match[0]);
+    if (!Array.isArray(parsed)) return;
+
+    for (const row of parsed) {
+      const i = typeof row?.i === "number" ? row.i : -1;
+      const entry = bare[i];
+      // Yalnızca "work" bir şey değiştirir: adı title'a taşı, creator'ı boşalt.
+      // "person" zaten doğru alanda; "unknown" ve tanınmayan değer dokunulmaz.
+      if (entry && row?.kind === "work") {
+        entry.signal.title = entry.signal.creator;
+        entry.signal.creator = "";
+      }
+    }
+  } catch (err) {
+    console.error("[analyze] ad çözümleme başarısız; sinyaller olduğu gibi kaldı.", err);
+  }
 }
 
 function buildPrompt(books: Signal[], movies: Signal[], music: Signal[]): string {
@@ -447,6 +551,17 @@ function buildPrompt(books: Signal[], movies: Signal[], music: Signal[]): string
     sections.push(`### Müzik\n${music.map((s, i) => formatSignal(s, i)).join("\n")}`);
   } else missing.push("müzik");
 
+  // Yalnızca gerçekten belirsiz satır varsa yazılır: her istekte taşınan sabit bir
+  // paragraf, çoğu kullanıcının hiç yaşamadığı bir sorunu anlatmak için token yakardı.
+  const bareNote = [...books, ...movies, ...music].some(isBare)
+    ? `
+Biçim notu: *yıldız içindeki* ad eser adıdır. Yıldızsız satırlarda kullanıcı tek bir
+ad yazdı ve bunun eser adı mı yaratıcı adı mı olduğu BELLİ DEĞİL — hangisi olduğuna
+adı tanıyarak sen karar ver. Tanımıyorsan ne olduğuna dair bir varsayım kurma, o adı
+uydurma bir esere ya da kişiye bağlama; yalnızca çağrıştırdığı ton düzeyinde tut.
+`
+    : "";
+
   const missingNote = missing.length
     ? `
 Kullanıcı ${missing.join(" ve ")} listesi paylaşmadı — o alanda hiçbir verin yok.
@@ -459,7 +574,7 @@ boş kalan alanın önerisi bir kapı olsun.
   return `Aşağıda bir kullanıcının kültürel zevklerini gösteren veriler var:
 
 ${sections.join("\n\n")}
-${missingNote}
+${bareNote}${missingNote}
 ---
 
 Bu verilerden yola çıkarak kullanıcı için Estetik Kimlik Raporu üret.
@@ -545,6 +660,17 @@ Deno.serve(async (req) => {
         { status: 429, headers: { ...CORS, "Content-Type": "application/json" } }
       );
     }
+
+    // Tek ad gelen sinyalleri burada, rapor çağrısından ÖNCE çözüyoruz: sinyal
+    // nesneleri yerinde değiştiği için hem prompt (buildPrompt) hem de depolama
+    // (reports.films[].director, user_works.creator → lens_work_key) düzelmiş
+    // hâli görür. Kota denetiminden SONRA çağrılır — reddedilecek bir istek için
+    // token harcamanın anlamı yok. Belirsiz satır yoksa hiç çağrı yapılmaz.
+    await resolveBareSignals(Deno.env.get("ANTHROPIC_API_KEY")!, [
+      { type: "book", signals: books },
+      { type: "film", signals: movies },
+      { type: "song", signals: music },
+    ]);
 
     const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",

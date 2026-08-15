@@ -179,6 +179,12 @@ Gerekli secret'lar (`supabase secrets set`): `RESEND_API_KEY`, `WEEKLY_PICKS_SEC
 - Sinyalin `title` ve `creator`'ı **ayrı taşınır** (`WorkEntry`). Tek string'e ("Başlık - Yaratıcı")
   geri dönme: ayırıcısız bir satır hep yaratıcı sanılıyordu, yalnız eser adı yanlış kolona yazılıyordu.
   `analyze`'daki `parseEntry` yalnızca 60 dk TTL'deki eski kayıtlar için duruyor.
+- Tek satırlık girişte ayıraç yoksa **tamamı `creator`'a** yazılır (`entryFromText`), yani
+  `title` boş gelen sinyalin eser mi kişi mi olduğunu **bilmiyoruz**. Bu yüzden `formatSignal`
+  "yön. " önekini yalnızca **başlık da varken** koyar: koşulsuzken prompt'a `yön. Asmalı Konak`
+  düşüyordu ve modele olmayan bir yönetmen olgu diye dayatılıyordu. Belirsizliği prompt'ta
+  belirsiz bırak — tahminimizi gerçek gibi sunma. Aynı sebeple `reports.films[].director` ve
+  `user_works.creator` bugün eser adı taşıyabilir; bu kolonlara "kesin yaratıcı" muamelesi yapma.
 - Haftalık seçki maili **görselsiz** kalır (afiş/poster yok) ve link sayısı düşük tutulur —
   bu bir deliverability kararı (Gmail Promotions riski), estetik tercih değil.
 - `send-weekly-picks` film **seçmez**; tek işi göndermektir. Kürasyonu otomatikleştirme dürtüsüne kapılma.
