@@ -261,7 +261,7 @@ Sayfanın sonuna kadar kaydırınca boş kategori notu okunabilmeli. ✅
 - ⚠️ **RLS:** `is_public = false` bir rapor, çıkış yapmış bir tarayıcıda (gizli sekme)
   açılmamalı
 - 🔍 Günlük keşif (`daily-discovery`) hâlâ öneri döndürüyor
-- 🔍 `/settings` haftalık seçki toggle'ı
+- 🔍 `/account` (Hesabım) haftalık seçki toggle'ı + platform tercihi
 
 ---
 

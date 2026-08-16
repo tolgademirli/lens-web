@@ -126,7 +126,26 @@ Kullanıcının kendi tercihleri ve üyelik paketi.
 | `user_id`              | UUID PK      | `auth.users(id)` ON DELETE CASCADE |
 | `weekly_picks_enabled` | BOOLEAN      | NOT NULL, default true |
 | `plan`                 | TEXT         | NOT NULL, default `free`. `free` \| `premium` (CHECK) |
+| `platforms`            | TEXT[]       | nullable, **DEFAULT YOK**. `watch_providers.slug` listesi. NULL = "Tümü". Yalnızca `plan = 'premium'` iken UYGULANIR |
 | `updated_at`           | TIMESTAMPTZ  | NOT NULL, default NOW(); BEFORE UPDATE trigger'ı tazeler |
+
+> **`platforms`: NULL = Tümü, BOŞ DİZİ YASAK.** `'{}'` "hiçbir platform kabul değil"
+> demektir — filtre semantiğinin tam tersi — ve `platforms && adaylar` gibi her doğal
+> dizi yüklemi `'{}'` için false döner, yani kullanıcı hiçbir hata görmeden her hafta
+> **sıfır öneri** alırdı. CHECK bunu temsil edilemez yapıyor:
+> `COALESCE(array_length(platforms,1),0) BETWEEN 1 AND 24 AND array_position(platforms,NULL) IS NULL`.
+> `COALESCE` şart — `array_length('{}',1)` sıfır değil **NULL** döner ve CHECK NULL'ı geçirir.
+> `'all'` gibi bir sentinel de kullanılmıyor: `{'all','netflix'}` geçersiz durumlar doğurur.
+>
+> Slug doğrulaması CHECK değil **trigger** (`guard_user_preferences_platforms`), çünkü
+> sözlük `watch_providers` tablosunda yaşıyor. Bilinmeyen slug sessizce filtreyi boşaltır
+> ve gevşetme merdiveni bunu gizler — yazım anında patlaması daha iyi.
+>
+> **Filtre PREMIUM özelliği ve zorlama TEK NOKTADA:**
+> `lens_weekly_pick_candidates`, `plan <> 'premium'` olan kullanıcı için `platforms`'ı
+> **NULL** döndürür. Değer tabloda durmaya devam eder — premium'dan düşen kullanıcı
+> tercihini kaybetmez, yeniden abone olunca geri gelir. Yazma tarafına ikinci bir kapı
+> KONMADI: iki kapı zamanla ayrışır ve düşen kullanıcı tercihini düzenleyemez hâle gelir.
 
 > **`plan`'ı kullanıcı kendi değiştiremez.** RLS, kullanıcının kendi satırını UPDATE
 > etmesine izin verir (toggle bunu gerektiriyor), dolayısıyla tek başına yeterli değildi:
@@ -141,22 +160,105 @@ Kullanıcının kendi tercihleri ve üyelik paketi.
 
 ---
 
+## `watch_providers`
+
+Platform sözlüğü: bizim slug'ımız ↔ erişilebilirlik sağlayıcısının servis id'si.
+Ayarlar ekranı ve `generate-weekly-picks` aynı tablodan okur — böylece UI, üretimin
+**filtreleyemediği** bir platformu kullanıcıya asla teklif edemez.
+
+| Kolon        | Tip      | Notlar |
+|--------------|----------|--------|
+| `slug`       | TEXT PK  | BİZİM kelime dağarcığımız (`netflix`, `mubi`). `user_preferences.platforms` bunu saklar |
+| `label_tr`   | TEXT     | NOT NULL. Ayarlar ekranında ve mailde görünen ad |
+| `service_id` | TEXT     | nullable. movieofthenight servis slug'ı (`netflix`, `prime`, `apple`…). NULL = karşılığı **henüz doğrulanmadı** |
+| `sort_order` | INT      | NOT NULL default 100 |
+
+**RLS:** herkes SELECT edebilir (Ayarlar ekranı gösteriyor). Yazma policy'si **yok** —
+`service_id` SQL Editor'den elle doldurulur.
+
+> **Runtime çözümleme YOK.** TMDB'de `provider_id` sayısaldı ve her ay tazelenmesi
+> gerekiyordu; movieofthenight zaten slug döndürüyor, dolayısıyla `name_pattern` +
+> `refreshed_at` katmanı gereksizleşti ve kaldırıldı.
+>
+> **`service_id IS NULL` olan satır Ayarlar'da GÖSTERİLMEZ** (`fetchPlatformOptions`
+> filtreliyor). Filtreleyemeyeceğimiz bir platformu teklif etmek, kullanıcıya
+> tutamayacağımız bir söz vermektir: seçer, hiçbir şey değişmez, sebebini de göremez.
+> Doğrulama yolu `generate-weekly-picks` `mode: "services"` — TR'de tanınan servisleri
+> döker ve yanlış seed'lenmiş id'leri (`unknown_service_ids`) adlandırır.
+>
+> **Bugün dolu olanlar** (16 Ağustos 2026'da canlı doğrulandı): `netflix`, `prime`,
+> `disney`, `hbo`, `mubi`. Sağlayıcının TR'de tanıdığı servislerin tamamı bu beşe ek
+> olarak `curiosity`, `crunchyroll`, `zee5` — sözlüğümüzde karşılıkları yok.
+> **Apple TV+ dahil DEĞİL:** Türkiye'de var olan bir platform ama sağlayıcının TR
+> kataloğunda yok, o yüzden `service_id` NULL ve Ayarlar'da görünmüyor.
+>
+> **Neden sağlayıcının id'si değil kendi slug'ımız saklanıyor:** sağlayıcı bir gün yine
+> değişebilir (TMDB → movieofthenight geçişi tam olarak bu oldu). Kendi slug'ımızı
+> saklamak, o gün değişen tek şeyin bu tablodaki `service_id` olmasını garantiler;
+> kullanıcının tercihi sessizce bozulmaz.
+
+---
+
 ## `weekly_picks`
 
-Haftalık film seçkileri. **Kürasyon manuel:** satırlar elle (veya dışarıda üretilmiş JSON ile) girilir; hiçbir kod buraya film seçmez. `send-weekly-picks` edge function'ının tek işi bu satırları göndermektir.
+Haftalık film **ve dizi** seçkileri. Kürasyonu `generate-weekly-picks` yapar (Claude,
+premium'da + erişilebilirlik doğrulaması); `send-weekly-picks`'in tek işi bu satırları
+göndermektir. Elle giriş kaçış kapısı olarak duruyor (bkz. [`weekly-picks.md`](weekly-picks.md)).
 
 | Kolon           | Tip          | Notlar |
 |-----------------|--------------|--------|
 | `id`            | UUID PK      | gen_random_uuid() |
 | `user_id`       | UUID NOT NULL| `auth.users(id)` ON DELETE CASCADE. `reports`'tan farklı olarak nullable **değil** — seçki kişiye özel küre edilir. |
 | `week`          | DATE NOT NULL| O haftanın işareti (örn. gönderim Cuma'sı) |
-| `films`         | JSONB NOT NULL| `[{title: string, year: int, blurb: string, justwatch_url: string}]` |
+| `films`         | JSONB NOT NULL| Öğe şeması v2 — aşağıya bak |
 | `intro_variant` | TEXT         | `"standart"` \| `"sessiz"` (CHECK), default `standart`. Mail giriş paragrafını belirler. |
 | `status`        | TEXT         | `"draft"` \| `"sent"` \| `"failed"` \| `"overpast"` (CHECK), default `draft` |
 | `sent_at`       | TIMESTAMPTZ  | nullable — başarılı gönderimde dolar |
 | `created_at`    | TIMESTAMPTZ  | NOT NULL, default NOW() |
 
-**Kısıt:** `UNIQUE(user_id, week)` — aynı kullanıcıya aynı hafta iki seçki girilemez. Çift mail, gönderim hatasından pahalı.
+### `films` öğe şeması (v2)
+
+```jsonc
+{
+  "title": "Chungking Express", "year": 1994,
+  "blurb": "Şehirde iki insanın birbirini ıskalaması, neon hızında.",
+  "watch_url": "https://mubi.com/tr/films/chungking-express",
+  "director": "Wong Kar-wai",
+
+  // --- v2, HEPSİ OPSİYONEL (elle girilmiş eski satırlarda yok) ---
+  "media_type": "movie",          // "movie" | "tv". Yoksa film varsayılır
+  "show_id": "8195",              // sağlayıcının show id'si; yalnızca doğrulanmış satırda
+  "providers": ["mubi"],          // watch_providers.slug listesi
+  "offer_type": "subscription",   // subscription|free|buy|rent|addon|off_platform
+  "tags": { "tone": 0.1, "popularity": -0.3, "era": -0.4, "genre": "romantik" }
+}
+```
+
+**Link alanı iki isimli ve okuma sırası `watch_url ?? justwatch_url`:**
+`watch_url` v2 (üretici yazar), `justwatch_url` v1 (elle girilmiş eski satırlar). Eski
+satırlar YENİDEN YAZILMAZ — `films` dizisine dokunmak slot bağlamasını riske atar
+(aşağıdaki uyarı). Okuyucuların hepsi iki alanı da biliyor: `email.ts → watchUrl()`,
+`src/lib/discovery.ts → weeklyPickCards`.
+
+`watch_url`'in **anlamı pakete göre değişir**: premium + platform filtresi varsa
+sağlayıcıdan gelen **doğrulanmış servis deep link'i**, aksi halde bir JustWatch **arama**
+linki. İkisi de tahmin DEĞİL — elle kurulan `justwatch.com/tr/film/<slug>` URL'leri sık
+sık kırılıyordu (7 Ağustos 2026 seçkisinde üç filmin de "Nerede izlenir" satırı bu
+yüzden kaybolmuştu). `providers`/`offer_type` yalnızca doğrulanmış yolda yazılır:
+ücretsiz yolda o bilgiye sahip değiliz ve mailde iddia etmiyoruz.
+
+`tags` **eksen ayarının girdisidir**, kullanıcıya gösterilmez.
+`lens_private.lens_active_signals` bunu `films[slot]->'tags'` yolundan okur; v1
+satırlarda `tags` olmadığı için o satırlar yalnızca neden tabanlı
+(`too_dark`/`too_popular`) ayar yapar — **veri göçü gerekmez**.
+
+> ⚠️ **SLOT BAĞLAMASI — geri bildirimi olan satırın `films` dizisi YENİDEN YAZILMAZ.**
+> `discovery_feedback.slot`, dizinin **0-tabanlı indeksinin string hâli**
+> (`src/lib/discovery.ts` → `slot: String(index)`), ve `lens_active_signals` bunu
+> `(ord - 1)::TEXT = f.slot` ile eşliyor. Sıralamayı değiştirmek ya da diziyi yeniden
+> yazmak, geçmiş **her sinyali sessizce başka bir esere** atar.
+
+**Kısıt:** `UNIQUE(user_id, week)` — aynı kullanıcıya aynı hafta iki seçki girilemez. Çift mail, gönderim hatasından pahalı. Üretici bunu fikirdeşliğin son duvarı olarak kullanır (`ignoreDuplicates`).
 
 **RLS:** Kullanıcı yalnızca kendi seçkilerini SELECT edebilir. INSERT/UPDATE/DELETE policy'si **bilerek yok** — yalnızca `service_role_key` yazar. Aksi halde kullanıcı kendi satırını `sent` işaretleyip gönderimi atlatabilirdi.
 

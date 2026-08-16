@@ -6,6 +6,18 @@ project_id = "lubqjfyumqlkippeijah"
 [analytics]
 enabled = false
 
+# Haftalık seçki mailinin "kapat" linki. Mail istemcisinden, OTURUM OLMADAN
+# çağrılır — bu yüzden JWT istenmez; koruma URL'deki imzalı HMAC token'ında
+# (bkz. functions/_shared/unsubscribe.ts).
+#
+# DİKKAT: burada YALNIZCA bu fonksiyon var. Çıplak bir `[functions]` bloğu
+# yazmak varsayılanı BÜTÜN fonksiyonlar için değiştirir ve analyze /
+# daily-discovery / extract-works / link-telegram / send-weekly-picks'in
+# korumasını sessizce kaldırır. Deploy sonrası diğerlerinin hâlâ JWT
+# istediğini doğrula.
+[functions.unsubscribe]
+verify_jwt = false
+
 # Lokal auth, Vite dev sunucusunun portuna (5173) dönmeli. Varsayılan 3000'dir
 # ve magic link tıklandığında boş bir adrese düşer.
 [auth]

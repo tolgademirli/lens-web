@@ -179,6 +179,18 @@ export interface UserPreferences {
   user_id: string;
   weekly_picks_enabled: boolean;
   plan: UserPlan;
+  /**
+   * Haftalık seçkinin sınırlanacağı platform slug'ları (watch_providers.slug).
+   *
+   * NULL = "Tümü" (filtre yok). BOŞ DİZİ OLAMAZ — DB'de CHECK ile yasak, çünkü
+   * '{}' "hiçbir platform kabul değil" demektir ve kullanıcı sessizce sıfır
+   * öneri alırdı.
+   *
+   * Değer HER PAKETTE saklanır ama yalnızca `plan = 'premium'` iken UYGULANIR:
+   * `lens_weekly_pick_candidates` ücretsiz pakette NULL döndürür. Yani premium'dan
+   * düşen kullanıcı tercihini kaybetmez, sadece o süre boyunca filtresiz seçki alır.
+   */
+  platforms: string[] | null;
   updated_at: string;
 }
 
@@ -285,14 +297,51 @@ export interface TasteProfile {
   computed_through?: string | null;
 }
 
-/** Haftalık seçkideki tek film. Kürasyon manuel — bu satırlar elle girilir. */
+/**
+ * Haftalık seçkideki tek öğe (film ya da dizi).
+ *
+ * v2 alanları generate-weekly-picks tarafından yazılır ve HEPSİ OPSİYONEL: elle
+ * girilmiş eski satırlarda yoktur ve o satırlar hem mailde hem panelde eskisi
+ * gibi görünmeye devam eder.
+ *
+ * DİKKAT — SLOT BAĞLAMASI: geri bildirim bu dizinin İNDEKSİNE bağlanıyor
+ * (discovery.ts'teki `slot: String(index)`). Geri bildirimi olan bir satırın
+ * `films` dizisini YENİDEN YAZMA ya da SIRALAMASINI DEĞİŞTİRME — geçmiş her
+ * sinyal sessizce başka bir esere atanır.
+ */
 export interface WeeklyPickFilm {
   title: string;
   year: number;
   blurb: string;
-  justwatch_url: string;
-  /** Yönetmen — uygulama içi kartta başlığın altında görünür. Mailde kullanılmaz. */
+  /**
+   * İzleme linki (v2). Premium + platform filtresi olan kullanıcıda servise
+   * DOĞRUDAN deep link, ücretsiz pakette JustWatch ARAMA linki. Okurken
+   * `watch_url ?? justwatch_url` sırasını izle — v1 (elle girilmiş) satırlarda
+   * yalnızca ikincisi vardır.
+   */
+  watch_url?: string;
+  /** v1 satırların link alanı. Yeni satırlarda YAZILMAZ. */
+  justwatch_url?: string;
+  /** Yönetmen/yaratıcı — uygulama içi kartta başlığın altında görünür. */
   director?: string;
+
+  /** "movie" | "tv". Yoksa film varsayılır. */
+  media_type?: "movie" | "tv";
+  /** Erişilebilirlik sağlayıcısının show id'si — yalnızca doğrulanmış satırlarda. */
+  show_id?: string;
+  /**
+   * watch_providers.slug listesi — nerede izlenebildiği. Ücretsiz pakette YOKTUR:
+   * erişilebilirlik API'si yalnızca platform filtresi varken çağrılıyor.
+   */
+  providers?: string[];
+  offer_type?: "subscription" | "free" | "buy" | "rent" | "addon" | "off_platform";
+  /** Eksen ayarının girdisi. Kullanıcıya GÖSTERİLMEZ. */
+  tags?: {
+    tone?: number;
+    popularity?: number;
+    era?: number;
+    genre?: string;
+  };
 }
 
 /** Mail giriş paragrafını belirler. */

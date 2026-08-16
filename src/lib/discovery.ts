@@ -14,6 +14,16 @@ export interface DiscoveryCardData {
   creator: string;
   reason: string;
   slot: string;
+
+  /**
+   * Haftalık seçkiye özgü, opsiyonel alanlar. Günlük keşifte yoktur.
+   * Eskiden bu bilgiler weeklyPickCards içinde DÜŞÜRÜLÜYORDU — kart, elindeki
+   * "nerede izlenir" linkini kullanıcıya hiç göstermiyordu.
+   */
+  year?: number;
+  /** "Nerede izlenir" linki — v2 `watch_url`, v1 satırlarda `justwatch_url`. */
+  watchUrl?: string;
+  mediaType?: "movie" | "tv";
 }
 
 const SLOT_TO_TYPE: Record<DiscoverySlot, WorkType> = {
@@ -75,7 +85,18 @@ export function dailyDiscoveryCards(discovery: DailyDiscovery): DiscoveryCardDat
   });
 }
 
-/** Haftalık seçkiyi kart verisine çevirir. Kürasyon manuel — burada seçim yapılmaz. */
+/**
+ * Haftalık seçkiyi kart verisine çevirir. Burada seçim YAPILMAZ — kürasyon
+ * generate-weekly-picks'in işi.
+ *
+ * `slot: String(index)` DEĞİŞTİRİLEMEZ: geri bildirimin bağlama anahtarı bu ve
+ * `lens_active_signals`'ın haftalık seçki etiketlerini bulmak için kullandığı
+ * `(ord - 1)::TEXT = f.slot` eşlemesi buna dayanıyor. Dizi indeksinden başka bir
+ * şeye geçmek geçmiş bütün sinyalleri yanlış eserlere bağlar.
+ *
+ * Dizi de motorda `film` tipinde yaşıyor (work_type CHECK'i böyle); mediaType
+ * yalnızca GÖSTERİM için taşınıyor.
+ */
 export function weeklyPickCards(pick: WeeklyPick): DiscoveryCardData[] {
   return (pick.films ?? []).map((film, index) => ({
     key: `weekly-${index}`,
@@ -84,6 +105,10 @@ export function weeklyPickCards(pick: WeeklyPick): DiscoveryCardData[] {
     creator: film.director ?? "",
     reason: film.blurb,
     slot: String(index),
+    year: Number.isFinite(film.year) ? film.year : undefined,
+    // v2 alanı önce, v1 yedek: elle girilmiş eski satırlar linkini kaybetmesin.
+    watchUrl: film.watch_url || film.justwatch_url || undefined,
+    mediaType: film.media_type,
   }));
 }
 

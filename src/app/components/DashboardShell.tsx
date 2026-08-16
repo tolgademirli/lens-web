@@ -1,20 +1,27 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router";
 import { motion } from "motion/react";
-import { Bookmark, Compass, FileText, LogOut, Plus, Settings as SettingsIcon, Sparkles, User } from "lucide-react";
+import { Bookmark, Compass, FileText, LogOut, Plus, Sparkles, User, UserCog } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { getCurrentUser, supabase } from "@/lib/supabase";
 
 /**
- * Panelin ortak kabuğu: başlık + sekmeler. Üç sekme de aynı kabuğu kullanır ki
- * sekme değiştirmek sayfa kimliğini değiştirmesin.
+ * Panelin ortak kabuğu: başlık + sekmeler. Sekmelerin hepsi aynı kabuğu kullanır
+ * ki sekme değiştirmek sayfa kimliğini değiştirmesin.
  *
- * Rota dili İngilizce (BUG-01 dersi): /dashboard, /dashboard/reports, /dashboard/list.
+ * Rota dili İngilizce (BUG-01 dersi): /dashboard, /dashboard/reports,
+ * /dashboard/list, /account.
+ *
+ * "Hesabım" panelin İÇİNDE bir sekme: tercihler eskiden panelin dışındaki
+ * /settings'teydi ve kullanıcı ayarı değiştirip panele dönmek için geri tuşuna
+ * basıyordu. /settings artık /account'a yönleniyor (yayına çıkmış maillerdeki
+ * eski linkler kırılmasın).
  */
 const TABS = [
   { to: "/dashboard", label: "Keşifler", Icon: Compass, end: true },
   { to: "/dashboard/reports", label: "Raporlar", Icon: FileText, end: false },
   { to: "/dashboard/list", label: "Listem", Icon: Bookmark, end: false },
+  { to: "/account", label: "Hesabım", Icon: UserCog, end: false },
 ];
 
 interface DashboardShellProps {
@@ -73,14 +80,8 @@ export function DashboardShell({ children, loading = false }: DashboardShellProp
                 <Plus className="h-5 w-5" />
                 <span className="hidden sm:inline">Yeni Rapor</span>
               </Button>
-              <Button
-                variant="ghost"
-                onClick={() => navigate("/settings")}
-                aria-label="Ayarlar"
-                className="rounded-xl px-2 text-purple-200 hover:bg-slate-700/50 hover:text-white sm:px-3"
-              >
-                <SettingsIcon className="h-5 w-5" />
-              </Button>
+              {/* Ayar dişlisi kalktı: aynı yere götüren iki giriş (dişli + sekme)
+                  kullanıcıya iki ayrı yer varmış gibi geliyordu. */}
               <Button
                 variant="ghost"
                 onClick={handleSignOut}

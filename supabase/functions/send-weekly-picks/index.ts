@@ -1,8 +1,10 @@
 // send-weekly-picks — haftalık film seçkisi gönderim pipeline'ı.
 //
 // Bu fonksiyonun TEK işi göndermek. Film SEÇMEZ, Claude çağırmaz, weekly_picks'e
-// satır YARATMAZ. Kürasyon manuel: seçkiler tabloya elle (veya dışarıda üretilmiş
-// JSON ile) girilir, bu fonksiyon o haftanın draft satırlarını alıp yollar.
+// satır YARATMAZ. Kürasyonu generate-weekly-picks yapar; bu ayrım bir ARIZA ALANI
+// ayrımıdır: Claude kesintisi ya da erişilebilirlik API'sinin 429 fırtınası mail
+// gönderimini asla geciktirmemeli. Aynı sebeple ANTHROPIC_API_KEY ve WATCH_API_KEY bu fonksiyonun
+// ortamında YOKTUR. (Elle giriş kaçış kapısı olarak duruyor — bkz. docs/weekly-picks.md)
 //
 // Her çağrı, gönderimden ÖNCE bayat satırları süpürür: haftası 7 günden fazla
 // geçmiş 'draft' satırlar 'overpast' ile kapanır ve bir daha değerlendirilmez.
@@ -10,22 +12,28 @@
 // aylar sonra geri açtığında toplu halde patlayamaz. Bilerek geri-doldurmak
 // için gövdeye "allow_overpast": true ekle.
 //
-// Çağrı (manuel, cron YOK):
+// Çağrı: normalde pg_cron tetikler (Cuma 14:00 UTC = 17:00 İstanbul). Elle:
 //   curl -X POST "$SUPABASE_URL/functions/v1/send-weekly-picks" \
 //     -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
 //     -H "x-weekly-picks-secret: $WEEKLY_PICKS_SECRET" \
 //     -H "Content-Type: application/json" \
 //     -d '{"week":"2026-08-07"}'
 //
+// Gövde: week (zorunlu) · allow_overpast (geri-doldurma) · limit (parti boyutu,
+// varsayılan sınırsız — cron partili gönderir, elle çağrı eskisi gibi hepsini alır).
+//
 // Gerekli secret'lar (supabase secrets set ...):
 //   RESEND_API_KEY          — koda ASLA gömülmez
 //   WEEKLY_PICKS_SECRET     — çağrı koruması; verify_jwt tek başına yetmez,
 //                             çünkü herhangi bir oturumlu kullanıcı invoke edebilir
 //   WEEKLY_PICKS_REPLY_TO   — cevapların düştüğü adres (Tolga'nın Gmail'i)
+//   UNSUBSCRIBE_SECRET      — maildeki kapatma linkini imzalar; unsubscribe
+//                             fonksiyonundaki değerle AYNI olmak zorunda
 // Opsiyonel: WEEKLY_PICKS_FROM, SITE_URL, POSTHOG_KEY, POSTHOG_HOST
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { renderWeeklyPicksEmail, type IntroVariant, type PickFilm } from "./email.ts";
+import { unsubscribeUrl } from "../_shared/unsubscribe.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -97,7 +105,17 @@ function displayName(user: { email?: string; user_metadata?: Record<string, unkn
   return local.charAt(0).toLocaleUpperCase("tr-TR") + local.slice(1);
 }
 
-/** Elle girilen JSONB'ye güvenmiyoruz: bozuk satır tüm gönderimi düşürmemeli. */
+const OFFER_TYPES = ["subscription", "free", "buy", "rent", "addon", "off_platform"] as const;
+
+/**
+ * JSONB'ye güvenmiyoruz: bozuk satır tüm gönderimi düşürmemeli. (Satırlar artık
+ * generate-weekly-picks tarafından yazılıyor ama elle giriş kaçış kapısı olarak
+ * duruyor; ayrıca üreticinin bir hatası da maili düşürmemeli.)
+ *
+ * BİLİNMEYEN ALANLAR DÜŞER ve bu kasıtlı: mailin görmesi gerekmeyen şey mailin
+ * eline geçmez. `tags` (eksen hesabına ait) ve `show_id`/`title_en` (üretime ait)
+ * burada bilerek geçirilmiyor.
+ */
 function normalizeFilms(raw: unknown): PickFilm[] {
   if (!Array.isArray(raw)) return [];
   return raw
@@ -107,11 +125,32 @@ function normalizeFilms(raw: unknown): PickFilm[] {
       const title = typeof row.title === "string" ? row.title.trim() : "";
       const blurb = typeof row.blurb === "string" ? row.blurb.trim() : "";
       if (!title || !blurb) return null;
+
+      // v2 alanları — hepsi opsiyonel; yoksa mail v1 davranışına döner.
+      const mediaType = row.media_type === "tv" ? "tv" : row.media_type === "movie" ? "movie" : undefined;
+      const providers = Array.isArray(row.providers)
+        ? row.providers.filter((p): p is string => typeof p === "string" && p.length > 0)
+        : undefined;
+      const offerType = OFFER_TYPES.includes(row.offer_type as (typeof OFFER_TYPES)[number])
+        ? (row.offer_type as PickFilm["offer_type"])
+        : undefined;
+
       return {
         title,
         year: typeof row.year === "number" ? row.year : Number.NaN,
         blurb,
-        justwatch_url: typeof row.justwatch_url === "string" ? row.justwatch_url : "",
+        // v2 alanı önce, v1 yedek. Şablon ikisini de `watchUrl()` ile okuyor;
+        // burada ikisini birleştirmiyoruz ki hangi satırın doğrulanmış deep
+        // link'e sahip olduğu veride görünür kalsın.
+        ...(typeof row.watch_url === "string" && row.watch_url
+          ? { watch_url: row.watch_url }
+          : {}),
+        ...(typeof row.justwatch_url === "string" && row.justwatch_url
+          ? { justwatch_url: row.justwatch_url }
+          : {}),
+        ...(mediaType ? { media_type: mediaType } : {}),
+        ...(providers && providers.length ? { providers } : {}),
+        ...(offerType ? { offer_type: offerType } : {}),
       };
     })
     .filter((film): film is PickFilm => film !== null);
@@ -149,14 +188,16 @@ Deno.serve(async (req) => {
   const resendKey = Deno.env.get("RESEND_API_KEY");
   const callSecret = Deno.env.get("WEEKLY_PICKS_SECRET");
   const replyTo = Deno.env.get("WEEKLY_PICKS_REPLY_TO");
+  const unsubSecret = Deno.env.get("UNSUBSCRIBE_SECRET");
 
-  if (!supabaseUrl || !serviceKey || !resendKey || !callSecret || !replyTo) {
+  if (!supabaseUrl || !serviceKey || !resendKey || !callSecret || !replyTo || !unsubSecret) {
     console.error("[send-weekly-picks] Eksik ortam değişkeni:", {
       SUPABASE_URL: Boolean(supabaseUrl),
       SUPABASE_SERVICE_ROLE_KEY: Boolean(serviceKey),
       RESEND_API_KEY: Boolean(resendKey),
       WEEKLY_PICKS_SECRET: Boolean(callSecret),
       WEEKLY_PICKS_REPLY_TO: Boolean(replyTo),
+      UNSUBSCRIBE_SECRET: Boolean(unsubSecret),
     });
     return fail("missing_env");
   }
@@ -169,16 +210,29 @@ Deno.serve(async (req) => {
 
   const from = Deno.env.get("WEEKLY_PICKS_FROM") ?? DEFAULT_FROM;
   const siteUrl = (Deno.env.get("SITE_URL") ?? DEFAULT_SITE_URL).replace(/\/$/, "");
-  const settingsUrl = `${siteUrl}/settings`;
+  // Tercihler /account'ta (eski /settings oraya yönleniyor). Yalnızca YEDEK:
+  // footer'ın asıl linki imzalı `unsubscribe` fonksiyonu, bu adres oturum ister.
+  const settingsUrl = `${siteUrl}/account`;
+  const dashboardUrl = `${siteUrl}/dashboard`;
+  const functionsBase = `${supabaseUrl.replace(/\/$/, "")}/functions/v1`;
 
   let week: string;
   let allowOverpast: boolean;
+  let limit: number | null;
   try {
     const body = await req.json();
     week = typeof body?.week === "string" ? body.week.trim() : "";
     // Bilinçli geri-doldurma kaçış kapısı. Varsayılan false: eski bir haftayı
     // yanlışlıkla invoke etmek kimseye bayat mail attırmamalı.
     allowOverpast = body?.allow_overpast === true;
+    // Parti boyutu. VARSAYILAN SINIRSIZ: mevcut elle curl bayt bayt aynı kalsın.
+    // Cron parti parti gönderir çünkü 600ms throttle ile 100 alıcı ~110s eder ve
+    // duvar saatine dayanır; sonraki tik kalanı alır (sent satırlar bir daha
+    // seçilmediği için tekrar mail gitmez).
+    limit =
+      typeof body?.limit === "number" && Number.isInteger(body.limit) && body.limit > 0
+        ? body.limit
+        : null;
   } catch {
     return fail("bad_body", 400, "Geçersiz istek gövdesi");
   }
@@ -241,13 +295,18 @@ Deno.serve(async (req) => {
     });
   }
 
-  const { data: picks, error: picksError } = await sb
+  let picksQuery = sb
     .from("weekly_picks")
     .select("id, user_id, week, films, intro_variant")
     .eq("week", week)
     .eq("status", "draft")
-    .order("created_at", { ascending: true })
-    .returns<PickRow[]>();
+    .order("created_at", { ascending: true });
+
+  // Parti sınırı sorguya uygulanır, döngüye değil: sınırın dışında kalan satırlar
+  // 'draft' kalır ve sonraki tik onları alır.
+  if (limit !== null) picksQuery = picksQuery.limit(limit);
+
+  const { data: picks, error: picksError } = await picksQuery.returns<PickRow[]>();
 
   if (picksError) {
     console.error("[send-weekly-picks] Seçki sorgusu hatası:", picksError);
@@ -278,6 +337,21 @@ Deno.serve(async (req) => {
     (prefs ?? []).filter((row) => row.weekly_picks_enabled === false).map((row) => row.user_id)
   );
 
+  // Platform slug -> görünen ad. Sözlük watch_providers'ta yaşıyor; şablon çeviri
+  // yapmaz. Okunamazsa mail platform önekini atlar ve gönderime DEVAM eder —
+  // "Netflix ·" yazısının kaybı, mailin gitmemesinden iyidir.
+  const { data: providerRows, error: providerError } = await sb
+    .from("watch_providers")
+    .select("slug, label_tr")
+    .returns<{ slug: string; label_tr: string }[]>();
+
+  if (providerError) {
+    console.error("[send-weekly-picks] Platform sözlüğü okunamadı:", providerError);
+  }
+  const providerLabels = Object.fromEntries(
+    (providerRows ?? []).map((row) => [row.slug, row.label_tr])
+  );
+
   const results: { pick_id: string; user_id: string; status: string; reason?: string }[] = [];
   let sent = 0;
   let skipped = 0;
@@ -305,12 +379,19 @@ Deno.serve(async (req) => {
         throw new Error(`kullanıcı e-postası bulunamadı: ${userError?.message ?? "email yok"}`);
       }
 
+      // Kapatma linki KULLANICIYA ÖZEL imzalanır: token user_id'ye bağlı, yani
+      // her alıcı için yeniden üretilmek zorunda.
+      const unsubUrl = await unsubscribeUrl(functionsBase, pick.user_id, unsubSecret);
+
       // intro_variant şablona GEÇMİYOR: mail tek girişe düştü. Kolon ve PostHog
       // property'si duruyor (ileride varyant denemesi geri gelebilir).
       const { subject, html, text } = renderWeeklyPicksEmail({
         name: displayName(user),
         films,
         settingsUrl,
+        unsubscribeUrl: unsubUrl,
+        dashboardUrl,
+        providerLabels,
       });
 
       const res = await fetch("https://api.resend.com/emails", {
@@ -329,9 +410,17 @@ Deno.serve(async (req) => {
           // Cevaplar asıl sinyal — no-reply'a değil, gerçek kutuya düşsün.
           reply_to: replyTo,
           headers: {
-            // Gmail deliverability + KVKK nezaketi. One-Click POST header'ı
-            // BİLEREK yok: karşılığı olan endpoint olmadan eklemek zarar verir.
-            "List-Unsubscribe": `<${settingsUrl}>, <mailto:${replyTo}?subject=Haftalik%20secki%20istemiyorum>`,
+            // Gmail deliverability + KVKK nezaketi. Artık imzalı endpoint'e bakıyor:
+            // oturum istemez, tek istekte kapatır.
+            "List-Unsubscribe": `<${unsubUrl}>, <mailto:${replyTo}?subject=Haftalik%20secki%20istemiyorum>`,
+            // One-Click (RFC 8058) NİHAYET açık: karşılığı olan POST endpoint'i var.
+            // Bu header olmadan Gmail/Yahoo listeden çıkarma düğmesini göstermiyor
+            // ve kullanıcının elinde kalan tek seçenek "spam" oluyor.
+            //
+            // DİKKAT: header'ın DEĞERİ sabit bir dizedir, POST'un gövdesiyle
+            // karıştırılmamalı. Değeri değiştirmek istemcilerin düğmeyi gizlemesine
+            // yol açar.
+            "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
           },
         }),
       });

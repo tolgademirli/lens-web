@@ -3,7 +3,7 @@ import { ReportPage } from "@/pages/ReportPage";
 import { Dashboard } from "@/pages/Dashboard";
 import { DashboardReports } from "@/pages/DashboardReports";
 import { MyList } from "@/pages/MyList";
-import { Settings } from "@/pages/Settings";
+import { Account } from "@/pages/Account";
 import { Welcome } from "@/app/components/Welcome";
 import { TasteForm } from "@/app/components/TasteForm";
 import { GeneratingReport } from "@/app/components/GeneratingReport";
@@ -31,7 +31,10 @@ export default function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/dashboard/reports" element={<DashboardReports />} />
         <Route path="/dashboard/list" element={<MyList />} />
-        <Route path="/settings" element={<Settings />} />
+        <Route path="/account" element={<Account />} />
+        {/* Tercihler /settings'ten /account'a taşındı. Rota SİLİNMEZ, yönlendirilir
+            (BUG-01 dersi): yayına çıkmış haftalık seçki maillerinde bu adres var. */}
+        <Route path="/settings" element={<Navigate to="/account" replace />} />
         <Route
           path="*"
           element={

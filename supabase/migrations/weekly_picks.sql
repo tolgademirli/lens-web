@@ -73,7 +73,10 @@ CREATE TABLE IF NOT EXISTS weekly_picks (
   -- O haftanın işareti (örn. gönderim Cuma'sı). Fonksiyon bu tarihe göre çeker.
   week          DATE NOT NULL,
 
-  -- [{ "title": str, "year": int, "blurb": str, "justwatch_url": str }]
+  -- v1 (elle girilmiş): [{ "title": str, "year": int, "blurb": str, "justwatch_url": str }]
+  -- v2 (generate-weekly-picks): link alanı `watch_url`, ek olarak media_type,
+  -- show_id, providers, offer_type, tags. Okuyucular `watch_url ?? justwatch_url`
+  -- sırasını izler (docs/schema.md).
   films         JSONB NOT NULL,
 
   -- Mail giriş paragrafını belirler:
