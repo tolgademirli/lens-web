@@ -67,7 +67,8 @@ export function Account() {
    * dönüyor. Kart ücretsiz kullanıcıya da gösteriliyor (kilitli): var olduğunu
    * bilmediği bir özelliği kimse istemez.
    */
-  const canFilter = plan === "premium";
+  const isPremium = plan === "premium";
+  const canFilter = isPremium;
 
   // Optimistic: toggle anında döner, yazım başarısızsa eski değere geri alınır.
   const handleWeeklyPicksChange = async (next: boolean) => {
@@ -121,7 +122,8 @@ export function Account() {
     <DashboardShell loading={loading}>
       <div className="mx-auto max-w-3xl space-y-10">
         <header>
-          <h2 className="font-serif text-3xl text-white">Hesabın</h2>
+          {/* Başlık sekme adının aynısı — bkz. DashboardReports. */}
+          <h2 className="font-serif text-3xl text-white">Hesabım</h2>
           <p className="mt-2 text-purple-300/70">
             Paketin ve öneri tercihlerin tek yerde.
           </p>
@@ -189,10 +191,29 @@ export function Account() {
           </div>
         </section>
 
+        {/*
+          ÖDEME GEÇMİŞİ paketin hemen ardında, tercihlerden ÖNCE: ikisi de
+          "paketim ne durumda" sorusunun parçası, tercihler ise ayrı bir konu.
+
+          Ücretsiz kullanıcıya hiç gösterilmiyor: ödeme akışı olmadığı için o
+          kullanıcının ödemesi hiç olamaz, "Henüz ödeme kaydın yok" satırı
+          bekleyen bir borç varmış izlenimi verirdi. Ödeme akışı (US-08)
+          geldiğinde gerçek satırlar buraya yazılacak.
+        */}
+        {isPremium && (
+          <section className="rounded-2xl border border-purple-500/20 bg-slate-800/40 p-6 backdrop-blur-sm">
+            <p className="text-xs tracking-widest text-purple-300/60">ÖDEME GEÇMİŞİ</p>
+            <div className="mt-4 flex items-center gap-3 text-sm text-purple-300/70">
+              <CreditCard className="h-4 w-4 shrink-0" />
+              <span>Henüz ödeme kaydın yok.</span>
+            </div>
+          </section>
+        )}
+
         {/* ---------------- Tercihler ---------------- */}
         <section className="space-y-4">
           <div>
-            <h3 className="font-serif text-2xl text-white">Tercihlerin</h3>
+            <h3 className="font-serif text-2xl text-white">Tercihlerim</h3>
             <p className="mt-1 text-sm text-purple-300/70">
               Önerileri nereden ve ne sıklıkta almak istediğini burada belirlersin.
             </p>
@@ -305,15 +326,18 @@ export function Account() {
                   </StatusLine>
                 </div>
               ) : (
-                <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-purple-500/20 bg-slate-900/40 px-4 py-3">
-                  <p className="min-w-0 flex-1 text-sm leading-relaxed text-purple-200">
+                /* Mobilde ALT ALTA: metinle buton yan yanayken paragrafa kalan
+                   dar sütun açıklamayı yedi sekiz satıra bölüyordu. Yan yana
+                   düzen yalnızca sm ve üstünde. */
+                <div className="mt-5 flex flex-col items-start gap-3 rounded-xl border border-purple-500/20 bg-slate-900/40 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">
+                  <p className="text-sm leading-relaxed text-purple-200 sm:min-w-0 sm:flex-1">
                     Bu filtre premium'a özel. Şimdilik önerilerin tüm platformlardan
                     geliyor; abone olmadığın bir servisteki yapımlar da çıkabilir.
                   </p>
                   <button
                     type="button"
                     onClick={() => setUpgradeNote(true)}
-                    className="shrink-0 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-2 text-sm text-white shadow-lg transition-colors hover:from-purple-600 hover:to-pink-600"
+                    className="w-full shrink-0 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-2 text-sm text-white shadow-lg transition-colors hover:from-purple-600 hover:to-pink-600 sm:w-auto"
                   >
                     Premium'a geç
                   </button>
@@ -347,19 +371,6 @@ export function Account() {
               )}
             </div>
           )}
-        </section>
-
-        {/*
-          ÖDEME GEÇMİŞİ burada duracak (US-08). Bugün gösterilecek tek dürüst şey
-          bu: uydurma bir "12 Ağu · 29,90 ₺ · Ödendi" satırı, kullanıcının parası
-          hakkında olmayan bir olguyu iddia ederdi.
-        */}
-        <section className="rounded-2xl border border-purple-500/20 bg-slate-800/40 p-6 backdrop-blur-sm">
-          <p className="text-xs tracking-widest text-purple-300/60">ÖDEME GEÇMİŞİ</p>
-          <div className="mt-4 flex items-center gap-3 text-sm text-purple-300/70">
-            <CreditCard className="h-4 w-4 shrink-0" />
-            <span>Henüz ödeme kaydın yok.</span>
-          </div>
         </section>
       </div>
     </DashboardShell>

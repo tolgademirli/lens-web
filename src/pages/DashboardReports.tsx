@@ -59,7 +59,9 @@ export function DashboardReports() {
         className="space-y-5"
       >
         <div>
-          <h2 className="font-serif text-2xl text-white">Raporların</h2>
+          {/* Başlık sekme adının aynısı ("Listem" gibi): sekme "Raporlar" derken
+              başlığın "Raporların" demesi iki ayrı yerdeymiş hissi veriyordu. */}
+          <h2 className="font-serif text-2xl text-white">Raporlar</h2>
           <p className="mt-1 text-sm text-purple-300/70">
             Estetik kimliğinin zaman içindeki kalıcı fotoğrafları.
           </p>
