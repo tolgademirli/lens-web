@@ -2,6 +2,28 @@ import { supabase } from "./supabase";
 import type { UserPlan, UserPreferences } from "./types";
 
 /**
+ * LANSMAN ÖNCESİ: haftalık seçki ÜRETİLİYOR ama MAİL GİTMİYOR.
+ *
+ * Seçki her Cuma üretilmeye devam ediyor ve panelde görünüyor; kapalı olan tek
+ * şey e-posta kanalı. Asıl kapatma veritabanında: `lens-send-weekly-picks` cron
+ * işi kurulmuyor (`20261002093000_weekly_picks_email_pause.sql`).
+ *
+ * Bu bayrak o gerçeği ANLATIR — bayrak olmadan Ayarlar "Açık · e-postan cuma
+ * akşamı gelir" demeye devam eder ve gelmeyecek bir maili söz verir. Güvenlik
+ * sınırı DEĞİL; tutulamayan sözü ekrandan kaldırmak için.
+ *
+ * Kullanıcı tercihleri (`weekly_picks_enabled`) tabloda OLDUĞU GİBİ durur. Toplu
+ * kapatılmadı: satırı olmayan kullanıcı varsayılan açıktır (yani toplu update
+ * gerçek bir kapatma olmazdı) ve o tercih ÜRETİMİ de durdururdu — opt-out
+ * kullanıcı aday listesine hiç girmez.
+ *
+ * LANSMANDA: burayı `false` yap ve
+ * `select lens_private.set_weekly_picks_email(true, 'lansman');` çalıştır.
+ * İkisi birlikte gider — biri tek başına yarım durum üretir.
+ */
+export const WEEKLY_PICKS_EMAIL_PAUSED: boolean = true;
+
+/**
  * Tercih varsayılanları. `user_preferences` satırı OLMAYAN kullanıcı için
  * geçerli olan değerler — DB'deki DEFAULT ile birebir aynı kalmalı.
  * Gönderim sorgusu (send-weekly-picks) da aynı varsayımı kullanır.

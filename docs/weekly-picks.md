@@ -1,5 +1,58 @@
 # Haftalık Dizi & Film Seçkisi — Runbook
 
+> ## ✉️ MAİL KAPALI — 2 Ekim 2026 (lansman öncesi)
+>
+> **Üretim ÇALIŞIYOR, e-posta GİTMİYOR.** Seçki her Cuma 09:00-11:55'te
+> üretilmeye devam ediyor, `weekly_picks` satırları yazılıyor ve panelde
+> görünüyor (`fetchCurrentWeeklyPick` statüye bakmıyor — `draft` satır da
+> görünür). Sökülen tek iş `lens-send-weekly-picks`.
+>
+> Kapatma bir ANAHTARDA duruyor:
+> `lens_private.weekly_picks_switch.email_enabled = false`
+> (`20261002093000_weekly_picks_email_pause.sql`). `install_weekly_cron()` artık
+> bu anahtarı okuyor, yani **tekrar çağırılması güvenli** — çıplak bir
+> `cron.unschedule` olsaydı o fonksiyonun tek bir çağrısı gönderimi sessizce
+> geri getirirdi.
+>
+> Kullanıcı tercihleri (`weekly_picks_enabled`) **toplu kapatılmadı**: satırı
+> olmayan kullanıcı varsayılan açık olduğu için toplu update gerçek bir kapatma
+> olmaz, üstelik o tercih ÜRETİMİ de durdururdu (opt-out kullanıcı aday
+> listesine hiç girmez). Bekleyen `draft` satırlar da `overpast` yapılmadı —
+> "haftası geçti" demek yanlış sebep olurdu; dürüst hâli `draft`.
+>
+> Ayarlar'daki anahtar **kilitli ve kapalı** görünüyor
+> (`WEEKLY_PICKS_EMAIL_PAUSED`, `src/lib/preferences.ts`) — o anahtar zaten
+> yalnızca e-postayı yönetiyor.
+>
+> **Biriken `draft` satırlar — mail GİTMEZ, statü `overpast` olur.** Mail
+> kapalıyken her Cuma yeni `draft` yazılıyor. Bunlar maile dönüşemez: gönderim
+> sorgusu `week` ile TAM EŞLEŞME arıyor (`.eq("week", week)`) ve cron her zaman
+> O GÜNÜN haftasını geçiyor — geçmiş haftalar hiçbir koşulda seçilmez. Elle
+> eski bir hafta çağırsan bile `week < cutoff` dalı gönderimi reddeder
+> (`allow_overpast` olmadan).
+>
+> Lansmandan sonraki ilk çalışmada süpürme adımı o satırları `overpast` yapar
+> ve **doğrusu budur**: `draft` "hâlâ gönderim kuyruğunda" demek (parti sınırı
+> dışında kalan satırlar bilerek `draft` bırakılır, sonraki tik alır). Kuyrukta
+> olmayan satırı orada tutmak hem o anlamı bozar hem de "7 günden eski `draft`
+> yoktur" invaryantını kalıcı olarak deler. Yaşam döngüsü:
+> **`draft` → `sent` / `failed` / `overpast`**, hepsi terminal.
+>
+> **Lansmanda açmak (ikisi birlikte):**
+> ```sql
+> select lens_private.set_weekly_picks_email(true, 'lansman');
+> select jobname, schedule, active from cron.job where jobname like 'lens-%';
+> -- 3 iş beklenir
+> ```
+> ```ts
+> // src/lib/preferences.ts
+> export const WEEKLY_PICKS_EMAIL_PAUSED: boolean = false;
+> ```
+> Tekrar kapatmak: `select lens_private.set_weekly_picks_email(false, 'sebep');`
+>
+> Aşağıdaki "Otomatik akış" tablosunun **17:00 satırı bugün çalışmıyor**;
+> diğer ikisi çalışıyor.
+
 Her Cuma sistem seçkiyi **kendisi üretir** ve **17:00'da** opt-in kullanıcılara
 mail atar. Şema: [`schema.md`](schema.md) → `user_preferences`, `weekly_picks`,
 `watch_providers`.
@@ -27,7 +80,9 @@ Claude kesintisi ya da erişilebilirlik API'sinin 429 fırtınası mail gönderi
 
 **Premium + "Tümü"** de ücretsiz yol gibi davranır: zorlanacak filtre yoksa API'ye
 gerek de yok. Kural tek cümle: **API yalnızca etkin bir platform filtresi varsa
-çağrılır.**
+çağrılır.** Zorlama tek noktada — `lens_weekly_pick_candidates`,
+`plan <> 'premium'` ise `platforms`'ı NULL döndürür. Üreticinin yanlış yapma imkânı
+yok; premium'dan düşen kullanıcı da otomatik olarak doğru davranır (tercihi tabloda durur).
 
 ### Filtrelenebilen platformlar (doğrulandı: 16 Ağustos 2026)
 
@@ -39,9 +94,7 @@ Yani Ayarlar'da **Netflix, Prime Video, Disney+, HBO Max, MUBI** görünür.
 TR kataloğunda karşılığı yok, dolayısıyla filtreleyemiyoruz ve teklif de etmiyoruz.
 BluTV / Exxen / Gain / tabii / TOD / YouTube Premium için de karşılık yok; satırları
 `service_id IS NULL` ile duruyor, sağlayıcı eklerse tek UPDATE ile açılır.
-`curiosity` / `crunchyroll` / `zee5` sözlüğümüzde yok — eklemek bir ürün kararı. Zorlama tek noktada — `lens_weekly_pick_candidates`, `plan <> 'premium'`
-ise `platforms`'ı NULL döndürür. Üreticinin yanlış yapma imkânı yok; premium'dan
-düşen kullanıcı da otomatik olarak doğru davranır (tercihi tabloda durmaya devam eder).
+`curiosity` / `crunchyroll` / `zee5` sözlüğümüzde yok — eklemek bir ürün kararı.
 
 > **Künye (zorunlu).** Erişilebilirlik verisi *Streaming Availability API by Movie
 > of the Night* tarafından sağlanıyor; künye **Ayarlar'daki platform kartının
@@ -112,10 +165,32 @@ linkleri geçersiz olur ve kapatmak isteyen kullanıcı 403 görür.
 | Saat (İstanbul) | Cron (UTC) | İş |
 |---|---|---|
 | 09:00–11:55 | `*/5 6-8 * * 5` | **Üretim** — parti parti, 3 kullanıcı/tik (~108 kişi/hafta) |
-| 12:00 | `0 9 * * 5` | **Özet** — sahibe rapor. Onay beklemez |
+| 12:00 | `0 9 * * 5` | **Özet** — `mode:"digest"` çağrısı. **Kimseye bildirim GİTMEZ**, aşağıya bak |
 | 17:00–18:55 | `*/5 14-15 * * 5` | **Gönderim** — 40 alıcı/tik |
 
 Türkiye kalıcı UTC+3 (yaz saati yok), yani `14:00 UTC == 17:00 İstanbul` **her zaman**.
+
+> **12:00 özeti bugün kimseye ulaşmıyor — bilinçli değil, eksik.** Cron
+> `generate-weekly-picks`'i `mode:"digest"` ile çağırıyor; fonksiyon JSON döndürüyor
+> ve cevap `net._http_response`'a düşüyor. Üreticinin mail gönderme yeteneği YOK
+> (`RESEND_API_KEY` bilerek onun ortamında değil — arıza alanı ayrımı). Yani veto
+> penceresi **sahibin SQL'e bakmasına** bağlı:
+>
+> ```sql
+> select created, status_code, left(content::text, 1000)
+> from net._http_response where created > now() - interval '20 minutes'
+> order by created desc limit 5;
+> ```
+>
+> `weekly_picks`'ten okunamayan tek alanı `eligible_without_row` ("uygun olduğu
+> halde satır almayan kullanıcılar") — sessiz üretim kaybını görmenin tek yolu.
+> pg_net bu satırları birkaç saat sonra temizlediği için kalıcı kayıt da değil.
+>
+> **Planlanan çözüm (ayrı iş):** özeti `send-weekly-picks`'e taşı ve
+> `WEEKLY_PICKS_REPLY_TO` adresine mail at. Üreticiye Resend anahtarı VERME —
+> mail göndermek gönderenin işi, o ayrım Claude arızasının gönderimi
+> bloklamamasını sağlıyor. O gün gelene kadar bu cron'un tek işlevi, teslimat
+> yazıldığında hazır bir yuva olmak.
 
 Üretim ile gönderim arasındaki ~8 saat **veto penceresidir**. Bir haftayı iptal:
 

@@ -7,6 +7,7 @@ import {
   setPlatforms,
   setWeeklyPicksEnabled,
   DEFAULT_PREFERENCES,
+  WEEKLY_PICKS_EMAIL_PAUSED,
 } from "@/lib/preferences";
 import {
   fetchPlatformOptions,
@@ -231,25 +232,36 @@ export function Account() {
                     Haftalık film önerileri
                   </label>
                   <p className="mt-1 text-sm leading-relaxed text-purple-300/70">
-                    Sana uygun birkaç filmi haftada bir e-postayla göndereyim.
-                    Kapatırsan önerilerin durmaz, yalnızca e-posta gelmez.
+                    {WEEKLY_PICKS_EMAIL_PAUSED
+                      ? "Seçkini her cuma hazırlıyorum ve Keşifler'de seni bekliyor. E-posta ile gönderimi henüz açmadım — açtığımda bu anahtardan istediğin an kapatabilirsin."
+                      : "Sana uygun birkaç filmi haftada bir e-postayla göndereyim. Kapatırsan önerilerin durmaz, yalnızca e-posta gelmez."}
                   </p>
                 </div>
               </div>
 
+              {/*
+                Mail kapalıyken anahtar KAPALI ve KİLİTLİ gösteriliyor — anahtar
+                yalnızca E-POSTAYI yönetir, seçkinin üretimini değil, o yüzden
+                "kapalı" burada doğru cevap. Kullanıcının kayıtlı tercihi
+                (`weeklyPicks`) değişmiyor; bayrak kalkınca herkes kendi
+                tercihiyle geri döner.
+              */}
               <Switch
                 id="weekly-picks"
-                checked={weeklyPicks}
+                checked={WEEKLY_PICKS_EMAIL_PAUSED ? false : weeklyPicks}
+                disabled={WEEKLY_PICKS_EMAIL_PAUSED}
                 onCheckedChange={handleWeeklyPicksChange}
-                className="mt-1 shrink-0 data-[state=checked]:bg-purple-500 data-[state=unchecked]:bg-slate-600"
+                className="mt-1 shrink-0 data-[state=checked]:bg-purple-500 data-[state=unchecked]:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-60"
               />
             </div>
 
             <div className="mt-5 border-t border-purple-500/10 pt-4">
-              <StatusLine on={weeklyPicks}>
-                {weeklyPicks
-                  ? "Açık · e-postan cuma akşamı gelir"
-                  : "Kapalı · e-posta göndermiyorum"}
+              <StatusLine on={!WEEKLY_PICKS_EMAIL_PAUSED && weeklyPicks}>
+                {WEEKLY_PICKS_EMAIL_PAUSED
+                  ? "Seçkin Keşifler'de · e-posta gönderimi henüz açılmadı"
+                  : weeklyPicks
+                    ? "Açık · e-postan cuma akşamı gelir"
+                    : "Kapalı · e-posta göndermiyorum"}
               </StatusLine>
             </div>
 

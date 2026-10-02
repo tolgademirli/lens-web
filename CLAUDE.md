@@ -125,6 +125,16 @@ docs/
 6. Client `/report/:id`'ye yönlendirilir; `fetchReport()` RLS'e göre raporu çeker.
 
 ## Veri akışı: haftalık dizi & film seçkisi
+> **MAİL KAPALI (2 Ekim 2026, lansman öncesi).** Üretim ve 12:00 özeti
+> çalışıyor — seçki her Cuma üretilip panelde gösteriliyor; sökülen tek cron
+> işi `lens-send-weekly-picks`. Kapatma anahtarı
+> `lens_private.weekly_picks_switch.email_enabled`
+> (`20261002093000_weekly_picks_email_pause.sql`) ve `install_weekly_cron()` onu
+> okuyor — fonksiyon artık güvenle tekrar çağırılabilir. Kullanıcı tercihleri
+> **ezilmedi** (toplu kapatma üretimi de durdururdu). Açma:
+> `select lens_private.set_weekly_picks_email(true, 'lansman');` + Ayarlar'daki
+> `WEEKLY_PICKS_EMAIL_PAUSED` bayrağını `false` yap.
+
 **Otomatik.** Üretim ve gönderim AYRI fonksiyonlar ve bu bir arıza alanı ayrımı:
 Claude kesintisi ya da erişilebilirlik API'sinin 429 fırtınası mail gönderimini
 geciktirmemeli. Runbook: [`docs/weekly-picks.md`](docs/weekly-picks.md).
@@ -211,6 +221,10 @@ oturumsuz kullanıcıyı `/login`'e attığı için telefonda gelen link sekiyor
 5. `daily-discovery` üç şeyi birleştirir: yasak küme (`lens_blocked_works`), profil eksenleri ve
    son rapor. Dönen öneri yasak kümeyle **deterministik doğrulanır**; ihlalde bir kez daha
    denenir, yine ihlal varsa loglanır ve yine de sunulur (boş kart göstermek daha kötü).
+6. Yasak kümenin üçüncü kaynağı **son 30 günde GÖSTERİLEN** öneriler (`why = 'shown'`;
+   `daily_discoveries` + `weekly_picks`). Geri bildirim gerektirmez — kart açılıp dokunulmadan
+   geçilse bile eser 30 gün boyunca aday değildir. İki yüzey tek kümeyi paylaşır: Cuma maili
+   gelen film Pazar keşfinde çıkmaz.
 
 ## Kritik kurallar
 - Onboarding eşiği **toplamda 6 sinyal**, kategori başına değil. Kategori zorunluluğuna geri
@@ -290,6 +304,13 @@ oturumsuz kullanıcıyı `/login`'e attığı için telefonda gelen link sekiyor
   ilk izlenim değil, kalıcı tercih beyanıdır. Diğer rezonans sinyalleri 90 günde yarılanır ve yaş
   **tam gün** olarak alınır: saniye çözünürlüğünde 5 taze sinyal 4.9999999954'te kalıp eşiği
   geçemiyordu.
+- `lens_blocked_works`'ün dönüş **SIRASI sözleşmenin parçasıdır**: `disliked` > `shown` >
+  diğerleri, her katman içinde yeniden eskiye. İki edge function listeyi prompt için baştan
+  kırpıyor (`trimBlocked`, 80 satır tavanı **değişmedi**). Sıra bozulursa kırpma sessizce
+  yanlış 80 satırı taşır — eskiden sıra `work_key` alfabetiğiydi ve dün gösterilen eser
+  prompt'a girmeyip altı aylık bir "listeye aldım" kaydı girebiliyordu. `shown` payı
+  bilerek 80'in tamamı değil: 3. katman tümden düşerse prompt'ta olmayan bir eser önerilir
+  ve **retry** tetiklenir — retry tam bir Claude çağrısıdır, tasarrufun tersi.
 - Eşik **5 ağırlıklı sinyal**; altında profil yazılmaz (sayaçlar yine tazelenir ki karttaki
   "N geri bildirim daha" ilerlesin). Ücretsizde ilk hesaplama eşik dolar dolmaz **anında** yapılır;
   koşul `axes IS NULL`, satır yokluğu değil — eşik altı çağrılar satırı zaten açıyor.
