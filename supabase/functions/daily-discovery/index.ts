@@ -99,13 +99,25 @@ type TasteProfileRow = {
  * Filtrenin DOĞRULUĞU kodda (dönen öneri tam kümeyle karşılaştırılır); prompt'taki
  * liste yalnızca ipucudur. Ama "sevmediğim" kayıtları hiç düşmemeli — kullanıcının
  * açıkça reddettiği eserler.
+ *
+ * Kırpma KATMANLI: disliked (sınırsız) > shown (son 30 günde gösterilenler) > diğerleri.
+ * Tavan değişmedi, değişen hangi 80'in girdiği. `shown`ı öne almasaydık dün gösterilen
+ * eser prompt'a girmeyip altı aylık bir "listeye aldım" kaydı girebilirdi — tekrar
+ * şikâyetinin ta kendisi. Payı 80'in tamamı DEĞİL: 3. katmana nefes payı bırakılmazsa
+ * prompt'tan düşen bir "listedeki" eser önerilip retry'a (tam bir Claude çağrısı)
+ * yol açar. Dizi SQL tarafında zaten bu sırada ve her katman içinde yeniden eskiye
+ * doğru geliyor, o yüzden slice en tazeyi tutar.
  */
 const PROMPT_BLOCK_LIMIT = 80;
+const PROMPT_SHOWN_SHARE = 55;
 
 function trimBlocked(blocked: BlockedWork[]): BlockedWork[] {
   const disliked = blocked.filter((b) => b.why === "disliked");
-  const rest = blocked.filter((b) => b.why !== "disliked").slice(0, PROMPT_BLOCK_LIMIT);
-  return [...disliked, ...rest];
+  const shown = blocked.filter((b) => b.why === "shown").slice(0, PROMPT_SHOWN_SHARE);
+  const rest = blocked
+    .filter((b) => b.why !== "disliked" && b.why !== "shown")
+    .slice(0, PROMPT_BLOCK_LIMIT - shown.length);
+  return [...disliked, ...shown, ...rest];
 }
 
 function describeWork(work: BlockedWork): string {
@@ -178,7 +190,7 @@ Kullanıcının daha önce girdiği eserler (BUNLARLA KESINLIKLE ÇAKIŞMA):
 - Filmler: ${filmsList || "(yok)"}
 - Müzisyenler/Sanatçılar: ${songsList || "(yok)"}
 
-${blockedLines ? `ÖNERME — kullanıcı bunları zaten değerlendirdi (farklı yazımları da dahil):\n- ${blockedLines}` : ""}
+${blockedLines ? `ÖNERME — bunlar kullanıcının zaten karşısına çıktı (farklı yazımları da dahil):\n- ${blockedLines}` : ""}
 
 ${axisLines.length ? `Kullanıcının geri bildirimlerinden çıkan yönelim: ${axisLines.join(", ")}.` : ""}
 ${liked.length ? `Yakınlık duyduğu türler: ${liked.join(", ")}.` : ""}

@@ -359,11 +359,30 @@ yeniden hesaplanabilir.
 | `lens_signal_type` / `_weight` / `_valence` | public | IMMUTABLE karar sözlüğü. **Ağırlık** = güven kütlesi, **valans** = yön/şiddet (`partial`: 5× kütle, +0.5 valans) |
 | `record_feedback(...)` | public | Sinyali yazar, çakışma invaryantını kurar, `interested` ise listeye ekler, tempoya göre profili hesaplar |
 | `retract_feedback(id)` | public | Kaydı **siler** ve invaryantı yeniden kurar (`weight DESC, created_at DESC`) |
-| `lens_blocked_works(user_id)` | public | JSONB. "Tekrar önerme" kümesinin tek tanımı |
+| `lens_blocked_works(user_id)` | public | JSONB. "Tekrar önerme" kümesinin tek tanımı — üç kaynak, **sıralı** döner (aşağı bak) |
 | `lens_refresh_profile_if_due(user_id)` | public | Ücretsizin haftalık tempo kapısı; `{profile_refreshed, signals_until_profile}` döner |
 | `lens_work_keys(jsonb)` | public | Aday önerilerin anahtarlarını toplu üretir |
 | `lens_active_signals(user_id, window)` | **lens_private** | Bayatlama + valans uygulanmış aktif sinyaller |
 | `recompute_taste_profile(user_id, window)` | **lens_private** | Eksen ayarı |
+
+> ### `lens_blocked_works` — üç kaynak ve sıra
+> | `why` | Kaynak | Ömür |
+> |---|---|---|
+> | `disliked` / `known` / `rejected` | `discovery_feedback` | Kalıcı (`mood_mismatch` hariç: 60 gün) |
+> | `listed` | `list_items` (çıkarılanlar dahil) | Kalıcı |
+> | `shown` | `daily_discoveries` + `weekly_picks`, **son 30 gün** | **Pencereli** — 30 gün sonra eser yeniden aday olur |
+>
+> `shown` 2026-08-19'da eklendi. Ondan önce sistem yalnızca kullanıcının BİR ŞEY SÖYLEDİĞİ
+> eserleri biliyordu; gösterilip dokunulmayan öneri hiç önerilmemiş sayılıyor ve prompt her
+> gün aynı olduğu için model aynı cevabı veriyordu (aynı kullanıcıya haftalarca
+> "Bulantı - Sartre", "Stalker - Tarkovski").
+>
+> Dizinin **SIRASI sözleşmenin parçası**: `disliked` > `shown` > diğerleri, her katman
+> içinde yeniden eskiye. Edge function'lar listeyi prompt için baştan kırpıyor
+> (`trimBlocked`), yani sıra bozulursa prompt sessizce yanlış 80 satırı taşır.
+>
+> Eski `daily_discoveries` satırlarında `items` yoktur; o satırlarda `"Başlık - Yaratıcı"`
+> TEXT'i bölünür. Geçici kol — 30 günlük pencere yüzünden 2026-09-10 civarında ölü koda döner.
 
 > ### ⚠️ `public` şemadaki fonksiyonlardan yetki GERİ ALMA
 > PostgreSQL 17.6'da gerçek bir hata var: EXECUTE yetkisi olmayan bir rol **IMMUTABLE olmayan**

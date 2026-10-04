@@ -44,17 +44,31 @@ export type BlockedWork = {
 
 /**
  * Yasak listenin prompt'a giren kısmı. `disliked` satırlar TAMAMEN girer (onları
- * tekrar önermek en pahalı hata); diğer nedenler 80'de kapanır.
+ * tekrar önermek en pahalı hata); diğer nedenler toplamda 80'de kapanır.
  *
+ * Katmanlar: disliked (sınırsız) > shown (son 30 günde gösterilen keşif/seçki) >
+ * diğerleri. Tavan değişmedi, değişen hangi 80'in girdiği. `shown` payı 80'in
+ * tamamı DEĞİL — 3. katman tamamen düşerse prompt'ta olmayan bir "listedeki" eser
+ * önerilir ve gevşetme merdiveni boşuna çalışır.
+ *
+ * Burada AYRICA `film` dışı satırlar atılır — bu fonksiyon yalnızca film/dizi öneriyor,
+ * yasak kitap ve şarkıları basmak modele hiçbir şey söylemeden 80'lik bütçeyi yiyor.
+ * (daily-discovery'de böyle bir filtre YOK: orası üç slotu birden öneriyor.)
  * Kod tarafındaki doğrulama HER ZAMAN tam liste ile yapılır — bu kısıt yalnızca
- * prompt boyutu içindir. (daily-discovery:103-109 ile aynı politika.)
+ * prompt boyutu içindir. (daily-discovery:111-121 ile aynı politika; iki ayrı Deno
+ * bundle olduğu için kopya elle senkron tutulur.)
  */
 const PROMPT_BLOCK_LIMIT = 80;
+const PROMPT_SHOWN_SHARE = 55;
 
 export function trimBlocked(blocked: BlockedWork[]): BlockedWork[] {
-  const disliked = blocked.filter((b) => b.why === "disliked");
-  const rest = blocked.filter((b) => b.why !== "disliked").slice(0, PROMPT_BLOCK_LIMIT);
-  return [...disliked, ...rest];
+  const films = blocked.filter((b) => b.work_type === "film");
+  const disliked = films.filter((b) => b.why === "disliked");
+  const shown = films.filter((b) => b.why === "shown").slice(0, PROMPT_SHOWN_SHARE);
+  const rest = films
+    .filter((b) => b.why !== "disliked" && b.why !== "shown")
+    .slice(0, PROMPT_BLOCK_LIMIT - shown.length);
+  return [...disliked, ...shown, ...rest];
 }
 
 export const SYSTEM_PROMPT = `Sen 'Lens' adlı kişisel kültür rehberinin zekasısın.
@@ -231,7 +245,7 @@ Kullanıcının daha önce girdiği eserler (BUNLARLA KESİNLİKLE ÇAKIŞMA):
 - Filmler: ${filmsList || "(yok)"}
 - Müzisyenler/Sanatçılar: ${songsList || "(yok)"}
 
-${blockedLines ? `ÖNERME — kullanıcı bunları zaten değerlendirdi (farklı yazımları da dahil):\n- ${blockedLines}` : ""}
+${blockedLines ? `ÖNERME — bunlar kullanıcının zaten karşısına çıktı (farklı yazımları da dahil):\n- ${blockedLines}` : ""}
 
 ${axisLines.length ? `Kullanıcının geri bildirimlerinden çıkan yönelim: ${axisLines.join(", ")}.` : ""}
 ${liked.length ? `Yakınlık duyduğu türler: ${liked.join(", ")}.` : ""}
