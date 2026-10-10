@@ -284,6 +284,10 @@ oturumsuz kullanıcıyı `/login`'e attığı için telefonda gelen link sekiyor
   `generate-weekly-picks`) `_shared/sensitive.ts`'teki kuralı içerir: inanç, siyasi görüş,
   etnik köken, cinsel yönelim, sağlık hakkında **çıkarım yok**. Kopyalama, import et. Yeni bir
   üretici prompt yazılırsa o da içerir. Bu bir prompt kuralı; çıktı kodla denetlenmiyor.
+  **Bu blok açık bir Türkçe karakter kuralıyla BİRLİKTE durur** (`analyze`'da 4c): tek başına
+  eklendiğinde model raporları ASCII yazmaya başladı ve bu canlıya çıktı ("Kalabalikta Yalniz
+  Kalan Ironist"). Üretici prompt'a kural ekleyince tek raporla yetinme — aynı listeyle
+  kurallı/kuralsız birkaç örnek üretip Türkçe harf oranına bak (düzgün metin ≈ %10-13).
 - Onboarding eşiği **toplamda 6 sinyal**, kategori başına değil. Kategori zorunluluğuna geri
   dönme: "3 favori film yaz", film izlemeyen kullanıcıyı daha portresi çıkmadan eliyordu.
   Boş kategori bir kusur değil — rapor bunu bir kez, dürüstçe söyler.

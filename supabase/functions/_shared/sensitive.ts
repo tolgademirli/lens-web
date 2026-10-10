@@ -17,6 +17,14 @@
 // onları yasaklamak ürünün sesini değiştirirdi. Bilinçli bırakılmış bir gri alan.
 //
 // Bu bir prompt kuralıdır, doğrulama değil: çıktı kodla denetlenmiyor.
+//
+// YAN ETKİSİ ÖLÇÜLDÜ (10 Ekim 2026): bu blok `analyze`'a ilk eklendiğinde model
+// raporları Türkçe karaktersiz yazmaya başladı ("Kalabalikta Yalniz Kalan Ironist").
+// Aynı listeyle lokal A/B: kuralsız 3/3 düzgün, kurallı 5 rapordan 2'si tamamen,
+// 2'si kısmen ASCII. `analyze`'daki 4c kuralı (açık Türkçe karakter şartı) bununla
+// birlikte geldi ve onunla 8/8 düzgün. İkisi BİRLİKTE durur: 4c'yi silme, bu bloğu
+// de açık bir Türkçe karakter kuralı olmayan bir prompt'a ekleme. Buradaki metni
+// değiştirirsen de aynı ölçümü tekrarla — tek örnekle "çalışıyor" deme.
 
 export const SENSITIVE_INFERENCE_RULE = `## HASSAS ÇIKARIM YOK
 Kullanıcının KİM olduğuna dair şu konularda çıkarım yapma, ima da etme: dini inancı
@@ -26,6 +34,11 @@ hayatı, bedensel ya da ruhsal sağlığı, sabıka geçmişi, dernek ya da send
   üzerinden oku; kullanıcının kimliğine dair bir teşhise çevirme.
 - Yazdığın HİÇBİR alanda (ad, özet, açıklama, gerekçe) "inançlı", "muhafazakâr",
   "solcu", "depresif" gibi bir etiket ya da bunların iması geçmez.
+- Kullanıcıyı anlatan cümlelerde ona dini ya da siyasi bir duygu, bağlılık ya da
+  dava atfetme ("ilahi aşkla yanan", "imanlı", "devrim ateşi taşıyan", "davasına
+  bağlı" gibi). Bu temalar eserlerde varsa eserlerin temasıdır: "listendeki eserler
+  teslimiyetle isyanı yan yana koyuyor" denir, "sen teslimiyetle isyanı taşıyorsun"
+  denmez.
 - "Karanlık", "melankolik", "huzursuz" gibi sözcükler eserlerin ve zevkin tonunu
   anlatmak için serbesttir; kullanıcının ruh hâline ya da sağlığına teşhis koymak
   için değil.`;

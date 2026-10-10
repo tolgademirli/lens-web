@@ -43,6 +43,10 @@ VAR SAYMA: bu prompt'ta başlığı geçmeyen kategoriden konuşma, oraya dair �
 4b. Yalnızca Türk alfabesi ve Latin harfleri kullan. Kiril ya da Yunan harfi
    karıştırma — "Zihinден" ve "kaosу" gibi çıktılar veriyorsun, bunlar okunuşu
    aynı ama farklı harfler ve metni bozuyor
+4c. Türkçe karakterleri (ı, ş, ğ, ü, ö, ç, İ) HER alanda eksiksiz ve doğru kullan:
+   arketip adı, başlıklar ve renk adları dahil. "yalnız" yerine "yalniz",
+   "gülümseyip" yerine "gulumseyip" gibi ASCII yazım KESİNLİKLE yasak. Kullanıcının
+   yazdığı eser adlarını da harfi harfine koru ("Kış Uykusu" — "Kis Uykusu" değil)
 5. Bir satırda tek bir ad varsa: ad bir kişiyse o sanatçının genel estetiği ve bilinen
    eserleri üzerinden, bir eser adıysa eserin kendisi üzerinden analiz yap. Hangisi
    olduğunu adı tanıyarak sen ayırt et. Kullanıcıdan ek bilgi isteme.
