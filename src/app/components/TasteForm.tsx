@@ -311,9 +311,15 @@ export function TasteForm() {
 
           {/* İçe aktarımın kendi birincil butonu var; iki birincil yan yana durmasın.
               CTA yapışkan: liste uzayınca görüş alanında kalır. Arkasındaki zemin
-              şart — yoksa altındaki satırın üstüne binip ikisi de okunmaz oluyor. */}
+              şart — yoksa altındaki satırın üstüne binip ikisi de okunmaz oluyor.
+              Geniş ekranda alt mesafe analitik bandı kadar büyür (bant kapalıyken 0):
+              karar vermemiş kullanıcıda bant gönder düğmesini örtmesin. TELEFONDA
+              BİLEREK YOK: orada bant ile çubuk birlikte ekranın yarısını tutuyor ve
+              çubuğu yukarı taşımak bu kez giriş alanını örtüyordu (ölçüldü, 390x844).
+              İkisinden biri kapanacaksa çubuk kapansın — önce eser yazılır, gönderme
+              sonra gelir ve o ana kadar bant çoktan yanıtlanmış olur. */}
           {importing === null && (
-            <div className="sticky bottom-4 -mt-16 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl bg-slate-800/95 backdrop-blur-sm border border-purple-500/20 px-5 py-4 shadow-2xl">
+            <div className="sticky bottom-4 sm:bottom-[calc(1rem+var(--consent-banner-h,0px))] -mt-16 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl bg-slate-800/95 backdrop-blur-sm border border-purple-500/20 px-5 py-4 shadow-2xl">
               <p className="text-xs text-purple-300">
                 Onaylamadan hiçbir şey rapora girmez.
               </p>

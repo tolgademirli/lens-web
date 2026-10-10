@@ -3,14 +3,7 @@ import { NavLink, useNavigate } from "react-router";
 import { motion } from "motion/react";
 import { Bookmark, Compass, FileText, LogOut, Plus, Sparkles, User, UserCog } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
-import { AnalyticsPreferenceLink } from "@/app/components/AnalyticsConsent";
-import { DeleteAccountDialog } from "@/app/components/DeleteAccountDialog";
 import { getCurrentUser, supabase } from "@/lib/supabase";
-import {
-  accountPageVisible,
-  fetchEntitlements,
-  knownPremiumEnabled,
-} from "@/lib/entitlements";
 
 /**
  * Panelin ortak kabuğu: başlık + sekmeler. Sekmelerin hepsi aynı kabuğu kullanır
@@ -24,16 +17,16 @@ import {
  * basıyordu. /settings artık /account'a yönleniyor (yayına çıkmış maillerdeki
  * eski linkler kırılmasın).
  *
- * "Hesabım" sekmesi KOŞULLU: sayfada yapılacak bir şey yoksa (premium anahtarı
- * kapalı VE mail duraklatılmış) sekme gösterilmez — bkz. `accountPageVisible`.
+ * "Hesabım" sekmesi HER ZAMAN görünür. Bir dönem premium anahtarı kapalı ve
+ * mail duraklatılmışken gizleniyordu; artık analitik izni ve hesap silme orada
+ * yaşıyor ve kullanıcının verisi üzerindeki söz hakkı bir özelliğin açık
+ * olmasına bağlanamaz. Sekmeyi yeniden koşula bağlama.
  */
-const ACCOUNT_PATH = "/account";
-
 const TABS = [
   { to: "/dashboard", label: "Keşifler", Icon: Compass, end: true },
   { to: "/dashboard/reports", label: "Raporlar", Icon: FileText, end: false },
   { to: "/dashboard/list", label: "Listem", Icon: Bookmark, end: false },
-  { to: ACCOUNT_PATH, label: "Hesabım", Icon: UserCog, end: false },
+  { to: "/account", label: "Hesabım", Icon: UserCog, end: false },
 ];
 
 interface DashboardShellProps {
@@ -45,11 +38,6 @@ interface DashboardShellProps {
 export function DashboardShell({ children, loading = false }: DashboardShellProps) {
   const navigate = useNavigate();
   const [userEmail, setUserEmail] = useState("");
-  // İlk değer bilinen son durumdan: kabuk her sekmede yeniden kurulduğu için
-  // `false` ile başlamak sekmeyi her geçişte bir an kaybettirirdi.
-  const [showAccount, setShowAccount] = useState(() =>
-    accountPageVisible(knownPremiumEnabled())
-  );
 
   useEffect(() => {
     async function init() {
@@ -59,14 +47,9 @@ export function DashboardShell({ children, loading = false }: DashboardShellProp
         return;
       }
       setUserEmail(user.email ?? "");
-
-      const { premiumEnabled } = await fetchEntitlements();
-      setShowAccount(accountPageVisible(premiumEnabled));
     }
     init();
   }, [navigate]);
-
-  const tabs = showAccount ? TABS : TABS.filter((tab) => tab.to !== ACCOUNT_PATH);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -117,7 +100,7 @@ export function DashboardShell({ children, loading = false }: DashboardShellProp
           </div>
 
           <nav className="flex gap-6">
-            {tabs.map(({ to, label, Icon, end }) => (
+            {TABS.map(({ to, label, Icon, end }) => (
               <NavLink
                 key={to}
                 to={to}
@@ -141,19 +124,6 @@ export function DashboardShell({ children, loading = false }: DashboardShellProp
       <div className="mx-auto max-w-6xl px-4 py-8 md:px-8">
         {loading ? <ShellLoading /> : children}
       </div>
-
-      {/*
-        Veri hakları KABUKTA, "Hesabım" sekmesinde değil: o sekme koşullu
-        (`accountPageVisible`) ve gizliyken kullanıcının hesabını silecek ya da
-        analitik iznini geri alacak bir yeri kalmazdı. Bu iki bağlantı hiçbir
-        anahtara bağlı değildir ve her sekmede görünür.
-      */}
-      <footer className="mx-auto max-w-6xl px-4 pb-10 md:px-8">
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-purple-500/10 pt-6 text-xs text-purple-200">
-          <AnalyticsPreferenceLink className="underline-offset-2 transition-colors hover:text-white hover:underline" />
-          <DeleteAccountDialog className="underline-offset-2 transition-colors hover:text-white hover:underline" />
-        </div>
-      </footer>
     </div>
   );
 }

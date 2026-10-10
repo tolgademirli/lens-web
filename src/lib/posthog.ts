@@ -98,6 +98,10 @@ function start() {
     // Rıza geri alındığında (`opt_out_capturing`) PostHog'un çerezi ve
     // localStorage kaydı da silinsin; varsayılanda yalnızca gönderim durur.
     opt_out_persistence_by_default: true,
+    // Oturum kaydı PostHog projesinde açık. Rıza metni "yazı alanlarına
+    // girdiklerin gizlenir" diyor; bu söz kütüphanenin varsayılanına emanet
+    // edilmesin diye burada sabitleniyor.
+    session_recording: { maskAllInputs: true },
   });
   started = true;
 }

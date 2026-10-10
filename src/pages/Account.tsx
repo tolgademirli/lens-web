@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
-import { CreditCard, Lock, Mail, MonitorPlay } from "lucide-react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { Activity, CreditCard, Lock, Mail, MonitorPlay, Trash2 } from "lucide-react";
 import { DashboardShell } from "@/app/components/DashboardShell";
+import { DeleteAccountDialog } from "@/app/components/DeleteAccountDialog";
 import { Switch } from "@/app/components/ui/switch";
 import {
   fetchPreferences,
@@ -16,12 +16,18 @@ import {
   WATCH_DATA_CREDIT,
   type PlatformOption,
 } from "@/lib/platforms";
-import { accountPageVisible, fetchEntitlements } from "@/lib/entitlements";
-import { posthog } from "@/lib/posthog";
+import { fetchEntitlements } from "@/lib/entitlements";
+import {
+  analyticsConfigured,
+  getConsentState,
+  posthog,
+  setAnalyticsConsent,
+  subscribeConsent,
+} from "@/lib/posthog";
 import type { UserPlan } from "@/lib/types";
 
 /**
- * /account — "Hesabım". Paket ve öneri tercihleri TEK sayfada.
+ * /account — "Hesabım". Paket, öneri tercihleri ve veri hakları TEK sayfada.
  *
  * Neden ayrı sayfa ve neden panelin içinde: tercihler eskiden panelin dışındaki
  * /settings'te duruyordu; kullanıcı ayarı değiştirip panele dönmek için geri
@@ -29,9 +35,19 @@ import type { UserPlan } from "@/lib/types";
  * ("Lens bana ne veriyor, ben neyi seçtim"), o yüzden aynı yerdeler.
  *
  * PREMIUM ANAHTARI KAPALIYKEN paketle ilgili her şey (paket kartı, ödeme
- * geçmişi, platform filtresi) çizilmez; geriye yalnızca e-posta tercihi kalır.
- * O da duraklatılmışsa sayfada yapılacak bir şey yoktur ve /dashboard'a
- * yönlenir — bkz. `accountPageVisible`. Rota SİLİNMEDİ (BUG-01 dersi).
+ * geçmişi, platform filtresi) çizilmez; geriye e-posta tercihi ve "Verilerim"
+ * kalır.
+ *
+ * SAYFA HER ZAMAN GÖRÜNÜR. Bir dönem premium kapalı + mail duraklatılmışken
+ * gizleniyor ve /dashboard'a yönleniyordu (yapılacak bir şey yoktu). Artık
+ * analitik izni ve hesap silme burada yaşıyor ve bunlar hiçbir anahtara bağlı
+ * değil: kullanıcının verisi üzerindeki söz hakkı, bir özelliğin açık olmasına
+ * bağlanamaz. "Verilerim" bölümünü bir koşulun arkasına alma.
+ *
+ * "Verilerim" yalnızca düğme koymaz, AÇIKLAR: neyin tutulduğu, ölçümün neyi
+ * kapsadığı, silmenin neyi götürdüğü kartların içinde yazıyor. Bu iki kontrol
+ * önce panelin altına çıplak bağlantı olarak konmuştu; ne yaptığını söylemeyen
+ * bir "Hesabımı sil" bağlantısı her sekmenin altında yersiz duruyordu.
  *
  * ÖDEME AKIŞI HENÜZ YOK. Paket kartındaki aksiyonlar bilerek işlevsiz; `plan`
  * kolonunu client zaten yazamıyor (guard_user_preferences_plan trigger'ı yutar),
@@ -39,8 +55,9 @@ import type { UserPlan } from "@/lib/types";
  * (US-08) geldiğinde yazılacak yer burası.
  */
 export function Account() {
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  // Karar bandı ile aynı kaynaktan okunur: biri değişince öbürü de güncellenir.
+  const { consent } = useSyncExternalStore(subscribeConsent, getConsentState);
   const [premiumEnabled, setPremiumEnabled] = useState(false);
   const [plan, setPlan] = useState<UserPlan>("free");
 
@@ -62,10 +79,6 @@ export function Account() {
     async function init() {
       // Oturum denetimi DashboardShell'de; burada tekrar etmiyoruz.
       const entitlements = await fetchEntitlements();
-      if (!accountPageVisible(entitlements.premiumEnabled)) {
-        navigate("/dashboard", { replace: true });
-        return;
-      }
 
       const [prefs, opts] = await Promise.all([
         fetchPreferences(),
@@ -80,7 +93,7 @@ export function Account() {
       setLoading(false);
     }
     init();
-  }, [navigate]);
+  }, []);
 
   /**
    * Filtre PREMIUM özelliği. Buradaki kontrol yalnızca ANLATIM içindir — asıl
@@ -150,8 +163,8 @@ export function Account() {
           <h2 className="font-serif text-3xl text-white">Hesabım</h2>
           <p className="mt-2 text-purple-300/70">
             {premiumEnabled
-              ? "Paketin ve öneri tercihlerin tek yerde."
-              : "Öneri tercihlerin burada."}
+              ? "Paketin, öneri tercihlerin ve verilerin tek yerde."
+              : "Öneri tercihlerin ve verilerin burada."}
           </p>
         </header>
 
@@ -420,6 +433,125 @@ export function Account() {
               )}
             </div>
           )}
+        </section>
+
+        {/*
+          ---------------- Verilerim ----------------
+          Hiçbir anahtara bağlı DEĞİL (bkz. dosya başındaki not).
+        */}
+        <section className="space-y-4">
+          <div>
+            <h3 className="font-serif text-2xl text-white">Verilerim</h3>
+            <p className="mt-1 text-sm text-purple-300/70">
+              Lens'in sende ne tuttuğu ve onun üzerindeki söz hakkın.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-purple-500/20 bg-slate-800/40 p-6 backdrop-blur-sm">
+            <p className="text-xs tracking-widest text-purple-300/60">LENS'TE SANA AİT OLANLAR</p>
+            <ul className="mt-4 space-y-3 text-sm leading-relaxed text-purple-100/90">
+              {[
+                "Hesabın: giriş yaptığın e-posta adresi; Google ile girdiysen Google'ın paylaştığı adın ve profil görselin.",
+                "Eserlerin: yazdığın, yapıştırdığın ya da ekran görüntüsünden okunan eser ve yaratıcı adları. Ekran görüntüsünün kendisi saklanmaz.",
+                "Raporların: sen paylaşana kadar yalnızca sana görünür.",
+                "Keşif ve seçki geçmişin, verdiğin geri bildirimler ve Listem: önerileri sana göre ayarlamak için tutulur.",
+              ].map((line) => (
+                <li key={line} className="flex gap-3">
+                  <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-purple-400" />
+                  <span>{line}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/*
+            Kullanım ölçümü. Bantla AYNI karar (`lens_analytics_consent`), yalnızca
+            daha uzun anlatılmış hâli. Anahtar yoksa (lokal geliştirme) ölçülecek
+            bir şey de yoktur; kart çizilmez.
+
+            Maddeler PostHog proje ayarlarını anlatır — oturum kaydı açık olduğu
+            için burada yazıyor. Ayar değişirse metin de değişir (bkz.
+            AnalyticsConsent.tsx başındaki not).
+          */}
+          {analyticsConfigured && (
+            <div className="rounded-2xl border border-purple-500/20 bg-slate-800/60 p-6 backdrop-blur-sm">
+              <div className="flex items-start justify-between gap-6">
+                <div className="flex min-w-0 items-start gap-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-500/20">
+                    <Activity className="h-5 w-5 text-purple-200" />
+                  </div>
+                  <div className="min-w-0">
+                    <label htmlFor="analytics-consent" className="block cursor-pointer text-white">
+                      Kullanım ölçümü
+                    </label>
+                    <p className="mt-1 text-sm leading-relaxed text-purple-300/70">
+                      Lens'in nerede işe yaradığını, nerede tökezlediğini görebilmek için
+                      PostHog adlı bir ölçüm aracı kullanıyorum. Açıkken:
+                    </p>
+                  </div>
+                </div>
+
+                <Switch
+                  id="analytics-consent"
+                  checked={consent === "granted"}
+                  onCheckedChange={(on) => setAnalyticsConsent(on ? "granted" : "denied")}
+                  className="mt-1 shrink-0 data-[state=checked]:bg-purple-500 data-[state=unchecked]:bg-slate-600"
+                />
+              </div>
+
+              <ul className="mt-4 space-y-2 text-sm leading-relaxed text-purple-100/90">
+                {[
+                  "Tarayıcına bir çerez yazılır.",
+                  "Hangi ekranlara uğradığın ve neye dokunduğun kaydedilir.",
+                  "Oturumunun ekran kaydı alınır: ekranda gördüklerin — raporların ve eser listen dahil — kayda girer; yazı alanlarına girdiklerin gizlenir.",
+                  "Bu kayıtlar hesabınla eşleşir ve PostHog'un yurt dışındaki sunucularında tutulur.",
+                ].map((line) => (
+                  <li key={line} className="flex gap-3">
+                    <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-purple-400" />
+                    <span>{line}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-3 text-sm leading-relaxed text-purple-300/70">
+                Kapalıyken hiçbir şey ölçülmez ve tarayıcındaki ölçüm çerezi silinir; Lens
+                aynı şekilde çalışır.
+              </p>
+
+              <div className="mt-5 border-t border-purple-500/10 pt-4">
+                <StatusLine on={consent === "granted"}>
+                  {consent === "granted"
+                    ? "Açık · kullanımın ölçülüyor"
+                    : consent === "denied"
+                      ? "Kapalı · hiçbir şey ölçülmüyor"
+                      : "Henüz karar vermedin · hiçbir şey ölçülmüyor"}
+                </StatusLine>
+              </div>
+            </div>
+          )}
+
+          {/* Hesabı sil */}
+          <div className="rounded-2xl border border-red-500/20 bg-slate-800/60 p-6 backdrop-blur-sm">
+            <div className="flex items-start gap-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-500/15">
+                <Trash2 className="h-5 w-5 text-red-200" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-white">Hesabı sil</p>
+                <p className="mt-1 text-sm leading-relaxed text-purple-300/70">
+                  Hesabını sildiğinde yukarıda sayılanların tamamı — e-posta adresin,
+                  eserlerin, raporların, keşif ve seçki geçmişin, geri bildirimlerin, Listem
+                  ve tercihlerin — Lens'ten kalıcı olarak silinir. Paylaştığın rapor
+                  bağlantıları çalışmaz olur; daha önce indirdiğin ya da paylaştığın poster
+                  görselleri ise sende kalır, onlara ulaşamam. Bu işlem geri alınamaz: aynı
+                  adresle yeniden girersen sıfırdan başlarsın.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 border-t border-purple-500/10 pt-4">
+              <DeleteAccountDialog className="rounded-xl border border-red-400/40 px-4 py-2 text-sm text-red-200 transition-colors hover:bg-red-500/10" />
+            </div>
+          </div>
         </section>
       </div>
     </DashboardShell>

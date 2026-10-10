@@ -60,8 +60,8 @@ src/
   pages/
     ReportPage.tsx     # /report/:id — rapor görüntüleme + paylaşım kontrolü
     Dashboard.tsx      # /dashboard — kullanıcının raporları
-    Account.tsx        # /account — panel sekmesi: paket + öneri tercihleri
-                       #   (premium anahtarı kapalı + mail duraklatılmışken gizli)
+    Account.tsx        # /account — panel sekmesi: paket + öneri tercihleri + Verilerim
+                       #   (analitik izni, hesap silme). HER ZAMAN görünür
                        #   (eski /settings buraya yönleniyor; Settings.tsx kaldırıldı)
     ReportsPage.tsx    # alternatif liste görünümü
   main.tsx
@@ -107,7 +107,7 @@ docs/
 | `/dashboard` | `Dashboard` | Panel — Keşifler sekmesi (günlük keşif + haftalık seçki kartları) |
 | `/dashboard/reports` | `DashboardReports` | Panel — Raporlar sekmesi |
 | `/dashboard/list` | `MyList` | Panel — Listem sekmesi (Bekleyenler / Bitirdiklerim) |
-| `/account` | `Account` | Panel — Hesabım sekmesi: paket + tercihler (seçki opt-out, platform). Premium anahtarı kapalı **ve** mail duraklatılmışken sekme gizli, rota `/dashboard`'a yönlenir |
+| `/account` | `Account` | Panel — Hesabım sekmesi: paket + tercihler (seçki opt-out, platform) + Verilerim (analitik izni, hesap silme). Her zaman görünür; paket bölümü premium anahtarına bağlı |
 | `/settings` | — | Eski tercih rotası; `/account`'a yönlenir (silinmedi, BUG-01 dersi) |
 | `/auth/callback` | `AuthCallback` | OAuth + magic link dönüşü |
 | `/connect` | `TelegramConnect` | Telegram hesap bağlama |
@@ -142,8 +142,8 @@ docs/
 > okuyor — fonksiyon artık güvenle tekrar çağırılabilir. Kullanıcı tercihleri
 > **ezilmedi** (toplu kapatma üretimi de durdururdu). Açma:
 > `select lens_private.set_weekly_picks_email(true, 'lansman');` + Ayarlar'daki
-> `WEEKLY_PICKS_EMAIL_PAUSED` bayrağını `false` yap. Aynı bayrak "Hesabım" sekmesini
-> de geri getirir (bkz. premium anahtarı kuralı) — e-posta tercihinin evi orası.
+> `WEEKLY_PICKS_EMAIL_PAUSED` bayrağını `false` yap. Aynı bayrak "Hesabım"daki e-posta
+> anahtarının kilidini de açar — e-posta tercihinin evi orası.
 
 **Otomatik.** Üretim ve gönderim AYRI fonksiyonlar ve bu bir arıza alanı ayrımı:
 Claude kesintisi ya da erişilebilirlik API'sinin 429 fırtınası mail gönderimini
@@ -241,7 +241,7 @@ oturumsuz kullanıcıyı `/login`'e attığı için telefonda gelen link sekiyor
    `ON DELETE CASCADE` ile bağlı; yabancı anahtarın ulaşamadığı satırları (Telegram kimliğiyle
    doğmuş sahipsiz rapor/eser, bağlama kodları, kota sayacı) `auth.users` üzerindeki
    `lens_purge_user_orphans` BEFORE DELETE trigger'ı toplar. Üç yol aynı sonucu verir:
-   `delete-account` edge function'ı (panelin altındaki "Hesabımı sil"), Supabase paneli
+   `delete-account` edge function'ı (Hesabım → Verilerim → "Hesabımı sil"), Supabase paneli
    (e-postayla gelen talep) ve SQL.
 2. `delete-account` yalnızca JWT'deki kullanıcıyı siler, gövde almaz. Client ardından oturumu
    ve yarım taslakları bu cihazdan temizler (`src/lib/account.ts`).
@@ -251,13 +251,28 @@ oturumsuz kullanıcıyı `/login`'e attığı için telefonda gelen link sekiyor
 4. **Analitik izni:** PostHog yalnızca kullanıcı bantta "İzin ver" dedikten sonra başlar.
    Karar `localStorage["lens_analytics_consent"]`'te durur; karar verilene kadar olaylar bellekte
    bekler, izin gelirse kendi zaman damgalarıyla gider, gelmezse atılır. Geri alma yolu:
-   ana sayfanın ve panelin altındaki "Analitik tercihi".
+   Hesabım → Verilerim'deki "Kullanım ölçümü" anahtarı; oturumsuz ziyaretçi için ana sayfanın
+   altındaki "Analitik tercihi".
+5. **PostHog projesinde oturum kaydı (session replay) AÇIK** (10 Ekim 2026'da uzak ayardan
+   doğrulandı: örnekleme yok, konsol kaydı açık, maske varsayılan = yalnızca yazı alanları).
+   İzin veren kullanıcının ekranı — raporları ve eser listesi dahil — kaydediliyor. Bant ve
+   Hesabım'daki kart bunu söylüyor.
 
 ## Kritik kurallar
 - **PostHog rıza olmadan BAŞLAMAZ.** `posthog-js`'i `src/lib/posthog.ts` dışında import etme;
   oradaki sarmalayıcı tek kapı. Rıza yokken `init` bile çağrılmaz — opt-out modunda init de
   PostHog'a istek atar ve IP'yi yurt dışına taşır. Banttaki iki düğme **aynı görünür**
   (reddetmek kabul etmek kadar kolay olmalı; "İzin ver"i öne çıkarmak rızayı sakatlar).
+  **Rıza metni PostHog proje ayarlarını anlatır ve onlarla birlikte değişir:** panoda yeni bir
+  veri türü açılırsa (oturum kaydı, maskenin kaldırılması, otomatik yakalama) bant ile
+  Hesabım'daki kart aynı gün güncellenir — söylenmeyen bir şeye verilen rıza geçersizdir.
+  Bant yüksekliğini `--consent-banner-h` olarak yayınlar; ana sayfa ve (geniş ekranda) `/start`
+  birincil aksiyonlarını onun üstünde tutar. Bandı uzatırsan ya da yeni bir alt-yapışkan
+  düğme eklersen örtüşmeyi ölç: ilk sürüm ana sayfanın CTA'sını kapatıyordu.
+- **"Verilerim" bölümü (Hesabım) hiçbir anahtara bağlanmaz** ve sekme gizlenmez: analitik izni
+  ile hesap silme, premium ya da mail kapalı diye erişilmez olamaz. Bu iki kontrolü çıplak
+  bağlantı olarak başka yere (panel altı vb.) taşıma — ne yaptıklarını anlatan kartlarıyla
+  birlikte dururlar.
   `send-weekly-picks`'teki sunucu tarafı `weekly_pick_sent` bu kapıdan GEÇMİYOR — mail açılmadan
   önce çözülmesi gereken açık bir borç.
 - **`auth.users`'a bağlanan her yeni tablo `ON DELETE CASCADE` ile bağlanır.** Kullanıcıya ait
@@ -324,9 +339,10 @@ oturumsuz kullanıcıyı `/login`'e attığı için telefonda gelen link sekiyor
     web "premium var" derken backend uygulamaz (ya da tersi).
   - `plan` ve `platforms` kolonları **toplu güncellenmedi** — anahtar açılınca herkes
     kaldığı yerden döner.
-  - "Hesabım" sekmesinin görünürlüğü **türetilir** (`accountPageVisible`: premium açık
-    VEYA mail açık). Üçüncü bir "sayfayı gizle" bayrağı ekleme: mail açıldığı gün
-    unutulur ve kullanıcı e-postayı kapatacak yeri bulamaz.
+  - "Hesabım" sekmesi **her zaman görünür**; anahtar yalnızca içindeki paket bölümünü
+    (paket kartı, ödeme geçmişi, platform filtresi) açıp kapatır. Sekme bir dönem premium
+    kapalı + mail duraklatılmışken gizleniyordu (`accountPageVisible`, kaldırıldı); analitik
+    izni ve hesap silme oraya taşınınca gizlemek imkânsızlaştı — bkz. aşağıdaki kural.
 - Platform filtresi **premium**, ve zorlama **tek noktada**:
   `lens_weekly_pick_candidates` ücretsiz pakette `platforms`'ı NULL döndürür. Yazma
   tarafına (`setPlatforms`, RLS, trigger) ikinci bir kapı KOYMA: premium'dan düşen

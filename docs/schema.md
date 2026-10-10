@@ -170,7 +170,7 @@ Kullanıcının kendi tercihleri ve üyelik paketi.
 >
 > Web aynı satırı `lens_entitlements()` ile okur, yani çevirmek **deploy istemez** ve
 > web/backend ayrışamaz. Kapalıyken arayüz "paket / premium / ücretsiz" kelimelerini hiç
-> kurmaz; mail de duraklatılmışsa "Hesabım" sekmesi gizlenir (`accountPageVisible`).
+> kurmaz; "Hesabım" sekmesi yine görünür ama içinde yalnızca tercihler ve "Verilerim" kalır.
 >
 > **Paketi okuyan yeni bir SQL fonksiyonu `user_preferences.plan`'ı doğrudan okumamalı** —
 > `lens_private.effective_plan(user_id)` kullan. Kolonu okuyan tek bir yer anahtarı deler.

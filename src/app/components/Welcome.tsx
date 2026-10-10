@@ -28,7 +28,12 @@ export function Welcome() {
 
   return (
     <>
-    <div className="relative min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+    {/* Alt boşluk analitik bandı kadar büyür (bant kapalıyken 0): kompozisyon bandın
+        ÜSTÜNDE kalan alanda ortalanır, "Kimliğini Keşfet" hiçbir ekranda örtülmez. */}
+    <div
+      className="relative min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4"
+      style={{ paddingBottom: "calc(1rem + var(--consent-banner-h, 0px))" }}
+    >
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

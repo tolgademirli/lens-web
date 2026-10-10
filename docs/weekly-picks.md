@@ -299,7 +299,7 @@ Paketi `free`'ye geri alıp aynı kullanıcıyı tekrar çalıştır: `filtered`
 Aynı sonucu anahtar da vermeli: paketi `premium` bırakıp
 `select lens_private.set_premium(false, 'test bitti');` çalıştır — `filtered` yine
 **false**, `watch_calls` yine **0**. **Testten sonra anahtarı kapalı bırakmayı unutma**;
-açık kalırsa "Hesabım" sekmesi ve paket kartı herkese görünür.
+açık kalırsa "Hesabım"daki paket kartı ve platform filtresi herkese görünür.
 
 Geçersiz durumlar imkânsız olmalı:
 ```sql

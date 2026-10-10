@@ -1,5 +1,4 @@
 import { supabase } from "./supabase";
-import { WEEKLY_PICKS_EMAIL_PAUSED } from "./preferences";
 import type { UserPlan } from "./types";
 
 /**
@@ -39,9 +38,6 @@ const CLOSED: Entitlements = { premiumEnabled: false, plan: "free" };
 */
 let cache: { userId: string | null; value: Promise<Entitlements> } | null = null;
 
-/** Son başarılı okumadaki anahtar durumu — bkz. `knownPremiumEnabled`. */
-let lastPremiumEnabled = false;
-
 async function loadEntitlements(): Promise<Entitlements> {
   const { data, error } = await supabase.rpc("lens_entitlements");
 
@@ -54,7 +50,6 @@ async function loadEntitlements(): Promise<Entitlements> {
 
   const row = (data ?? {}) as { premium_enabled?: unknown; plan?: unknown };
   const premiumEnabled = row.premium_enabled === true;
-  lastPremiumEnabled = premiumEnabled;
 
   return {
     premiumEnabled,
@@ -78,30 +73,6 @@ export async function fetchEntitlements(): Promise<Entitlements> {
 export async function fetchPlan(): Promise<UserPlan> {
   return (await fetchEntitlements()).plan;
 }
-
-/**
- * Anahtarın bilinen son durumu, beklemeden. Yalnızca panel kabuğunun İLK
- * çizimi için: kabuk her sekmede yeniden kurulduğundan, bu olmadan "Hesabım"
- * sekmesi her geçişte bir an kaybolup geri gelirdi. Karar vermek için KULLANMA —
- * henüz hiç okunmadıysa `false` döner; gerçek cevap `fetchEntitlements`.
- */
-export const knownPremiumEnabled = (): boolean => lastPremiumEnabled;
-
-/**
- * "Hesabım" sayfası gösterilsin mi?
- *
- * Sayfanın iki içeriği var: paket + platform filtresi (premium anahtarı) ve
- * haftalık seçki e-posta tercihi (`WEEKLY_PICKS_EMAIL_PAUSED`). İkisi de
- * kapalıyken geriye yalnızca kilitli, dokunulamayan tek bir anahtar kalıyor —
- * yapılacak hiçbir şeyi olmayan bir sekme.
- *
- * Üçüncü bir bayrak YOK ve olmamalı: görünürlük bu ikisinden TÜRER. Ayrı bir
- * "sayfayı gizle" bayrağı, mail açıldığı gün unutulur ve kullanıcı e-postayı
- * kapatacak (ya da `unsubscribe` sonrası geri açacak) yeri bulamaz. Böyle,
- * ikisinden biri açıldığı an sayfa kendiliğinden geri gelir.
- */
-export const accountPageVisible = (premiumEnabled: boolean): boolean =>
-  premiumEnabled || !WEEKLY_PICKS_EMAIL_PAUSED;
 
 /**
  * Paketin öneri motorundaki karşılığı. Geri bildirim VERMEK iki pakette de
