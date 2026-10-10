@@ -143,7 +143,9 @@ docs/
 > **ezilmedi** (toplu kapatma üretimi de durdururdu). Açma:
 > `select lens_private.set_weekly_picks_email(true, 'lansman');` + Ayarlar'daki
 > `WEEKLY_PICKS_EMAIL_PAUSED` bayrağını `false` yap. Aynı bayrak "Hesabım"daki e-posta
-> anahtarının kilidini de açar — e-posta tercihinin evi orası.
+> kartını da geri getirir — e-posta tercihinin evi orası. Bayrak açıkken kart **hiç
+> çizilmez** (kilitli hâliyle bile: dokunulamayan anahtar tercih değil, hazır olmayan
+> bir özelliğin duyurusuydu).
 
 **Otomatik.** Üretim ve gönderim AYRI fonksiyonlar ve bu bir arıza alanı ayrımı:
 Claude kesintisi ya da erişilebilirlik API'sinin 429 fırtınası mail gönderimini

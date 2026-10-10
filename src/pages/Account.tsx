@@ -38,6 +38,13 @@ import type { UserPlan } from "@/lib/types";
  * geçmişi, platform filtresi) çizilmez; geriye e-posta tercihi ve "Verilerim"
  * kalır.
  *
+ * E-POSTA KANALI KAPALIYKEN (`WEEKLY_PICKS_EMAIL_PAUSED`) e-posta kartı da
+ * çizilmez. İkisi birden kapalıysa "Tercihlerim" bölümü BAŞLIĞIYLA BİRLİKTE
+ * düşer ve sayfada yalnızca "Verilerim" kalır. Başlıkların alt yazıları da
+ * çizilen kartlardan türer (`showEmailCard` / `showPlatformCard`): sabit bir
+ * "önerileri nereden ve ne sıklıkta alacağını belirlersin" cümlesi, platform
+ * filtresi gizliyken bile onu söz vermeye devam ediyordu.
+ *
  * SAYFA HER ZAMAN GÖRÜNÜR. Bir dönem premium kapalı + mail duraklatılmışken
  * gizleniyor ve /dashboard'a yönleniyordu (yapılacak bir şey yoktu). Artık
  * analitik izni ve hesap silme burada yaşıyor ve bunlar hiçbir anahtara bağlı
@@ -107,6 +114,18 @@ export function Account() {
   const isPremium = plan === "premium";
   const canFilter = isPremium;
 
+  /*
+    "Tercihlerim"de hangi kartlar var. Bölümün kendisi, alt yazısı ve sayfa
+    başlığının alt yazısı BUNLARDAN türer — metin ayrı bir koşulla yazılırsa
+    gizlenen bir kartı anlatmaya devam eder.
+
+    Sözlük okunamadıysa (options boş) platform kartı HİÇ gösterilmez: yarım dolu
+    bir liste kullanıcıya "Netflix desteklenmiyor" gibi yanlış bir sonuç çıkarttırır.
+  */
+  const showEmailCard = !WEEKLY_PICKS_EMAIL_PAUSED;
+  const showPlatformCard = premiumEnabled && options.length > 0;
+  const showPreferences = showEmailCard || showPlatformCard;
+
   // Optimistic: toggle anında döner, yazım başarısızsa eski değere geri alınır.
   const handleWeeklyPicksChange = async (next: boolean) => {
     const previous = weeklyPicks;
@@ -163,8 +182,12 @@ export function Account() {
           <h2 className="font-serif text-3xl text-white">Hesabım</h2>
           <p className="mt-2 text-purple-300/70">
             {premiumEnabled
-              ? "Paketin, öneri tercihlerin ve verilerin tek yerde."
-              : "Öneri tercihlerin ve verilerin burada."}
+              ? showPreferences
+                ? "Paketin, öneri tercihlerin ve verilerin tek yerde."
+                : "Paketin ve verilerin tek yerde."
+              : showPreferences
+                ? "Öneri tercihlerin ve verilerin burada."
+                : "Lens'teki verilerin ve onlarla ilgili kararların burada."}
           </p>
         </header>
 
@@ -258,182 +281,189 @@ export function Account() {
           </section>
         )}
 
-        {/* ---------------- Tercihler ---------------- */}
-        <section className="space-y-4">
-          <div>
-            <h3 className="font-serif text-2xl text-white">Tercihlerim</h3>
-            <p className="mt-1 text-sm text-purple-300/70">
-              Önerileri nereden ve ne sıklıkta almak istediğini burada belirlersin.
-            </p>
-          </div>
-
-          {/* Haftalık seçki e-postası */}
-          <div className="rounded-2xl border border-purple-500/20 bg-slate-800/60 p-6 backdrop-blur-sm">
-            <div className="flex items-start justify-between gap-6">
-              <div className="flex min-w-0 items-start gap-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-pink-500/20">
-                  <Mail className="h-5 w-5 text-pink-200" />
-                </div>
-                <div className="min-w-0">
-                  <label htmlFor="weekly-picks" className="block cursor-pointer text-white">
-                    Haftalık film önerileri
-                  </label>
-                  <p className="mt-1 text-sm leading-relaxed text-purple-300/70">
-                    {WEEKLY_PICKS_EMAIL_PAUSED
-                      ? "Seçkini her cuma hazırlıyorum ve Keşifler'de seni bekliyor. E-posta ile gönderimi henüz açmadım — açtığımda bu anahtardan istediğin an kapatabilirsin."
-                      : "Sana uygun birkaç filmi haftada bir e-postayla göndereyim. Kapatırsan önerilerin durmaz, yalnızca e-posta gelmez."}
-                  </p>
-                </div>
-              </div>
-
-              {/*
-                Mail kapalıyken anahtar KAPALI ve KİLİTLİ gösteriliyor — anahtar
-                yalnızca E-POSTAYI yönetir, seçkinin üretimini değil, o yüzden
-                "kapalı" burada doğru cevap. Kullanıcının kayıtlı tercihi
-                (`weeklyPicks`) değişmiyor; bayrak kalkınca herkes kendi
-                tercihiyle geri döner.
-              */}
-              <Switch
-                id="weekly-picks"
-                checked={WEEKLY_PICKS_EMAIL_PAUSED ? false : weeklyPicks}
-                disabled={WEEKLY_PICKS_EMAIL_PAUSED}
-                onCheckedChange={handleWeeklyPicksChange}
-                className="mt-1 shrink-0 data-[state=checked]:bg-purple-500 data-[state=unchecked]:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-60"
-              />
-            </div>
-
-            <div className="mt-5 border-t border-purple-500/10 pt-4">
-              <StatusLine on={!WEEKLY_PICKS_EMAIL_PAUSED && weeklyPicks}>
-                {WEEKLY_PICKS_EMAIL_PAUSED
-                  ? "Seçkin Keşifler'de · e-posta gönderimi henüz açılmadı"
-                  : weeklyPicks
-                    ? "Açık · e-postan cuma akşamı gelir"
-                    : "Kapalı · e-posta göndermiyorum"}
-              </StatusLine>
-            </div>
-
-            {saveFailed && (
-              <p className="mt-4 text-sm text-red-400">
-                Ayar kaydedilemedi. Bağlantını kontrol edip tekrar dene.
+        {/*
+          ---------------- Tercihler ----------------
+          Çizilecek kart yoksa bölüm BAŞLIĞIYLA BİRLİKTE düşer: altında hiçbir
+          şey olmayan bir "Tercihlerim" başlığı, kullanıcıya veremeyeceğimiz bir
+          seçimi söz verir.
+        */}
+        {showPreferences && (
+          <section className="space-y-4">
+            <div>
+              <h3 className="font-serif text-2xl text-white">Tercihlerim</h3>
+              <p className="mt-1 text-sm text-purple-300/70">
+                {/* "Nereden" platform filtresidir; kart gizliyken cümleye girmez. */}
+                {showEmailCard && showPlatformCard
+                  ? "Önerileri nereden ve ne sıklıkta almak istediğini burada belirlersin."
+                  : showPlatformCard
+                    ? "Önerilerin hangi platformlardan geleceğini burada belirlersin."
+                    : "Önerilerin e-postayla gelip gelmeyeceğini burada belirlersin."}
               </p>
-            )}
-          </div>
+            </div>
 
-          {/*
-            Platform tercihi. Sözlük okunamadıysa (options boş) kart HİÇ
-            gösterilmez: yarım dolu bir liste kullanıcıya "Netflix desteklenmiyor"
-            gibi yanlış bir sonuç çıkarttırır.
-
-            Premium anahtarı kapalıyken de gösterilmez — kilitli hâliyle bile:
-            "Premium" rozetli bir kart, satmadığımız bir şeyin vitrini olurdu.
-          */}
-          {premiumEnabled && options.length > 0 && (
-            <div className="rounded-2xl border border-purple-500/20 bg-slate-800/60 p-6 backdrop-blur-sm">
-              <div className="flex items-start gap-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-500/20">
-                  <MonitorPlay className="h-5 w-5 text-purple-200" />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-white">Hangi platformlardan önerilsin</p>
-                    <span
-                      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${
-                        canFilter
-                          ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
-                          : "border-purple-400/30 bg-purple-500/15 text-purple-200"
-                      }`}
-                    >
-                      <Lock className="h-3 w-3" />
-                      {canFilter ? "Premium · açık" : "Premium"}
-                    </span>
+            {/*
+              Haftalık seçki e-postası. E-posta kanalı kapalıyken kart HİÇ çizilmez.
+              Bir dönem kilitli bir anahtarla "e-posta gönderimini henüz açmadım"
+              diyerek duruyordu: dokunulamayan bir anahtar tercih değil duyurudur,
+              ve hazır olmayan bir özelliği söz verir. Seçkinin kendisi Keşifler'de
+              görünmeye devam ediyor. Kullanıcının kayıtlı tercihi (`weeklyPicks`)
+              değişmiyor; bayrak kalkınca kart herkesin kendi tercihiyle geri gelir.
+            */}
+            {showEmailCard && (
+              <div className="rounded-2xl border border-purple-500/20 bg-slate-800/60 p-6 backdrop-blur-sm">
+                <div className="flex items-start justify-between gap-6">
+                  <div className="flex min-w-0 items-start gap-4">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-pink-500/20">
+                      <Mail className="h-5 w-5 text-pink-200" />
+                    </div>
+                    <div className="min-w-0">
+                      <label htmlFor="weekly-picks" className="block cursor-pointer text-white">
+                        Haftalık film önerileri
+                      </label>
+                      <p className="mt-1 text-sm leading-relaxed text-purple-300/70">
+                        Sana uygun birkaç filmi haftada bir e-postayla göndereyim. Kapatırsan
+                        önerilerin durmaz, yalnızca e-posta gelmez.
+                      </p>
+                    </div>
                   </div>
-                  <p className="mt-1 text-sm leading-relaxed text-purple-300/70">
-                    {canFilter
-                      ? "Yalnızca seçtiğin servislerdeki yapımları öneririm. İstediğin an değiştirebilirsin."
-                      : "Önerileri yalnızca izleyebileceğin servislerle sınırla."}
-                  </p>
+
+                  <Switch
+                    id="weekly-picks"
+                    checked={weeklyPicks}
+                    onCheckedChange={handleWeeklyPicksChange}
+                    className="mt-1 shrink-0 data-[state=checked]:bg-purple-500 data-[state=unchecked]:bg-slate-600"
+                  />
                 </div>
-              </div>
 
-              {/*
-                Ücretsiz pakette çipler KİLİTLİ ama görünür: kullanıcı neyin
-                mümkün olduğunu görsün. Kilit bir güvenlik sınırı DEĞİL.
-              */}
-              <div className="mt-5 flex flex-wrap gap-2">
-                <Chip
-                  active={isAllPlatforms(platforms)}
-                  disabled={!canFilter}
-                  onClick={() => void writePlatforms(null)}
-                >
-                  Tümü
-                </Chip>
-                {options.map((option) => (
-                  <Chip
-                    key={option.slug}
-                    active={(platforms ?? []).includes(option.slug)}
-                    disabled={!canFilter}
-                    onClick={() => togglePlatform(option.slug)}
-                  >
-                    {option.label}
-                  </Chip>
-                ))}
-              </div>
-
-              {canFilter ? (
                 <div className="mt-5 border-t border-purple-500/10 pt-4">
-                  <StatusLine on={selectedCount > 0}>
-                    {selectedCount > 0
-                      ? `${selectedCount} servis seçili · öneriler bunlarla sınırlı`
-                      : "Tümü · öneriler bütün platformlardan geliyor"}
+                  <StatusLine on={weeklyPicks}>
+                    {weeklyPicks
+                      ? "Açık · e-postan cuma akşamı gelir"
+                      : "Kapalı · e-posta göndermiyorum"}
                   </StatusLine>
                 </div>
-              ) : (
-                /* Mobilde ALT ALTA: metinle buton yan yanayken paragrafa kalan
-                   dar sütun açıklamayı yedi sekiz satıra bölüyordu. Yan yana
-                   düzen yalnızca sm ve üstünde. */
-                <div className="mt-5 flex flex-col items-start gap-3 rounded-xl border border-purple-500/20 bg-slate-900/40 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">
-                  <p className="text-sm leading-relaxed text-purple-200 sm:min-w-0 sm:flex-1">
-                    Bu filtre premium'a özel. Şimdilik önerilerin tüm platformlardan
-                    geliyor; abone olmadığın bir servisteki yapımlar da çıkabilir.
+
+                {saveFailed && (
+                  <p className="mt-4 text-sm text-red-400">
+                    Ayar kaydedilemedi. Bağlantını kontrol edip tekrar dene.
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => setUpgradeNote(true)}
-                    className="w-full shrink-0 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-2 text-sm text-white shadow-lg transition-colors hover:from-purple-600 hover:to-pink-600 sm:w-auto"
-                  >
-                    Premium'a geç
-                  </button>
+                )}
+              </div>
+            )}
+
+            {/*
+              Platform tercihi. Premium anahtarı kapalıyken gösterilmez — kilitli
+              hâliyle bile: "Premium" rozetli bir kart, satmadığımız bir şeyin
+              vitrini olurdu. (Koşulun tamamı: `showPlatformCard`.)
+            */}
+            {showPlatformCard && (
+              <div className="rounded-2xl border border-purple-500/20 bg-slate-800/60 p-6 backdrop-blur-sm">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-500/20">
+                    <MonitorPlay className="h-5 w-5 text-purple-200" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-white">Hangi platformlardan önerilsin</p>
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${
+                          canFilter
+                            ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+                            : "border-purple-400/30 bg-purple-500/15 text-purple-200"
+                        }`}
+                      >
+                        <Lock className="h-3 w-3" />
+                        {canFilter ? "Premium · açık" : "Premium"}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm leading-relaxed text-purple-300/70">
+                      {canFilter
+                        ? "Yalnızca seçtiğin servislerdeki yapımları öneririm. İstediğin an değiştirebilirsin."
+                        : "Önerileri yalnızca izleyebileceğin servislerle sınırla."}
+                    </p>
+                  </div>
                 </div>
-              )}
 
-              {platformsFailed && (
-                <p className="mt-4 text-sm text-red-400">
-                  Platform tercihi kaydedilemedi. Bağlantını kontrol edip tekrar dene.
-                </p>
-              )}
-
-              {/*
-                Künye: sağlayıcının kullanım koşulları zorunlu tutuyor. Yalnızca
-                filtre GERÇEKTEN uygulanıyorken gösteriliyor — ücretsiz pakette o
-                veri hiç çekilmiyor, "bu bilgi X'ten geliyor" demek yanlış olurdu.
-              */}
-              {canFilter && (
-                <p className="mt-4 text-xs leading-relaxed text-purple-300/40">
-                  Nerede izlenir bilgisi{" "}
-                  <a
-                    href={WATCH_DATA_CREDIT.url}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="underline transition-colors hover:text-purple-300/70"
+                {/*
+                  Ücretsiz pakette çipler KİLİTLİ ama görünür: kullanıcı neyin
+                  mümkün olduğunu görsün. Kilit bir güvenlik sınırı DEĞİL.
+                */}
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <Chip
+                    active={isAllPlatforms(platforms)}
+                    disabled={!canFilter}
+                    onClick={() => void writePlatforms(null)}
                   >
-                    {WATCH_DATA_CREDIT.name}
-                  </a>{" "}
-                  tarafından sağlanıyor.
-                </p>
-              )}
-            </div>
-          )}
-        </section>
+                    Tümü
+                  </Chip>
+                  {options.map((option) => (
+                    <Chip
+                      key={option.slug}
+                      active={(platforms ?? []).includes(option.slug)}
+                      disabled={!canFilter}
+                      onClick={() => togglePlatform(option.slug)}
+                    >
+                      {option.label}
+                    </Chip>
+                  ))}
+                </div>
+
+                {canFilter ? (
+                  <div className="mt-5 border-t border-purple-500/10 pt-4">
+                    <StatusLine on={selectedCount > 0}>
+                      {selectedCount > 0
+                        ? `${selectedCount} servis seçili · öneriler bunlarla sınırlı`
+                        : "Tümü · öneriler bütün platformlardan geliyor"}
+                    </StatusLine>
+                  </div>
+                ) : (
+                  /* Mobilde ALT ALTA: metinle buton yan yanayken paragrafa kalan
+                     dar sütun açıklamayı yedi sekiz satıra bölüyordu. Yan yana
+                     düzen yalnızca sm ve üstünde. */
+                  <div className="mt-5 flex flex-col items-start gap-3 rounded-xl border border-purple-500/20 bg-slate-900/40 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">
+                    <p className="text-sm leading-relaxed text-purple-200 sm:min-w-0 sm:flex-1">
+                      Bu filtre premium'a özel. Şimdilik önerilerin tüm platformlardan
+                      geliyor; abone olmadığın bir servisteki yapımlar da çıkabilir.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setUpgradeNote(true)}
+                      className="w-full shrink-0 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-2 text-sm text-white shadow-lg transition-colors hover:from-purple-600 hover:to-pink-600 sm:w-auto"
+                    >
+                      Premium'a geç
+                    </button>
+                  </div>
+                )}
+
+                {platformsFailed && (
+                  <p className="mt-4 text-sm text-red-400">
+                    Platform tercihi kaydedilemedi. Bağlantını kontrol edip tekrar dene.
+                  </p>
+                )}
+
+                {/*
+                  Künye: sağlayıcının kullanım koşulları zorunlu tutuyor. Yalnızca
+                  filtre GERÇEKTEN uygulanıyorken gösteriliyor — ücretsiz pakette o
+                  veri hiç çekilmiyor, "bu bilgi X'ten geliyor" demek yanlış olurdu.
+                */}
+                {canFilter && (
+                  <p className="mt-4 text-xs leading-relaxed text-purple-300/40">
+                    Nerede izlenir bilgisi{" "}
+                    <a
+                      href={WATCH_DATA_CREDIT.url}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="underline transition-colors hover:text-purple-300/70"
+                    >
+                      {WATCH_DATA_CREDIT.name}
+                    </a>{" "}
+                    tarafından sağlanıyor.
+                  </p>
+                )}
+              </div>
+            )}
+          </section>
+        )}
 
         {/*
           ---------------- Verilerim ----------------

@@ -20,9 +20,11 @@
 > listesine hiç girmez). Bekleyen `draft` satırlar da `overpast` yapılmadı —
 > "haftası geçti" demek yanlış sebep olurdu; dürüst hâli `draft`.
 >
-> Ayarlar'daki anahtar **kilitli ve kapalı** görünüyor
-> (`WEEKLY_PICKS_EMAIL_PAUSED`, `src/lib/preferences.ts`) — o anahtar zaten
-> yalnızca e-postayı yönetiyor.
+> Hesabım'daki e-posta kartı **hiç çizilmiyor**
+> (`WEEKLY_PICKS_EMAIL_PAUSED`, `src/lib/preferences.ts`). Bir dönem kilitli ve
+> kapalı bir anahtarla duruyordu; hazır olmayan bir özelliği ekranda tutmamak
+> için kaldırıldı. Kayıtlı tercihler değişmedi — bayrak `false` olunca kart
+> herkesin kendi tercihiyle geri gelir.
 >
 > **Biriken `draft` satırlar — mail GİTMEZ, statü `overpast` olur.** Mail
 > kapalıyken her Cuma yeni `draft` yazılıyor. Bunlar maile dönüşemez: gönderim
