@@ -260,6 +260,9 @@ Sayfanın sonuna kadar kaydırınca boş kategori notu okunabilmeli. ✅
 - 🔍 Dashboard rapor listesi, `/report/:id`, public/private toggle
 - ⚠️ **RLS:** `is_public = false` bir rapor, çıkış yapmış bir tarayıcıda (gizli sekme)
   açılmamalı
+- ⚠️ **Listeleme:** oturumsuz `GET /rest/v1/reports?select=id` **boş dizi** dönmeli; açık bir
+  rapor yalnızca `/rest/v1/rpc/lens_report_by_id` ile, kimliği verilerek okunabilmeli ve
+  yanıtta `user_id` / `telegram_user_id` boş olmalı
 - 🔍 Günlük keşif (`daily-discovery`) hâlâ öneri döndürüyor
 - 🔍 `/account` (Hesabım) haftalık seçki toggle'ı + platform tercihi
 

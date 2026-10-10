@@ -69,7 +69,8 @@ supabase/
   functions/
     analyze/           # Kitap+film+müzik → estetik rapor (Claude API → reports insert)
     extract-works/     # Ekran görüntüsü / yapıştırılan metin → eser listesi (Claude vision)
-    daily-discovery/   # Günlük keşif önerisi (cache: daily_discoveries tablosu)
+    daily-discovery/   # Günlük keşif önerisi (cache: daily_discoveries tablosu) — index.ts
+                       #   + workCheck.ts (kitap/film gerçekten var mı: Open Library + Wikidata)
     link-telegram/     # Telegram hesap bağlama
     delete-account/    # Kullanıcının kendi hesabını siler (auth.users; veri CASCADE ile gider)
     _shared/           # watch.ts (izleme erişilebilirliği) · unsubscribe.ts (mail kapatma HMAC'i)
@@ -90,6 +91,10 @@ supabase/
                                 # okuyan dört fonksiyon buna bağlandı
     20261010120000_account_deletion.sql    # user_id FK'leri CASCADE + auth.users
                                 # BEFORE DELETE trigger'ı (FK'nin ulaşamadığı satırlar)
+    20261011090000_reports_by_id.sql       # lens_report_by_id + açık raporları
+                                # listelenebilir yapan SELECT politikasının kaldırılması
+    20261011093000_blocked_works_auth_guard.sql # lens_blocked_works'te geri alınmış
+                                # yetki düzeltmesi (anon başkasının kümesini okuyordu)
 guidelines/
   Guidelines.md        # Figma Make şablonu — uygulama kuralları değil
 docs/
@@ -131,7 +136,8 @@ docs/
    `source` sinyalin kendi içinden gelir (`screenshot` | `paste` | `manual`); tanınmayan değer
    `form`'a düşer. `form` bir varsayılan — form akışının damgası değil, elle yazılan eser `manual`.
    Bu yazım **best-effort**: hata alırsa loglanır ve yutulur, rapor dönüşünü asla bloklamaz.
-6. Client `/report/:id`'ye yönlendirilir; `fetchReport()` RLS'e göre raporu çeker.
+6. Client `/report/:id`'ye yönlendirilir; `fetchReport()` raporu `lens_report_by_id` RPC'siyle
+   çeker (açıksa herkese, özelse yalnızca sahibine). Tablodan değil — bkz. Kritik kurallar.
 
 ## Veri akışı: haftalık dizi & film seçkisi
 > **MAİL KAPALI (2 Ekim 2026, lansman öncesi).** Üretim ve 12:00 özeti
@@ -206,8 +212,8 @@ oturumsuz kullanıcıyı `/login`'e attığı için telefonda gelen link sekiyor
 1. Poster **sunucuda** üretilir: `api/poster/[reportId].ts` (Story 1080×1920 / Feed 1080×1350)
    ve `api/og/[reportId].ts` (1200×630, link önizlemesi). Motor `satori` + `@resvg/resvg-js`,
    fontlar `api/_assets/fonts/` altından **lokal dosyadan** okunur — runtime'da ağ isteği yok.
-2. Gizlilik kod ile değil **RLS ile** korunur: endpoint çağıranın JWT'si varsa onunla, yoksa
-   anon anahtarıyla client kurar; kararı veritabanı verir. `SUPABASE_SERVICE_ROLE_KEY` Vercel
+2. Gizlilik kod ile değil **veritabanında** korunur: endpoint çağıranın JWT'si varsa onunla, yoksa
+   anon anahtarıyla client kurar; kararı `lens_report_by_id` verir. `SUPABASE_SERVICE_ROLE_KEY` Vercel
    ortamına **konmaz**. Erişilemeyen rapor → poster'da boş gövdeli 404 (varlığı bile sızmaz),
    OG'de jenerik marka görseli.
 3. İstemci posteri `<img src>` ile değil `fetch` + `Authorization` ile çeker. Dönen Blob üç işi
@@ -233,6 +239,11 @@ oturumsuz kullanıcıyı `/login`'e attığı için telefonda gelen link sekiyor
 5. `daily-discovery` üç şeyi birleştirir: yasak küme (`lens_blocked_works`), profil eksenleri ve
    son rapor. Dönen öneri yasak kümeyle **deterministik doğrulanır**; ihlalde bir kez daha
    denenir, yine ihlal varsa loglanır ve yine de sunulur (boş kart göstermek daha kötü).
+   Kitap ve film ayrıca **kataloglarda yaratıcısıyla birlikte aranır** (`workCheck.ts`):
+   kartta yazacak ad bulunamaz ama özgün ad bulunursa kartta özgün ad gösterilir; ikisi de
+   yoksa öneri geri çevrilir ve bir kez daha denenir (toplam en çok 2 Claude çağrısı; 3
+   denendi, maliyet ve bekleme yüzünden geri alındı — `MAX_ATTEMPTS`). Slotlar bağımsızdır —
+   temiz çıkan öğe elde tutulur, tekrar denemesi yalnızca kusurlu slotu doldurur.
 6. Yasak kümenin üçüncü kaynağı **son 30 günde GÖSTERİLEN** öneriler (`why = 'shown'`;
    `daily_discoveries` + `weekly_picks`). Geri bildirim gerektirmez — kart açılıp dokunulmadan
    geçilse bile eser 30 gün boyunca aday değildir. İki yüzey tek kümeyi paylaşır: Cuma maili
@@ -406,6 +417,13 @@ oturumsuz kullanıcıyı `/login`'e attığı için telefonda gelen link sekiyor
   izin reddi backend'i segfault ettiriyor ve fonksiyonlar PostgREST'e açık. Koruma yetkiyle değil
   gövdedeki `auth.uid()` denetimiyle; gizlenmesi gerekenler `lens_private` şemasında.
   Ayrıntı ve kanıt: [`docs/schema.md`](docs/schema.md).
+- `p_user_id` alan bir fonksiyonda yetki yüklemi **`lens_private.lens_may_act_for(p_user_id)`**.
+  `auth.uid() IS NULL OR auth.uid() = p_user_id` YAZMA: `anon`'da da `auth.uid()` NULL'dır, yani
+  o yüklem oturumsuz çağıranı service_role sanar. Bu hata iki kez canlıya çıktı — ikincisi,
+  `lens_blocked_works` yeniden yazılırken gövdenin düzeltilmiş sürümden değil ilk sürümden
+  kopyalanmasıyla (20260819 → 20261011'de kapandı). `CREATE OR REPLACE` bütün gövdeyi ister:
+  bir fonksiyonu yeniden yazarken gövdeyi eski bir migration'dan değil **canlı tanımdan** al
+  (`select pg_get_functiondef('public.<ad>(<imza>)'::regprocedure)`).
 - **Bilinen ölçekleme borcu:** premium'da `record_feedback` her dokunuşta tüm sinyal geçmişini
   tarar (pencere sınırsız). Bugünkü hacimde sorun değil; birkaç yüz satırdan sonra gecikme
   kullanıcının tıklamasına yansır ve geri bildirim vermeyi caydırarak tam da toplamak istediğimiz
@@ -438,7 +456,27 @@ oturumsuz kullanıcıyı `/login`'e attığı için telefonda gelen link sekiyor
 - Rota `/report/:id` — eski `/rapor/:id` kaldırıldı (BUG-01). Rota dili İngilizce.
 - `/start`, `Welcome` ile birlikte yeni düz koyu görsel dili kullanır (`--lens-*` tokenları,
   `src/styles/theme.css`). Rapor ve panel gradyan dilinde kalır — geçişteki kontrast kasıtlı.
-- `is_public = false` olan rapor **asla** auth'suz endpoint'ten dönmemeli. `fetchReport()` içindeki RLS sorgusunu bozmadan koru.
+- `is_public = false` olan rapor **asla** auth'suz endpoint'ten dönmemeli. Kararı
+  `lens_report_by_id` verir; `fetchReport()` ve `api/_lib/report.ts` onu çağırır.
+- **Açık rapor yalnızca kimliğiyle okunur; `reports`'a `is_public` koşullu bir SELECT politikası
+  GERİ EKLEME.** RLS satıra bakar, isteğe değil: o politika varken oturumsuz bir istemci
+  `GET /rest/v1/reports` ile açık raporların tamamını (o gün 35 rapor, `user_id` ve
+  `telegram_user_id` ile) tek istekte çekebiliyordu; arayüz ise "bağlantısı olan herkes" diyor.
+  Tabloda kalan tek SELECT politikası sahiplik. Açık raporları listeleyen bir özellik
+  (vitrin, "son raporlar") gerekirse o da kendi fonksiyonuyla ve kendi onay metniyle gelir.
+  `lens_report_by_id` sahibi olmayana `user_id` ve `telegram_user_id`'yi **boş** döner —
+  kimlik taşıyan yeni bir kolon eklenirse orada da boşaltılır.
+- Günlük keşifte **kitap ve film kodla doğrulanır** (`daily-discovery/workCheck.ts`); prompt'taki
+  "yalnızca gerçek eserler" kuralı tek başına yetmiyor (ölçüm, 11 Ekim 2026, uzun ÖNERME
+  listesi altında 12'şer örnek: kuralsız prompt'ta 7 kitap ve 5 film kataloglarda yok,
+  kurallıda 2 ve 2). İki hata biçimi var ve kapı ikisine göre kurulu: gerçek yaratıcıya yanlış
+  eser ("Gecenin Öteki Yüzü — Ahmet Oktay") ve gerçek esere uydurma Türkçe ad ("Im Lauf der
+  Zeit"e "Avrupa'nın Ortasında"). Bu yüzden arama adı **yaratıcıyla birlikte** sorar ve kartta
+  görünecek adı ayrıca sınar. Yalnızca ada bakan bir kaynağa (Wikipedia tam metin araması
+  denendi: kısa uydurma adları geçiriyor) dönme. Katalog sorulamazsa öneri **geçer**
+  (fail-open) — günlüklerde `[work-check]` hatası sıklaşırsa kapı sessizce kapalı demektir.
+  Müzik slotu ve diğer iki üretici (`analyze`'ın `shadow`'u, haftalık seçkinin filtresiz yolu)
+  **doğrulanmıyor**.
 - `src/app/supabase.ts` ve `src/app/types.ts` deprecated — bunlara yeni kod yazma, `src/lib/` kullan.
 
 ## Şema

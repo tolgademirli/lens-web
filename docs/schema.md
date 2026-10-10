@@ -23,7 +23,7 @@ Claude API tarafından üretilen estetik kimlik raporları. `analyze` edge funct
 | `threads`         | JSONB        | `[{title: string, description: string}]` — 2-3 öğe |
 | `contrasts`       | JSONB        | `[{left: ContrastSide, right: ContrastSide, explanation: {title, text}}]` — 1-2 öğe |
 | `shadow`          | JSONB        | `[{type: "Kitap"\|"Film"\|"Müzik", title: string\|null, author_or_artist: string, year: string\|null, description: string}]` — tam 3 öğe |
-| `is_public`       | BOOLEAN      | default false. true ise auth'suz okunabilir. |
+| `is_public`       | BOOLEAN      | default false. true ise auth'suz okunabilir — **yalnızca kimliğiyle**, `lens_report_by_id` üzerinden. |
 | `public_since`    | TIMESTAMPTZ  | nullable. `is_public` false→true olduğunda **trigger** damgalar, true→false olduğunda NULL'lanır. Client yazamaz (`lens_touch_public_since` gönderilen değeri ezer). |
 
 > **`hero.archetype` her zaman DÜZ STRING'dir.** Üretici prompt'u onu
@@ -38,9 +38,30 @@ Claude API tarafından üretilen estetik kimlik raporları. `analyze` edge funct
 
 > **`is_public` varsayılanı yazıcılar tarafından hiç kullanılmıyor.** Her iki insert yolu da değeri açıkça veriyor: `analyze` edge function `false`, lens bot `true` (`bot.py`). Yani Telegram kaynaklı raporlar **herkese açık doğar** — bu bir ürün kararı, varsayılanın yan etkisi değil. Varsayılan yalnızca ileride `is_public` vermeyi unutan bir insert yolu eklenirse devreye girer.
 
-**RLS:** `is_public = true` olan raporlar herkese açık. Özel raporlar yalnızca `auth.uid() = user_id` koşuluyla okunabilir. Bkz. `src/lib/supabase.ts → fetchReport`.
+**RLS:** tablodan yalnızca **sahibi** okuyabilir (`auth.uid() = user_id`). Oturumsuz istemci tabloda hiçbir satır görmez.
 
-Politikalar: iki SELECT (herkese açık raporlar / kendi raporları) + bir UPDATE (kendi raporu). INSERT ve DELETE policy'si **yok** — yazma yalnızca `service_role_key` ile edge function'dan yapılır.
+Politikalar: bir SELECT (kendi raporları) + bir UPDATE (kendi raporu). INSERT ve DELETE policy'si **yok** — yazma yalnızca `service_role_key` ile edge function'dan yapılır.
+
+> ### Açık rapor tablodan DEĞİL, `lens_report_by_id(p_id)` ile okunur
+> 2026-10-11'e kadar ikinci bir SELECT politikası vardı: `USING (is_public = true)`. RLS satıra
+> bakar, isteğe değil — "bu satırı kimliğini bilerek mi istiyorsun" diye soramaz. Sonuç:
+> oturumsuz bir istemci herkese açık anon anahtarıyla `GET /rest/v1/reports?select=*`
+> çağırıp açık raporların **tamamını** tek istekte çekebiliyordu (o gün 35 rapor, 14'ü
+> Telegram kaynaklı; `user_id` ve `telegram_user_id` dahil). Arayüz ise "bağlantısı olan
+> herkes görebilecek" diyor.
+>
+> Politika `20261011090000_reports_by_id.sql` ile kaldırıldı. Fonksiyon (SECURITY DEFINER):
+> - rapor açıksa herkese, özelse yalnızca sahibine döner; "yok" ile "yetkin yok" aynı (boş);
+> - dönen şey `reports` satırının kendisi (`SETOF reports`) — istemci `select("*")` biçimini
+>   almaya devam eder;
+> - **sahibi olmayana `user_id` ve `telegram_user_id` NULL döner.** Raporu görmek için sahibini
+>   bilmek gerekmiyor; `user_id` ise başka çağrıların anahtarı. Kimlik taşıyan yeni bir kolon
+>   eklenirse fonksiyonda o da boşaltılır.
+>
+> Çağıranlar: `src/lib/supabase.ts → fetchReport` ve `api/_lib/report.ts → loadReport`
+> (poster, OG görseli, link önizlemesi). **`is_public` koşullu bir SELECT politikası geri
+> eklenmez** — migration'ın sonundaki denetim, sahipliğe bakmayan bir SELECT politikası
+> kalmışsa hata verir.
 
 ---
 
@@ -111,6 +132,13 @@ Günlük keşif önerileri önbelleği. `daily-discovery` edge function, her kul
 > (aydınlık→karanlık, niş→popüler, klasik→çağdaş), `genre` kısa bir tür etiketidir.
 > Bu etiketler **eksen ayarının girdisidir**: "Fazla karanlık" tek başına yönü verir, ama
 > olumlu bir sinyalin profili hangi yöne çekeceği ancak eserin kendi etiketlerinden okunur.
+>
+> **Kitap ve film yazılmadan önce kataloglarda aranır** (`daily-discovery/workCheck.ts`,
+> 2026-10-11): Open Library ve Wikidata'da adın o yaratıcıya ait olduğu doğrulanır. Bu yüzden
+> `title` her zaman Türkçe ad değildir — modelin verdiği Türkçe ad kataloglarda bulunamayıp
+> eserin özgün adı bulunduysa buraya **özgün ad** yazılır ("Nuit et brouillard"). Model
+> çıktısındaki `original_title` yalnızca aramanın girdisidir, `items`'a **yazılmaz**.
+> Üç öğe farklı Claude denemelerinden gelebilir (temiz çıkan slot elde tutulur).
 
 **Kısıt:** `UNIQUE(user_id, date)` — bir kullanıcı günde bir keşif alır.  
 **RLS:** Kullanıcı yalnızca kendi satırlarını okuyabilir. Insert yalnızca `service_role_key` ile yapılır (edge function).
@@ -380,7 +408,9 @@ yeniden hesaplanabilir.
 | `lens_signal_type` / `_weight` / `_valence` | public | IMMUTABLE karar sözlüğü. **Ağırlık** = güven kütlesi, **valans** = yön/şiddet (`partial`: 5× kütle, +0.5 valans) |
 | `record_feedback(...)` | public | Sinyali yazar, çakışma invaryantını kurar, `interested` ise listeye ekler, tempoya göre profili hesaplar |
 | `retract_feedback(id)` | public | Kaydı **siler** ve invaryantı yeniden kurar (`weight DESC, created_at DESC`) |
-| `lens_blocked_works(user_id)` | public | JSONB. "Tekrar önerme" kümesinin tek tanımı — üç kaynak, **sıralı** döner (aşağı bak) |
+| `lens_blocked_works(user_id)` | public | JSONB. "Tekrar önerme" kümesinin tek tanımı — üç kaynak, **sıralı** döner (aşağı bak). Yalnızca sahibine ve service_role'e; başkası boş dizi alır |
+| `lens_report_by_id(id)` | public | Raporu kimliğiyle verir: açıksa herkese, özelse sahibine. Açık raporların okunduğu tek yol (bkz. `reports`) |
+| `lens_may_act_for(user_id)` | **lens_private** | Yetki yüklemi: çağıran service_role mü ya da satırın sahibi mi. `p_user_id` alan her fonksiyon bunu kullanır |
 | `lens_refresh_profile_if_due(user_id)` | public | Ücretsizin haftalık tempo kapısı; `{profile_refreshed, signals_until_profile}` döner |
 | `lens_entitlements()` | public | `{premium_enabled, plan}` — çağıranın **etkin** paketi. Web'in paket okuduğu tek yer; parametre almaz |
 | `premium_enabled()` / `effective_plan(user_id)` | **lens_private** | Premium anahtarı ve etkin paket. Paketi okuyan dört fonksiyon kolonu değil bunları okur |
@@ -407,6 +437,14 @@ yeniden hesaplanabilir.
 >
 > Eski `daily_discoveries` satırlarında `items` yoktur; o satırlarda `"Başlık - Yaratıcı"`
 > TEXT'i bölünür. Geçici kol — 30 günlük pencere yüzünden 2026-09-10 civarında ölü koda döner.
+>
+> **Yetki yüklemi `lens_private.lens_may_act_for(p_user_id)`** — `auth.uid() IS NULL OR …`
+> DEĞİL (`anon`'da da NULL'dır). Bu düzeltme 2026-08-12'de yapılmış, 2026-08-19'daki yeniden
+> yazımda gövde ilk sürümden kopyalandığı için **geri alınmıştı**: 2026-10-11'e kadar
+> oturumsuz bir istemci herhangi bir kullanıcının kümesini okuyabiliyordu
+> (`20261011093000_blocked_works_auth_guard.sql`). Bu fonksiyonu yeniden yazarken gövdeyi
+> eski bir migration'dan değil canlı tanımdan al:
+> `select pg_get_functiondef('public.lens_blocked_works(uuid)'::regprocedure);`
 
 > ### ⚠️ `public` şemadaki fonksiyonlardan yetki GERİ ALMA
 > PostgreSQL 17.6'da gerçek bir hata var: EXECUTE yetkisi olmayan bir rol **IMMUTABLE olmayan**
