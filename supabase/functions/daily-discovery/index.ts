@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { SENSITIVE_INFERENCE_RULE } from "../_shared/sensitive.ts";
+import { checkBook, checkFilm } from "./workCheck.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -31,6 +32,15 @@ Kullanıcının daha önce girdiği eserlerle KESINLIKLE çakışma.
 "ÖNERME" listesindeki eserleri KESINLIKLE önerme — farklı yazımlarını da önerme.
 Her öneri için kullanıcıya neden uygun olduğunu 1 kısa cümle yaz (max 12 kelime).
 
+## YALNIZCA GERÇEK ESERLER
+Önerdiğin kitap, film ve sanatçı GERÇEKTEN var olmalı; eserin adı da yaratıcısı da doğru olmalı.
+- Bir eserin adından ya da kime ait olduğundan emin değilsen onu önerme; emin olduğun başka bir eser seç.
+- Bir yazarın ya da yönetmenin dünyasına yakışan ama var olmayan bir ad KURMA. Uydurma bir eser, tekrar eden ya da sıradan bir öneriden çok daha kötüdür.
+- "ÖNERME" listesi uzun olsa da, niş işler istense de bu kural esnemez: az bilinen ama gerçek bir eser bul; bulamıyorsan daha bilinen bir esere dön.
+- Eseri Türkiye'de bilinen adıyla yaz. Türkçe adından emin değilsen özgün adını yaz; kendi çevirini ad diye yazma.
+- Müzik önerisi müzik YAPAN biri olmalı: şair, romancı ya da yönetmen değil.
+- Kitap ve film önerin kataloglarda yaratıcısıyla birlikte aranır; bulunamayan eser kullanıcıya sunulmaz.
+
 ${SENSITIVE_INFERENCE_RULE}
 
 ## ETİKETLER
@@ -49,6 +59,7 @@ SADECE geçerli JSON döndür. Başka hiçbir şey yazma:
     {
       "slot": "book",
       "title": "Kitap Adı",
+      "original_title": "Kitabın özgün adı",
       "creator": "Yazar",
       "reason": "Neden bu kişiye uygun (max 12 kelime)",
       "genre": "tür",
@@ -56,13 +67,16 @@ SADECE geçerli JSON döndür. Başka hiçbir şey yazma:
       "popularity": -0.2,
       "era": -0.6
     },
-    { "slot": "film", "title": "Film Adı", "creator": "Yönetmen", "reason": "...", "genre": "...", "tone": 0, "popularity": 0, "era": 0 },
+    { "slot": "film", "title": "Film Adı", "original_title": "Filmin özgün adı", "creator": "Yönetmen", "reason": "...", "genre": "...", "tone": 0, "popularity": 0, "era": 0 },
     { "slot": "music", "title": "", "creator": "Sanatçı Adı", "reason": "...", "genre": "...", "tone": 0, "popularity": 0, "era": 0 }
   ]
 }
 
 Müzik önerisinde sanatçı adı "creator" alanına yazılır, "title" boş bırakılır.
 Eser adı ile yaratıcı adı AYRI alanlarda durur — tek bir string'e birleştirme.
+"original_title" kitapta ve filmde bulunur: eserin özgün dilindeki adı (Türkçe bir eserse
+"title" ile aynı). Latin alfabesi kullanmayan dillerde İngilizce adını yaz. Katalog aramasında
+kullanılır; "title" kataloglarda bulunamazsa kullanıcıya onun yerine bu ad gösterilir.
 `;
 
 type ReportRow = {
@@ -145,11 +159,19 @@ function describeAxes(axes: Record<string, number> | null): string[] {
   return lines;
 }
 
+/**
+ * Önceki denemelerde geri çevrilen eserler ve nedeni. İkisi birden dolu olabilir:
+ * film yasak kümeden çıkmış, kitap da katalogda bulunamamış olabilir.
+ */
+type Rejection = { blocked: string[]; unverified: string[] };
+
+const quoted = (names: string[]) => names.map((name) => `"${name}"`).join(" ve ");
+
 function buildPrompt(
   report: ReportRow,
   blocked: BlockedWork[],
   profile: TasteProfileRow | null,
-  violation?: string,
+  rejection?: Rejection,
 ): string {
   const asList = (
     rows: { title?: string }[] | null,
@@ -198,16 +220,24 @@ ${blockedLines ? `ÖNERME — bunlar kullanıcının zaten karşısına çıktı
 ${axisLines.length ? `Kullanıcının geri bildirimlerinden çıkan yönelim: ${axisLines.join(", ")}.` : ""}
 ${liked.length ? `Yakınlık duyduğu türler: ${liked.join(", ")}.` : ""}
 ${disliked.length ? `Uzak durduğu türler: ${disliked.join(", ")}.` : ""}
-${violation ? `\nÖNEMLİ: Az önce "${violation}" önerdin, bu ÖNERME listesindeydi. Bu kez farklı bir eser seç.` : ""}
+${rejection?.blocked.length ? `\nÖNEMLİ: Az önce ${quoted(rejection.blocked)} önerdin, bu ÖNERME listesindeydi. Bu kez farklı bir eser seç.` : ""}
+${rejection?.unverified.length ? `\nÖNEMLİ: Az önce ${quoted(rejection.unverified)} önerdin; kataloglarda bu adla ve bu yaratıcıyla bulunamadı. Onun yerine az bilinen bir eser ARAMA: adından ve yaratıcısından kesin emin olduğun, yaygın olarak bilinen BAŞKA bir eser seç.` : ""}
 
 Bu zevke uygun, yukarıdaki eserlerle çakışmayan 1 kitap, 1 film, 1 müzik sanatçısı öner.
 Her öneri için neden uygun olduğunu 1 kısa cümle yaz (max 12 kelime).
 Sadece JSON döndür.`;
 }
 
-/** Model bazen JSON'u ```json bloğuna sarıyor ya da önüne bir cümle koyuyor. */
+/**
+ * Model bazen JSON'u ```json bloğuna sarıyor ya da önüne bir cümle koyuyor.
+ *
+ * Birden çok blok varsa SONUNCUSU alınır. Model arada bir ilk cevabını yazdıktan
+ * sonra kendini düzeltiyor ("Dur — müzik önerimde hata var: X bir romancı, müzisyen
+ * değil. Düzelterek yeniden veriyorum:") ve ikinci bir blok yazıyor. İlk bloğu almak,
+ * modelin kendi yakaladığı hatayı kullanıcıya sunmak demekti.
+ */
 function extractJson(text: string): unknown {
-  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  const fenced = [...text.matchAll(/```(?:json)?\s*([\s\S]*?)\s*```/g)].at(-1);
   const candidate = fenced ? fenced[1] : text.trim();
   try {
     return JSON.parse(candidate);
@@ -221,6 +251,24 @@ function extractJson(text: string): unknown {
 
 const SLOTS = ["book", "film", "music"] as const;
 type Slot = typeof SLOTS[number];
+
+/**
+ * Bir keşif için en çok kaç Claude çağrısı yapılır (bkz. ana döngü).
+ *
+ * 2 = tek tekrar hakkı. 3 denendi ve bilerek geri alındı (11 Ekim 2026): ölçümde
+ * üçüncü çağrı keşiflerin tahminen %2-8'inde gerekiyordu; kazancı o kuyruğu kesmek,
+ * bedeli kullanıcıyı ~25 sn bekletmek ve keşif başına maliyeti yükseltmekti. İki
+ * denemede de katalogda bulunamayan eser loglanır ve yine de sunulur.
+ */
+const MAX_ATTEMPTS = 2;
+
+/**
+ * Tekrar denemesi yalnızca bu süre dolmadan başlar. Tek deneme en kötü hâlde
+ * ~60 sn sürebiliyor (Claude zaman aşımı 45 sn + katalog sorguları) ve o kadar
+ * beklemiş kullanıcıyı bir o kadar daha bekletmek, edge function'ın duvar saati
+ * sınırına (150 sn) da yaklaşmak demek. Tipik deneme 8-10 sn.
+ */
+const RETRY_BUDGET_MS = 60_000;
 
 type DiscoveryItem = {
   slot: Slot;
@@ -248,11 +296,26 @@ function displayName(item: DiscoveryItem): string {
 }
 
 /**
- * book/film/music DB'de NOT NULL — eksik alanla insert etmeye çalışma.
- *
- * Yeni biçim `items`; eski TEXT kolonları ondan TÜRETİLİR, ayrı bir kaynak değil.
- * Böylece kartta görünen ile Telegram botunun okuduğu ayrışamaz.
+ * Üç öğeden keşfi kurar. Yeni biçim `items`; eski TEXT kolonları ve `reasons` ondan
+ * TÜRETİLİR, ayrı bir kaynak değil. Böylece kartta görünen ile Telegram botunun
+ * okuduğu ayrışamaz — bir öğenin adı değişse ya da öğeler farklı denemelerden gelse bile.
  */
+function toDiscovery(items: DiscoveryItem[]): Discovery {
+  const bySlot = (slot: Slot) => items.find((i) => i.slot === slot)!;
+  return {
+    book: displayName(bySlot("book")),
+    film: displayName(bySlot("film")),
+    music: displayName(bySlot("music")),
+    reasons: {
+      book: bySlot("book").reason,
+      film: bySlot("film").reason,
+      music: bySlot("music").reason,
+    },
+    items: SLOTS.map(bySlot),
+  };
+}
+
+/** book/film/music DB'de NOT NULL — eksik alanla insert etmeye çalışma. */
 function normalizeDiscovery(raw: unknown): Discovery | null {
   if (!raw || typeof raw !== "object") return null;
   const obj = raw as Record<string, unknown>;
@@ -288,19 +351,47 @@ function normalizeDiscovery(raw: unknown): Discovery | null {
     });
   }
 
-  const bySlot = (slot: Slot) => items.find((i) => i.slot === slot)!;
+  return toDiscovery(items);
+}
 
-  return {
-    book: displayName(bySlot("book")),
-    film: displayName(bySlot("film")),
-    music: displayName(bySlot("music")),
-    reasons: {
-      book: bySlot("book").reason,
-      film: bySlot("film").reason,
-      music: bySlot("music").reason,
-    },
-    items,
-  };
+/**
+ * Claude'un tek denemede döndürdüğü şey. `originalTitles` kasıtlı olarak
+ * `Discovery`nin DIŞINDA: yalnızca katalog aramasının girdisi, `items`'a yazılmaz
+ * ve istemciye dönmez.
+ */
+type Candidate = { discovery: Discovery; originalTitles: Record<Slot, string> };
+
+/**
+ * Öğeyi kataloğa sorar (bkz. workCheck.ts). Müzik sorulmaz.
+ *
+ * `missing` yalnızca KESİN "yok" cevabında true'dur; katalog sorulamadıysa öğe
+ * olduğu gibi geçer. Eser gerçek ama kartta yazacak ad bulunamadıysa (modelin kendi
+ * çevirisi olabilir) öğe, doğrulanan özgün adıyla döner.
+ */
+async function settle(
+  item: DiscoveryItem,
+  originalTitle: string,
+): Promise<{ item: DiscoveryItem; missing: boolean }> {
+  const check = item.slot === "book" ? checkBook : item.slot === "film" ? checkFilm : null;
+  if (!check) return { item, missing: false };
+
+  const verdict = await check({ title: item.title, creator: item.creator, originalTitle });
+  if (verdict === "original") {
+    console.error(
+      `[daily-discovery] Ad doğrulanamadı, özgün ad gösteriliyor: ${displayName(item)} → ${originalTitle}`,
+    );
+    return { item: { ...item, title: originalTitle }, missing: false };
+  }
+  return { item, missing: verdict === "not_found" };
+}
+
+function originalTitleOf(raw: unknown, slot: Slot): string {
+  const items = (raw as { items?: unknown } | null)?.items;
+  if (!Array.isArray(items)) return "";
+  const found = items.find(
+    (i) => i && typeof i === "object" && (i as Record<string, unknown>).slot === slot,
+  ) as Record<string, unknown> | undefined;
+  return typeof found?.original_title === "string" ? found.original_title.trim() : "";
 }
 
 function getTodayInIstanbul(): string {
@@ -365,18 +456,18 @@ async function fetchBlocked(sb: Sb, userId: string): Promise<BlockedWork[]> {
 }
 
 /**
- * Önerilerden herhangi biri yasak kümede mi? Anahtarları veritabanı üretir —
+ * Önerilerden hangileri yasak kümede? Anahtarları veritabanı üretir —
  * normalizasyon Deno tarafına kopyalanırsa eninde sonunda ayrışır ve filtre
  * sessizce delinir ("Fargo (Dizi)" ile "Fargo" farklı anahtar olur).
  */
-async function findBlockedItem(
+async function blockedSlots(
   sb: Sb,
-  discovery: Discovery,
+  items: DiscoveryItem[],
   blocked: BlockedWork[],
-): Promise<string | undefined> {
-  if (blocked.length === 0) return undefined;
+): Promise<Set<Slot>> {
+  if (blocked.length === 0) return new Set();
 
-  const payload = discovery.items.map((item) => ({
+  const payload = items.map((item) => ({
     type: item.slot === "music" ? "song" : item.slot,
     creator: item.creator,
     title: item.title,
@@ -385,17 +476,16 @@ async function findBlockedItem(
   const { data, error } = await sb.rpc("lens_work_keys", { p_items: payload });
   if (error) {
     console.error("[daily-discovery] Anahtar üretilemedi:", error);
-    return undefined; // doğrulama yapılamadıysa öneriyi engelleme
+    return new Set(); // doğrulama yapılamadıysa öneriyi engelleme
   }
 
   const keys = (data as string[]) ?? [];
   const blockedKeys = new Set(blocked.map((b) => b.work_key));
-  const index = keys.findIndex((key) => blockedKeys.has(key));
-  return index === -1 ? undefined : displayName(discovery.items[index]);
+  return new Set(items.filter((_, index) => blockedKeys.has(keys[index])).map((item) => item.slot));
 }
 
 /** Claude çağrısı. Hata durumunda `fail()` koduna karşılık gelen string döner. */
-async function askClaude(apiKey: string, prompt: string): Promise<Discovery | string> {
+async function askClaude(apiKey: string, prompt: string): Promise<Candidate | string> {
   let res: Response;
   try {
     res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -410,7 +500,9 @@ async function askClaude(apiKey: string, prompt: string): Promise<Discovery | st
         model: "claude-sonnet-4-6",
         // max_tokens 512 Türkçe çıktı için dardı: kırpılan yanıt geçersiz JSON'a
         // dönüp fonksiyonu 500'e düşürüyordu. items etiketleriyle çıktı daha da uzun.
-        max_tokens: 1536,
+        // 1536 da sınırdaydı: model kendini düzeltip ikinci bir JSON yazdığında
+        // (bkz. extractJson) çıktı ölçümde 1409 token'a çıktı. Tipik çıktı ~380.
+        max_tokens: 2048,
         system: SYSTEM_PROMPT,
         messages: [{ role: "user", content: prompt }],
       }),
@@ -435,8 +527,15 @@ async function askClaude(apiKey: string, prompt: string): Promise<Discovery | st
   }
 
   let discovery: Discovery | null;
+  let originalTitles: Record<Slot, string> = { book: "", film: "", music: "" };
   try {
-    discovery = normalizeDiscovery(extractJson(responseText));
+    const raw = extractJson(responseText);
+    discovery = normalizeDiscovery(raw);
+    originalTitles = {
+      book: originalTitleOf(raw, "book"),
+      film: originalTitleOf(raw, "film"),
+      music: "",
+    };
   } catch (err) {
     console.error(
       "[daily-discovery] JSON parse edilemedi:", err,
@@ -449,7 +548,7 @@ async function askClaude(apiKey: string, prompt: string): Promise<Discovery | st
     console.error("[daily-discovery] Eksik alanlı öneri:", responseText.slice(0, 500));
     return "claude_incomplete";
   }
-  return discovery;
+  return { discovery, originalTitles };
 }
 
 function fail(code: string, status = 500, message = "Bir hata oluştu. Lütfen tekrar deneyin.") {
@@ -546,38 +645,84 @@ Deno.serve(async (req) => {
     const blocked = await fetchBlocked(sb, user.id);
     const profile = await fetchProfile(sb, user.id);
 
-    let discovery: Discovery | null = null;
-    let violation: string | undefined;
+    // Slot başına elde tutulan en iyi öğe. flaw: 0 temiz · 1 yasak kümede · 2 katalogda yok.
+    // Olmayan eser, tekrar eden eserden KÖTÜDÜR (tekrar bir sıkıcılık, olmayan eser
+    // yanlış bilgi); sıra bu yüzden böyle.
+    const chosen = new Map<Slot, { item: DiscoveryItem; flaw: number }>();
+    const rejection: Rejection = { blocked: [], unverified: [] };
+    const startedAt = Date.now();
 
-    // Deterministik doğrulama: prompt ipucu, kod otorite. Model yasaklı eseri
-    // yine de önerirse BİR kez daha denenir — sonra logla ve yine de sun.
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const candidate = await askClaude(anthropicKey, buildPrompt(report, blocked, profile, violation));
+    // Deterministik doğrulama: prompt ipucu, kod otorite. İki şey sınanır — eser
+    // yasak kümede mi, ve kitap ile film GERÇEKTEN var mı (bkz. workCheck.ts).
+    //
+    // SLOTLAR BAĞIMSIZ: bir denemede temiz çıkan öğe elde tutulur, sonraki deneme
+    // yalnızca kusurlu kalan slotu doldurmak içindir. Tekrar denemesi tam bir Claude
+    // çağrısı; ilk denemenin sağlam kitabını, ikincinin bozuk kitabı yüzünden atmak
+    // o çağrıyı boşa harcamak olurdu (ölçümde ikinci deneme, ilkinde sorunsuz olan
+    // slotu 12'de 2-3 kez bozdu).
+    //
+    // Kusurlu slot kalırsa BİR kez daha denenir; o da tutmazsa loglanıp yine de
+    // sunulur (boş kart göstermek daha kötü).
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      const candidate = await askClaude(
+        anthropicKey,
+        buildPrompt(report, blocked, profile, attempt === 0 ? undefined : rejection),
+      );
 
       if (typeof candidate === "string") {
-        // Elde önceki denemeden geçerli bir öneri varsa onunla devam et. Tekrar
-        // denemenin başarısız olması, ilk denemenin ürününü çöpe atmayı gerektirmez:
-        // içinde bir tekrar barındıran keşif, boş karttan iyidir.
-        if (discovery) {
-          console.error("[daily-discovery] Tekrar denemesi başarısız, ilk öneri sunuluyor:", candidate);
+        // Elde önceki denemeden bir öneri varsa onunla devam et. Tekrar denemenin
+        // başarısız olması, ilk denemenin ürününü çöpe atmayı gerektirmez: içinde
+        // bir tekrar barındıran keşif, boş karttan iyidir.
+        if (chosen.size > 0) {
+          console.error("[daily-discovery] Tekrar denemesi başarısız, eldeki öneri sunuluyor:", candidate);
           break;
         }
         return fail(candidate, 502);
       }
 
-      const offender = await findBlockedItem(sb, candidate, blocked);
-      discovery = candidate;
-      if (!offender) break;
-
-      violation = offender;
-      console.error(
-        `[daily-discovery] Yasaklı eser önerildi (deneme ${attempt + 1}): ${offender}`,
+      const settled = await Promise.all(
+        candidate.discovery.items.map((item) => settle(item, candidate.originalTitles[item.slot])),
       );
+      // Yasak küme, kartta GÖRÜNECEK adlarla sınanır — ad özgününe döndüyse anahtar da değişti.
+      const repeats = await blockedSlots(sb, settled.map((s) => s.item), blocked);
+
+      for (const { item, missing } of settled) {
+        const flaw = missing ? 2 : repeats.has(item.slot) ? 1 : 0;
+        const held = chosen.get(item.slot);
+        if (!held || flaw < held.flaw) chosen.set(item.slot, { item, flaw });
+
+        // Geri bildirime yalnızca hâlâ çözülmemiş slotun reddi girer.
+        if (chosen.get(item.slot)!.flaw > 0 && flaw > 0) {
+          (flaw === 2 ? rejection.unverified : rejection.blocked).push(displayName(item));
+          console.error(
+            `[daily-discovery] ${flaw === 2 ? "Katalogda bulunamadı" : "Yasaklı eser önerildi"} ` +
+              `(deneme ${attempt + 1}): ${displayName(item)}`,
+          );
+        }
+      }
+
+      const worst = Math.max(...[...chosen.values()].map((held) => held.flaw));
+      if (worst === 0) break;
+      if (Date.now() - startedAt > RETRY_BUDGET_MS) {
+        console.error("[daily-discovery] Süre bütçesi doldu, eldeki öneri sunuluyor.");
+        break;
+      }
     }
 
-    if (!discovery) {
+    if (chosen.size < SLOTS.length) {
       return fail("claude_incomplete", 502);
     }
+    const unverified = [...chosen.values()].filter((held) => held.flaw === 2);
+    if (unverified.length > 0) {
+      // Kataloglar gerçek eserleri de kaçırabiliyor; hiçbir denemede bulunamayan
+      // eseri yine de sunuyoruz (boş kart daha kötü). Günlüklerde aranacak satır bu:
+      // sıklaşırsa ya katalog ya prompt bozulmuş demektir.
+      console.error(
+        "[daily-discovery] DOĞRULANAMAYAN eser sunuluyor:",
+        unverified.map((held) => displayName(held.item)).join(" | "),
+      );
+    }
+    const discovery = toDiscovery(SLOTS.map((slot) => chosen.get(slot)!.item));
 
     // DB'ye kaydet. Bu yazım best-effort: cache yazılamasa da kullanıcı
     // keşfini alır (analyze'daki havuz yazımıyla aynı prensip).
