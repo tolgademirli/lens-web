@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import type { UserPlan, UserPreferences } from "./types";
+import type { UserPreferences } from "./types";
 
 /**
  * LANSMAN ÖNCESİ: haftalık seçki ÜRETİLİYOR ama MAİL GİTMİYOR.
@@ -27,30 +27,29 @@ export const WEEKLY_PICKS_EMAIL_PAUSED: boolean = true;
  * Tercih varsayılanları. `user_preferences` satırı OLMAYAN kullanıcı için
  * geçerli olan değerler — DB'deki DEFAULT ile birebir aynı kalmalı.
  * Gönderim sorgusu (send-weekly-picks) da aynı varsayımı kullanır.
+ *
+ * PAKET BURADA YOK ve bu bilinçli: `user_preferences.plan` kolonu premium
+ * anahtarını bilmez, o yüzden paket yalnızca `entitlements.ts` üzerinden okunur.
+ * Kolon aşağıdaki upsert'lerde de hiç gönderilmez — kullanıcı zaten yazamaz
+ * (guard_user_preferences_plan trigger'ı).
  */
 export const DEFAULT_PREFERENCES = {
   weekly_picks_enabled: true,
-  /**
-   * Paket. Satırı olmayan kullanıcı ücretsizdir; DB kolonunun DEFAULT'u da 'free'.
-   * Kullanıcı bu değeri kendi yazamaz (guard_user_preferences_plan trigger'ı),
-   * o yüzden aşağıdaki upsert'lerde hiç gönderilmez.
-   */
-  plan: "free",
   /**
    * Platform tercihi. NULL = "Tümü" ve DB'de de DEFAULT yok — yani "dokunmamış
    * kullanıcı" ile "Tümü seçmiş kullanıcı" aynı şey. Boş dizi DB'de CHECK ile
    * yasak; buraya da asla [] yazılmaz.
    *
-   * Tercih her pakette SAKLANIR ama yalnızca premium'da UYGULANIR — zorlama
-   * `lens_weekly_pick_candidates` içinde (tek nokta). Buradaki ve Ayarlar'daki
-   * paket kontrolü kullanıcıya durumu ANLATMAK içindir, güvenlik sınırı değil.
+   * Tercih her pakette SAKLANIR ama yalnızca premium'da (ve premium anahtarı
+   * açıkken) UYGULANIR — zorlama `lens_weekly_pick_candidates` içinde (tek nokta).
+   * Hesabım'daki paket kontrolü kullanıcıya durumu ANLATMAK içindir, güvenlik
+   * sınırı değil.
    */
   platforms: null,
 } as const;
 
 export type PreferenceValues = {
   weekly_picks_enabled: boolean;
-  plan: UserPlan;
   platforms: string[] | null;
 };
 
@@ -64,9 +63,9 @@ export async function fetchPreferences(): Promise<PreferenceValues> {
 
   const { data, error } = await supabase
     .from("user_preferences")
-    .select("weekly_picks_enabled, plan, platforms")
+    .select("weekly_picks_enabled, platforms")
     .eq("user_id", session.user.id)
-    .maybeSingle<Pick<UserPreferences, "weekly_picks_enabled" | "plan" | "platforms">>();
+    .maybeSingle<Pick<UserPreferences, "weekly_picks_enabled" | "platforms">>();
 
   if (error) {
     console.error("[preferences] okunamadı:", error);
@@ -75,7 +74,6 @@ export async function fetchPreferences(): Promise<PreferenceValues> {
 
   return {
     weekly_picks_enabled: data?.weekly_picks_enabled ?? DEFAULT_PREFERENCES.weekly_picks_enabled,
-    plan: (data?.plan ?? DEFAULT_PREFERENCES.plan) as UserPlan,
     // Boş dizi gelirse (elle yazılmış bayat satır) "Tümü" olarak okunur.
     platforms: data?.platforms && data.platforms.length > 0 ? data.platforms : null,
   };

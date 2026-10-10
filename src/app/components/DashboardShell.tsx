@@ -4,6 +4,11 @@ import { motion } from "motion/react";
 import { Bookmark, Compass, FileText, LogOut, Plus, Sparkles, User, UserCog } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { getCurrentUser, supabase } from "@/lib/supabase";
+import {
+  accountPageVisible,
+  fetchEntitlements,
+  knownPremiumEnabled,
+} from "@/lib/entitlements";
 
 /**
  * Panelin ortak kabuğu: başlık + sekmeler. Sekmelerin hepsi aynı kabuğu kullanır
@@ -16,12 +21,17 @@ import { getCurrentUser, supabase } from "@/lib/supabase";
  * /settings'teydi ve kullanıcı ayarı değiştirip panele dönmek için geri tuşuna
  * basıyordu. /settings artık /account'a yönleniyor (yayına çıkmış maillerdeki
  * eski linkler kırılmasın).
+ *
+ * "Hesabım" sekmesi KOŞULLU: sayfada yapılacak bir şey yoksa (premium anahtarı
+ * kapalı VE mail duraklatılmış) sekme gösterilmez — bkz. `accountPageVisible`.
  */
+const ACCOUNT_PATH = "/account";
+
 const TABS = [
   { to: "/dashboard", label: "Keşifler", Icon: Compass, end: true },
   { to: "/dashboard/reports", label: "Raporlar", Icon: FileText, end: false },
   { to: "/dashboard/list", label: "Listem", Icon: Bookmark, end: false },
-  { to: "/account", label: "Hesabım", Icon: UserCog, end: false },
+  { to: ACCOUNT_PATH, label: "Hesabım", Icon: UserCog, end: false },
 ];
 
 interface DashboardShellProps {
@@ -33,6 +43,11 @@ interface DashboardShellProps {
 export function DashboardShell({ children, loading = false }: DashboardShellProps) {
   const navigate = useNavigate();
   const [userEmail, setUserEmail] = useState("");
+  // İlk değer bilinen son durumdan: kabuk her sekmede yeniden kurulduğu için
+  // `false` ile başlamak sekmeyi her geçişte bir an kaybettirirdi.
+  const [showAccount, setShowAccount] = useState(() =>
+    accountPageVisible(knownPremiumEnabled())
+  );
 
   useEffect(() => {
     async function init() {
@@ -42,9 +57,14 @@ export function DashboardShell({ children, loading = false }: DashboardShellProp
         return;
       }
       setUserEmail(user.email ?? "");
+
+      const { premiumEnabled } = await fetchEntitlements();
+      setShowAccount(accountPageVisible(premiumEnabled));
     }
     init();
   }, [navigate]);
+
+  const tabs = showAccount ? TABS : TABS.filter((tab) => tab.to !== ACCOUNT_PATH);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -95,7 +115,7 @@ export function DashboardShell({ children, loading = false }: DashboardShellProp
           </div>
 
           <nav className="flex gap-6">
-            {TABS.map(({ to, label, Icon, end }) => (
+            {tabs.map(({ to, label, Icon, end }) => (
               <NavLink
                 key={to}
                 to={to}

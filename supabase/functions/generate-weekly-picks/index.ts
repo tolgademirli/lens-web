@@ -13,7 +13,8 @@
 //     link servise DOĞRUDAN deep link olur ve filtre gerçekten uygulanır.
 // Kapı `lens_weekly_pick_candidates`'ta: ücretsiz pakette `platforms` NULL döner,
 // yani bu fonksiyonun yanlış yapma imkânı yok (premium'dan düşen kullanıcı da
-// otomatik olarak doğru davranır).
+// otomatik olarak doğru davranır). Premium anahtarı kapalıyken aynı RPC HERKES
+// için NULL döndürür — bu dosyada anahtarı okuyan kod yok ve olmamalı.
 //
 // AKIŞ (kullanıcı başına, sıralı, izole try/catch):
 //   1. lens_refresh_profile_if_due     — ücretsiz pakette haftalık profil tazeleme

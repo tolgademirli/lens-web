@@ -31,6 +31,8 @@ export default function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/dashboard/reports" element={<DashboardReports />} />
         <Route path="/dashboard/list" element={<MyList />} />
+        {/* Sayfada yapılacak bir şey yokken (premium anahtarı kapalı + mail
+            duraklatılmış) Account kendini /dashboard'a yönlendirir. Rota durur. */}
         <Route path="/account" element={<Account />} />
         {/* Tercihler /settings'ten /account'a taşındı. Rota SİLİNMEZ, yönlendirilir
             (BUG-01 dersi): yayına çıkmış haftalık seçki maillerinde bu adres var. */}

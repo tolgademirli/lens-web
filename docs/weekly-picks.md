@@ -84,6 +84,11 @@ gerek de yok. Kural tek cümle: **API yalnızca etkin bir platform filtresi vars
 `plan <> 'premium'` ise `platforms`'ı NULL döndürür. Üreticinin yanlış yapma imkânı
 yok; premium'dan düşen kullanıcı da otomatik olarak doğru davranır (tercihi tabloda durur).
 
+> **Premium anahtarı kapalıyken (lansman varsayılanı) premium yol HİÇ çalışmaz:** aynı
+> RPC herkes için NULL döndürür, yani herkes soldaki sütundadır ve erişilebilirlik
+> API'sine tek istek gitmez. Açma: `select lens_private.set_premium(true, 'lansman');`
+> Ayrıntı: [`schema.md`](schema.md) → "Premium anahtarı".
+
 ### Filtrelenebilen platformlar (doğrulandı: 16 Ağustos 2026)
 
 Sağlayıcının **Türkiye'de tanıdığı servislerin tamamı**: `netflix` · `prime` ·
@@ -276,8 +281,9 @@ hem `free_path_url` (ücretsiz yolun arama linki). Bütün entegrasyonun var olm
 bu test. Zor vaka koy: Türkçe adlı yabancı film, `movie` diye etiketlenmiş mini dizi.
 
 ### Platform filtresi
-Filtre **yalnızca premium'da** uygulanır; testten önce paketi aç:
+Filtre **yalnızca premium'da** uygulanır; testten önce anahtarı ve paketi aç:
 ```sql
+select lens_private.set_premium(true, 'filtre testi');  -- kapalıyken paket hiçbir şey açmaz
 update user_preferences set plan = 'premium' where user_id='<sen>';  -- service_role ile
 update user_preferences set platforms = null        where user_id='<sen>'; -- Tümü (API çağrılmaz)
 update user_preferences set platforms = '{netflix}' where user_id='<sen>';
@@ -289,6 +295,11 @@ update user_preferences set platforms = '{mubi}'    where user_id='<sen>'; -- ka
 Paketi `free`'ye geri alıp aynı kullanıcıyı tekrar çalıştır: `filtered` **false**,
 `watch_calls` **0**, `watch_url` bir `justwatch.com/tr/arama?q=…` linki olmalı.
 `platforms` satırı tabloda **durmalı** (tercih kaybolmaz, sadece uygulanmaz).
+
+Aynı sonucu anahtar da vermeli: paketi `premium` bırakıp
+`select lens_private.set_premium(false, 'test bitti');` çalıştır — `filtered` yine
+**false**, `watch_calls` yine **0**. **Testten sonra anahtarı kapalı bırakmayı unutma**;
+açık kalırsa "Hesabım" sekmesi ve paket kartı herkese görünür.
 
 Geçersiz durumlar imkânsız olmalı:
 ```sql

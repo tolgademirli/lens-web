@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router";
 import { CreditCard, Lock, Mail, MonitorPlay } from "lucide-react";
 import { DashboardShell } from "@/app/components/DashboardShell";
 import { Switch } from "@/app/components/ui/switch";
@@ -15,6 +16,7 @@ import {
   WATCH_DATA_CREDIT,
   type PlatformOption,
 } from "@/lib/platforms";
+import { accountPageVisible, fetchEntitlements } from "@/lib/entitlements";
 import { posthog } from "@/lib/posthog";
 import type { UserPlan } from "@/lib/types";
 
@@ -26,14 +28,21 @@ import type { UserPlan } from "@/lib/types";
  * tuşuna basıyordu. Paket bilgisi de geldiğinde ikisi aynı soruyu cevaplıyor
  * ("Lens bana ne veriyor, ben neyi seçtim"), o yüzden aynı yerdeler.
  *
+ * PREMIUM ANAHTARI KAPALIYKEN paketle ilgili her şey (paket kartı, ödeme
+ * geçmişi, platform filtresi) çizilmez; geriye yalnızca e-posta tercihi kalır.
+ * O da duraklatılmışsa sayfada yapılacak bir şey yoktur ve /dashboard'a
+ * yönlenir — bkz. `accountPageVisible`. Rota SİLİNMEDİ (BUG-01 dersi).
+ *
  * ÖDEME AKIŞI HENÜZ YOK. Paket kartındaki aksiyonlar bilerek işlevsiz; `plan`
  * kolonunu client zaten yazamıyor (guard_user_preferences_plan trigger'ı yutar),
  * yani buraya bir "premium yap" düğmesi koymak sahte bir söz olurdu. Ödeme akışı
  * (US-08) geldiğinde yazılacak yer burası.
  */
 export function Account() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [plan, setPlan] = useState<UserPlan>(DEFAULT_PREFERENCES.plan);
+  const [premiumEnabled, setPremiumEnabled] = useState(false);
+  const [plan, setPlan] = useState<UserPlan>("free");
 
   // <boolean> AÇIKÇA yazılıyor: DEFAULT_PREFERENCES `as const` olduğu için
   // weekly_picks_enabled'ın tipi `true` (literal) ve useState onu daraltıyordu.
@@ -52,21 +61,35 @@ export function Account() {
   useEffect(() => {
     async function init() {
       // Oturum denetimi DashboardShell'de; burada tekrar etmiyoruz.
-      const [prefs, opts] = await Promise.all([fetchPreferences(), fetchPlatformOptions()]);
+      const entitlements = await fetchEntitlements();
+      if (!accountPageVisible(entitlements.premiumEnabled)) {
+        navigate("/dashboard", { replace: true });
+        return;
+      }
+
+      const [prefs, opts] = await Promise.all([
+        fetchPreferences(),
+        // Anahtar kapalıyken platform kartı çizilmiyor; sözlüğü de çekmiyoruz.
+        entitlements.premiumEnabled ? fetchPlatformOptions() : Promise.resolve([]),
+      ]);
       setWeeklyPicks(prefs.weekly_picks_enabled);
       setPlatformsState(prefs.platforms);
-      setPlan(prefs.plan);
+      setPremiumEnabled(entitlements.premiumEnabled);
+      setPlan(entitlements.plan);
       setOptions(opts);
       setLoading(false);
     }
     init();
-  }, []);
+  }, [navigate]);
 
   /**
    * Filtre PREMIUM özelliği. Buradaki kontrol yalnızca ANLATIM içindir — asıl
    * zorlama `lens_weekly_pick_candidates`'ta, ücretsiz pakette `platforms` NULL
    * dönüyor. Kart ücretsiz kullanıcıya da gösteriliyor (kilitli): var olduğunu
    * bilmediği bir özelliği kimse istemez.
+   *
+   * `plan` ETKİN pakettir: premium anahtarı kapalıyken her zaman "free", yani
+   * `isPremium` anahtar kapalıyken asla true olmaz.
    */
   const isPremium = plan === "premium";
   const canFilter = isPremium;
@@ -126,71 +149,79 @@ export function Account() {
           {/* Başlık sekme adının aynısı — bkz. DashboardReports. */}
           <h2 className="font-serif text-3xl text-white">Hesabım</h2>
           <p className="mt-2 text-purple-300/70">
-            Paketin ve öneri tercihlerin tek yerde.
+            {premiumEnabled
+              ? "Paketin ve öneri tercihlerin tek yerde."
+              : "Öneri tercihlerin burada."}
           </p>
         </header>
 
-        {/* ---------------- Paket ---------------- */}
-        <section className="space-y-4">
-          <div className="rounded-2xl border border-purple-500/20 bg-slate-800/60 p-6 backdrop-blur-sm">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <h3 className="text-xl text-white">
-                  {canFilter ? "Lens Premium" : "Ücretsiz paket"}
-                </h3>
-                <p className="mt-1 text-sm leading-relaxed text-purple-300/70">
-                  {canFilter
-                    ? "Öneriler her geri bildirimde tazelenir · hafıza penceresi sınırsız · platform filtresi açık"
-                    : "Hafıza penceresi 30 gün · profil haftada bir güncellenir"}
-                </p>
+        {/*
+          ---------------- Paket ----------------
+          Premium anahtarı kapalıyken bölümün TAMAMI çizilmez — "Ücretsiz paket"
+          başlığı bile: ücretsiz demek, ücretli bir paketin var olduğunu söyler.
+        */}
+        {premiumEnabled && (
+          <section className="space-y-4">
+            <div className="rounded-2xl border border-purple-500/20 bg-slate-800/60 p-6 backdrop-blur-sm">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <h3 className="text-xl text-white">
+                    {canFilter ? "Lens Premium" : "Ücretsiz paket"}
+                  </h3>
+                  <p className="mt-1 text-sm leading-relaxed text-purple-300/70">
+                    {canFilter
+                      ? "Öneriler her geri bildirimde tazelenir · hafıza penceresi sınırsız · platform filtresi açık"
+                      : "Hafıza penceresi 30 gün · profil haftada bir güncellenir"}
+                  </p>
+                </div>
+                <span
+                  className={`shrink-0 rounded-full border px-3 py-1 text-xs ${
+                    canFilter
+                      ? "border-purple-400/40 bg-purple-500/20 text-purple-100"
+                      : "border-purple-500/20 bg-slate-700/40 text-purple-200"
+                  }`}
+                >
+                  {canFilter ? "Premium" : "Ücretsiz"}
+                </span>
               </div>
-              <span
-                className={`shrink-0 rounded-full border px-3 py-1 text-xs ${
-                  canFilter
-                    ? "border-purple-400/40 bg-purple-500/20 text-purple-100"
-                    : "border-purple-500/20 bg-slate-700/40 text-purple-200"
-                }`}
-              >
-                {canFilter ? "Premium" : "Ücretsiz"}
-              </span>
+
+              {!canFilter && (
+                <button
+                  type="button"
+                  onClick={() => setUpgradeNote(true)}
+                  className="mt-5 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 px-5 py-2.5 text-white shadow-lg transition-colors hover:from-purple-600 hover:to-pink-600"
+                >
+                  Premium'a geç
+                </button>
+              )}
+
+              {upgradeNote && (
+                // Sahte bir ödeme ekranı açmıyoruz: akış yokken "geç" demek,
+                // tutamayacağımız bir söz olurdu.
+                <p className="mt-4 rounded-xl border border-purple-500/20 bg-slate-900/40 px-4 py-3 text-sm text-purple-200">
+                  Premium henüz satışta değil — ödeme akışı açıldığında burada
+                  göreceksin. Bu arada önerilerin çalışmaya devam ediyor.
+                </p>
+              )}
             </div>
 
-            {!canFilter && (
-              <button
-                type="button"
-                onClick={() => setUpgradeNote(true)}
-                className="mt-5 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 px-5 py-2.5 text-white shadow-lg transition-colors hover:from-purple-600 hover:to-pink-600"
-              >
-                Premium'a geç
-              </button>
-            )}
-
-            {upgradeNote && (
-              // Sahte bir ödeme ekranı açmıyoruz: akış yokken "geç" demek,
-              // tutamayacağımız bir söz olurdu.
-              <p className="mt-4 rounded-xl border border-purple-500/20 bg-slate-900/40 px-4 py-3 text-sm text-purple-200">
-                Premium henüz satışta değil — ödeme akışı açıldığında burada
-                göreceksin. Bu arada önerilerin çalışmaya devam ediyor.
-              </p>
-            )}
-          </div>
-
-          <div className="rounded-2xl border border-purple-500/20 bg-slate-800/40 p-6 backdrop-blur-sm">
-            <p className="text-xs tracking-widest text-purple-300/60">BİLMEN GEREKENLER</p>
-            <ul className="mt-4 space-y-3 text-sm leading-relaxed text-purple-100/90">
-              {[
-                "Paketin yalnızca ödeme akışıyla değişir — uygulama içinden elle açılamaz.",
-                "Ücretsize döndüğünde hiçbir kayıt silinmez; yalnızca hafıza penceresi 30 güne daralır.",
-                "Platform tercihin premium bitse de saklanır, tekrar abone olunca kaldığı yerden çalışır.",
-              ].map((line) => (
-                <li key={line} className="flex gap-3">
-                  <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-purple-400" />
-                  <span>{line}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
+            <div className="rounded-2xl border border-purple-500/20 bg-slate-800/40 p-6 backdrop-blur-sm">
+              <p className="text-xs tracking-widest text-purple-300/60">BİLMEN GEREKENLER</p>
+              <ul className="mt-4 space-y-3 text-sm leading-relaxed text-purple-100/90">
+                {[
+                  "Paketin yalnızca ödeme akışıyla değişir — uygulama içinden elle açılamaz.",
+                  "Ücretsize döndüğünde hiçbir kayıt silinmez; yalnızca hafıza penceresi 30 güne daralır.",
+                  "Platform tercihin premium bitse de saklanır, tekrar abone olunca kaldığı yerden çalışır.",
+                ].map((line) => (
+                  <li key={line} className="flex gap-3">
+                    <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-purple-400" />
+                    <span>{line}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        )}
 
         {/*
           ÖDEME GEÇMİŞİ paketin hemen ardında, tercihlerden ÖNCE: ikisi de
@@ -200,6 +231,9 @@ export function Account() {
           kullanıcının ödemesi hiç olamaz, "Henüz ödeme kaydın yok" satırı
           bekleyen bir borç varmış izlenimi verirdi. Ödeme akışı (US-08)
           geldiğinde gerçek satırlar buraya yazılacak.
+
+          Premium anahtarı kapalıyken de çizilmez: `isPremium` etkin paketten
+          türüyor ve anahtar kapalıyken asla true olmuyor.
         */}
         {isPremium && (
           <section className="rounded-2xl border border-purple-500/20 bg-slate-800/40 p-6 backdrop-blur-sm">
@@ -276,8 +310,11 @@ export function Account() {
             Platform tercihi. Sözlük okunamadıysa (options boş) kart HİÇ
             gösterilmez: yarım dolu bir liste kullanıcıya "Netflix desteklenmiyor"
             gibi yanlış bir sonuç çıkarttırır.
+
+            Premium anahtarı kapalıyken de gösterilmez — kilitli hâliyle bile:
+            "Premium" rozetli bir kart, satmadığımız bir şeyin vitrini olurdu.
           */}
-          {options.length > 0 && (
+          {premiumEnabled && options.length > 0 && (
             <div className="rounded-2xl border border-purple-500/20 bg-slate-800/60 p-6 backdrop-blur-sm">
               <div className="flex items-start gap-4">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-500/20">

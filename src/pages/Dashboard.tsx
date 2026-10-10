@@ -43,8 +43,9 @@ export function Dashboard() {
         setWeeklyPick(pick);
         setFeedback(signals);
         if (daily) posthog.capture("daily_discovery_viewed");
-        // plan gerçek kaynaktan (user_preferences.plan) gelir — event için ayrı
-        // bir varsayım hesaplama, ikisi ayrışır.
+        // plan gerçek kaynaktan (etkin paket, bkz. entitlements.ts) gelir — event
+        // için ayrı bir varsayım hesaplama, ikisi ayrışır. Premium anahtarı
+        // kapalıyken her zaman "free".
         if (daily?.profile_refreshed) posthog.capture("taste_profile_refreshed", { plan });
       }
 

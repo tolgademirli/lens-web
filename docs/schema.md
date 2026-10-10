@@ -126,7 +126,7 @@ Kullanıcının kendi tercihleri ve üyelik paketi.
 | `user_id`              | UUID PK      | `auth.users(id)` ON DELETE CASCADE |
 | `weekly_picks_enabled` | BOOLEAN      | NOT NULL, default true |
 | `plan`                 | TEXT         | NOT NULL, default `free`. `free` \| `premium` (CHECK) |
-| `platforms`            | TEXT[]       | nullable, **DEFAULT YOK**. `watch_providers.slug` listesi. NULL = "Tümü". Yalnızca `plan = 'premium'` iken UYGULANIR |
+| `platforms`            | TEXT[]       | nullable, **DEFAULT YOK**. `watch_providers.slug` listesi. NULL = "Tümü". Yalnızca premium anahtarı açık **ve** `plan = 'premium'` iken UYGULANIR |
 | `updated_at`           | TIMESTAMPTZ  | NOT NULL, default NOW(); BEFORE UPDATE trigger'ı tazeler |
 
 > **`platforms`: NULL = Tümü, BOŞ DİZİ YASAK.** `'{}'` "hiçbir platform kabul değil"
@@ -142,7 +142,8 @@ Kullanıcının kendi tercihleri ve üyelik paketi.
 > ve gevşetme merdiveni bunu gizler — yazım anında patlaması daha iyi.
 >
 > **Filtre PREMIUM özelliği ve zorlama TEK NOKTADA:**
-> `lens_weekly_pick_candidates`, `plan <> 'premium'` olan kullanıcı için `platforms`'ı
+> `lens_weekly_pick_candidates`, `plan <> 'premium'` olan kullanıcı için — ve premium
+> anahtarı kapalıyken **herkes** için — `platforms`'ı
 > **NULL** döndürür. Değer tabloda durmaya devam eder — premium'dan düşen kullanıcı
 > tercihini kaybetmez, yeniden abone olunca geri gelir. Yazma tarafına ikinci bir kapı
 > KONMADI: iki kapı zamanla ayrışır ve düşen kullanıcı tercihini düzenleyemez hâle gelir.
@@ -152,7 +153,27 @@ Kullanıcının kendi tercihleri ve üyelik paketi.
 > `guard_user_preferences_plan` BEFORE INSERT/UPDATE trigger'ı, çağıran rol `authenticated`
 > ya da `anon` ise `plan` değişimini sessizce yutar (INSERT'te `free`'ye sabitler).
 > `service_role`, `postgres` ve bakım rolleri yazabilir — ödeme akışı (US-08) buradan yazacak.
-> Okuma tek noktadan: `src/lib/entitlements.ts → fetchPlan()`.
+> Okuma tek noktadan: `src/lib/entitlements.ts → fetchEntitlements()`.
+
+> ### Premium anahtarı — `plan` kolonu tek başına hiçbir şey açmaz
+> Paket ayrımının tamamı `lens_private.premium_switch.enabled`'a bağlı (tek satır,
+> varsayılan **kapalı**; `20261010090000_premium_switch.sql`). Kapalıyken herkesin
+> **etkin** paketi `free`'dir: 30 günlük hafıza, haftalık eksen ayarı, platform filtresi
+> yok — kolonda `premium` yazsa bile. Kolon ve `platforms` tercihi **ezilmez**; anahtar
+> açılınca herkes kaldığı yerden döner.
+>
+> ```sql
+> select lens_private.set_premium(true,  'lansman');   -- aç
+> select lens_private.set_premium(false, 'neden');     -- kapat
+> select * from lens_private.premium_switch;           -- durum
+> ```
+>
+> Web aynı satırı `lens_entitlements()` ile okur, yani çevirmek **deploy istemez** ve
+> web/backend ayrışamaz. Kapalıyken arayüz "paket / premium / ücretsiz" kelimelerini hiç
+> kurmaz; mail de duraklatılmışsa "Hesabım" sekmesi gizlenir (`accountPageVisible`).
+>
+> **Paketi okuyan yeni bir SQL fonksiyonu `user_preferences.plan`'ı doğrudan okumamalı** —
+> `lens_private.effective_plan(user_id)` kullan. Kolonu okuyan tek bir yer anahtarı deler.
 
 **Satırın yokluğu = varsayılan.** Kullanıcı ayara hiç dokunmadıysa burada satırı olmaz ve `weekly_picks_enabled = true` varsayılır. Satır ancak toggle'a ilk dokunuşta (upsert) doğar. Hem client (`src/lib/preferences.ts → DEFAULT_PREFERENCES`) hem gönderim fonksiyonu aynı varsayımı kullanır — birini değiştirirken diğerini de değiştir.
 
@@ -361,6 +382,9 @@ yeniden hesaplanabilir.
 | `retract_feedback(id)` | public | Kaydı **siler** ve invaryantı yeniden kurar (`weight DESC, created_at DESC`) |
 | `lens_blocked_works(user_id)` | public | JSONB. "Tekrar önerme" kümesinin tek tanımı — üç kaynak, **sıralı** döner (aşağı bak) |
 | `lens_refresh_profile_if_due(user_id)` | public | Ücretsizin haftalık tempo kapısı; `{profile_refreshed, signals_until_profile}` döner |
+| `lens_entitlements()` | public | `{premium_enabled, plan}` — çağıranın **etkin** paketi. Web'in paket okuduğu tek yer; parametre almaz |
+| `premium_enabled()` / `effective_plan(user_id)` | **lens_private** | Premium anahtarı ve etkin paket. Paketi okuyan dört fonksiyon kolonu değil bunları okur |
+| `set_premium(on, note)` | **lens_private** | Anahtarı açar/kapatır |
 | `lens_work_keys(jsonb)` | public | Aday önerilerin anahtarlarını toplu üretir |
 | `lens_active_signals(user_id, window)` | **lens_private** | Bayatlama + valans uygulanmış aktif sinyaller |
 | `recompute_taste_profile(user_id, window)` | **lens_private** | Eksen ayarı |

@@ -48,7 +48,7 @@ src/
   lib/
     supabase.ts    # Tüm Supabase sorguları ve auth yardımcıları
     preferences.ts # user_preferences okuma/yazma + varsayılanlar
-    entitlements.ts# Paket (free/premium) okumanın TEK noktası
+    entitlements.ts# Paket + premium anahtarı okumanın TEK noktası (lens_entitlements RPC)
     feedback.ts    # Karar sözlüğü + record/retract sarmalayıcıları
     myList.ts      # Listem CRUD
     discovery.ts   # Keşif/seçki -> kart verisi, kart↔sinyal eşleşmesi
@@ -59,6 +59,7 @@ src/
     ReportPage.tsx     # /report/:id — rapor görüntüleme + paylaşım kontrolü
     Dashboard.tsx      # /dashboard — kullanıcının raporları
     Account.tsx        # /account — panel sekmesi: paket + öneri tercihleri
+                       #   (premium anahtarı kapalı + mail duraklatılmışken gizli)
                        #   (eski /settings buraya yönleniyor; Settings.tsx kaldırıldı)
     ReportsPage.tsx    # alternatif liste görünümü
   main.tsx
@@ -81,6 +82,8 @@ supabase/
     20260815...weekly_picks_automation.sql # platforms kolonu, watch_providers,
                                 # aday RPC'si, lens_active_signals'a seçki etiketleri
     20260816...weekly_picks_cron.sql       # pg_cron + pg_net + Vault yardımcıları
+    20261010...premium_switch.sql          # premium anahtarı + etkin paket; paketi
+                                # okuyan dört fonksiyon buna bağlandı
 guidelines/
   Guidelines.md        # Figma Make şablonu — uygulama kuralları değil
 docs/
@@ -98,7 +101,7 @@ docs/
 | `/dashboard` | `Dashboard` | Panel — Keşifler sekmesi (günlük keşif + haftalık seçki kartları) |
 | `/dashboard/reports` | `DashboardReports` | Panel — Raporlar sekmesi |
 | `/dashboard/list` | `MyList` | Panel — Listem sekmesi (Bekleyenler / Bitirdiklerim) |
-| `/account` | `Account` | Panel — Hesabım sekmesi: paket + tercihler (seçki opt-out, platform) |
+| `/account` | `Account` | Panel — Hesabım sekmesi: paket + tercihler (seçki opt-out, platform). Premium anahtarı kapalı **ve** mail duraklatılmışken sekme gizli, rota `/dashboard`'a yönlenir |
 | `/settings` | — | Eski tercih rotası; `/account`'a yönlenir (silinmedi, BUG-01 dersi) |
 | `/auth/callback` | `AuthCallback` | OAuth + magic link dönüşü |
 | `/connect` | `TelegramConnect` | Telegram hesap bağlama |
@@ -133,7 +136,8 @@ docs/
 > okuyor — fonksiyon artık güvenle tekrar çağırılabilir. Kullanıcı tercihleri
 > **ezilmedi** (toplu kapatma üretimi de durdururdu). Açma:
 > `select lens_private.set_weekly_picks_email(true, 'lansman');` + Ayarlar'daki
-> `WEEKLY_PICKS_EMAIL_PAUSED` bayrağını `false` yap.
+> `WEEKLY_PICKS_EMAIL_PAUSED` bayrağını `false` yap. Aynı bayrak "Hesabım" sekmesini
+> de geri getirir (bkz. premium anahtarı kuralı) — e-posta tercihinin evi orası.
 
 **Otomatik.** Üretim ve gönderim AYRI fonksiyonlar ve bu bir arıza alanı ayrımı:
 Claude kesintisi ya da erişilebilirlik API'sinin 429 fırtınası mail gönderimini
@@ -269,6 +273,22 @@ oturumsuz kullanıcıyı `/login`'e attığı için telefonda gelen link sekiyor
   `'{}'` "hiçbir platform kabul değil" demek ve kullanıcı sessizce sıfır öneri alır.
   `array_length('{}',1)` **NULL** döndüğü için CHECK'te `COALESCE` şart — bu ilk
   yazımda atlandı ve boş dizi kısıttan geçti.
+- **Premium anahtarı KAPALI (10 Ekim 2026, lansman öncesi).** Paket ayrımının tamamı
+  tek satıra bağlı: `lens_private.premium_switch.enabled`
+  (`20261010090000_premium_switch.sql`). Kapalıyken herkesin **etkin** paketi `free`
+  (30 gün hafıza, haftalık ayar, platform filtresi yok) ve arayüz "paket / premium /
+  ücretsiz" kelimelerini **hiç kurmaz** — "ücretsiz paket" demek bile ücretli bir paketi
+  ima eder. Açma: `select lens_private.set_premium(true, 'lansman');` — web aynı satırı
+  `lens_entitlements()` ile okur, **deploy gerekmez**. Kurallar:
+  - `user_preferences.plan`'ı **doğrudan okuma**. SQL'de `lens_private.effective_plan`,
+    web'de `fetchEntitlements`. Kolonu okuyan tek bir yeni yer anahtarı deler.
+  - Anahtarı kod sabitine ya da env değişkenine **kopyalama**: iki kaynak ayrışır ve
+    web "premium var" derken backend uygulamaz (ya da tersi).
+  - `plan` ve `platforms` kolonları **toplu güncellenmedi** — anahtar açılınca herkes
+    kaldığı yerden döner.
+  - "Hesabım" sekmesinin görünürlüğü **türetilir** (`accountPageVisible`: premium açık
+    VEYA mail açık). Üçüncü bir "sayfayı gizle" bayrağı ekleme: mail açıldığı gün
+    unutulur ve kullanıcı e-postayı kapatacak yeri bulamaz.
 - Platform filtresi **premium**, ve zorlama **tek noktada**:
   `lens_weekly_pick_candidates` ücretsiz pakette `platforms`'ı NULL döndürür. Yazma
   tarafına (`setPlatforms`, RLS, trigger) ikinci bir kapı KOYMA: premium'dan düşen

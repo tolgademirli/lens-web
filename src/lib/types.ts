@@ -171,6 +171,9 @@ export interface ReportWork {
  * yalnızca sistemin ne sıklıkta güncellendiği ve ne kadar geriye baktığındadır.
  * Kullanıcı bu değeri kendi değiştiremez — `user_preferences` üzerindeki
  * `guard_user_preferences_plan` trigger'ı yazımı yutar.
+ *
+ * Ayrımın tamamı premium anahtarına bağlı: kapalıyken herkesin ETKİN paketi
+ * "free"dir, kolonda ne yazarsa yazsın. Paketi `entitlements.ts`'ten oku.
  */
 export type UserPlan = "free" | "premium";
 
@@ -178,6 +181,7 @@ export type UserPlan = "free" | "premium";
 export interface UserPreferences {
   user_id: string;
   weekly_picks_enabled: boolean;
+  /** HAM kolon — premium anahtarını bilmez. Karar için `fetchEntitlements` kullan. */
   plan: UserPlan;
   /**
    * Haftalık seçkinin sınırlanacağı platform slug'ları (watch_providers.slug).
