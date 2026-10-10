@@ -11,6 +11,8 @@
 //   * etiketler (tone/popularity/era/genre) İÇ İÇE `tags` altında değil, düz
 //     geliyor; normalizeCandidates onları `tags` nesnesine indiriyor (films JSONB v2)
 
+import { SENSITIVE_INFERENCE_RULE } from "../_shared/sensitive.ts";
+
 export type Candidate = {
   title: string;
   title_en: string;
@@ -95,6 +97,8 @@ kontrolünden düşecek. Bu yüzden hepsi GERÇEKTEN önerilebilir olmalı; dolg
 
 Kullanıcının daha önce girdiği eserlerle KESİNLİKLE çakışma.
 "ÖNERME" listesindeki eserleri KESİNLİKLE önerme — farklı yazımlarını da önerme.
+
+${SENSITIVE_INFERENCE_RULE}
 
 ## ALANLAR — HER ADAY İÇİN ZORUNLU
 - title: eserin Türkçe'de bilinen adı (yoksa özgün adı)

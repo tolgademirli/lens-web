@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { SENSITIVE_INFERENCE_RULE } from "../_shared/sensitive.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -29,6 +30,8 @@ Kullanıcının estetik kimliğine göre bugün için 1 kitap, 1 film, 1 müzik 
 Kullanıcının daha önce girdiği eserlerle KESINLIKLE çakışma.
 "ÖNERME" listesindeki eserleri KESINLIKLE önerme — farklı yazımlarını da önerme.
 Her öneri için kullanıcıya neden uygun olduğunu 1 kısa cümle yaz (max 12 kelime).
+
+${SENSITIVE_INFERENCE_RULE}
 
 ## ETİKETLER
 Her öneri için üç ekseni -1 ile 1 arasında sayı olarak ver ve kısa bir tür etiketi yaz.

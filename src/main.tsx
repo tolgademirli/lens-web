@@ -5,7 +5,10 @@ import { posthog } from "./lib/posthog";
 import { supabase } from "./lib/supabase";
 
 supabase.auth.onAuthStateChange((event, session) => {
-  if (event === "SIGNED_IN" && session?.user) {
+  // INITIAL_SESSION da sayılır: analitik izni girişten SONRA verilirse kimliğin
+  // o an bağlanabilmesi için sarmalayıcının oturumdaki kullanıcıyı bilmesi gerek,
+  // ve sayfa açık bir oturumla yüklendiğinde SIGNED_IN gelmez.
+  if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session?.user) {
     posthog.identify(session.user.id);
   } else if (event === "SIGNED_OUT") {
     posthog.reset();

@@ -4,6 +4,7 @@ import { useNavigate } from "react-router";
 import { Sparkles } from "lucide-react";
 import { Button } from "./ui/button";
 import { EmailOptInModal } from "./EmailOptInModal";
+import { AnalyticsPreferenceLink } from "./AnalyticsConsent";
 import { posthog } from "@/lib/posthog";
 import { CATEGORIES } from "./categories";
 
@@ -27,7 +28,7 @@ export function Welcome() {
 
   return (
     <>
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+    <div className="relative min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -103,6 +104,12 @@ export function Welcome() {
           </div>
         </motion.div>
       </motion.div>
+
+      {/* Oturumsuz ziyaretçinin analitik iznini geri alabileceği tek yer burası.
+          Tam opak purple-200: yukarıdaki kontrast notuyla aynı gerekçe. */}
+      <div className="absolute inset-x-0 bottom-4 text-center">
+        <AnalyticsPreferenceLink className="text-xs text-purple-200 underline-offset-2 transition-colors hover:text-white hover:underline" />
+      </div>
     </div>
     <EmailOptInModal open={showAuthModal} onOpenChange={setShowAuthModal} context="login" />
     </>

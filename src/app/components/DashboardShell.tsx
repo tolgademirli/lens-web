@@ -3,6 +3,8 @@ import { NavLink, useNavigate } from "react-router";
 import { motion } from "motion/react";
 import { Bookmark, Compass, FileText, LogOut, Plus, Sparkles, User, UserCog } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
+import { AnalyticsPreferenceLink } from "@/app/components/AnalyticsConsent";
+import { DeleteAccountDialog } from "@/app/components/DeleteAccountDialog";
 import { getCurrentUser, supabase } from "@/lib/supabase";
 import {
   accountPageVisible,
@@ -139,6 +141,19 @@ export function DashboardShell({ children, loading = false }: DashboardShellProp
       <div className="mx-auto max-w-6xl px-4 py-8 md:px-8">
         {loading ? <ShellLoading /> : children}
       </div>
+
+      {/*
+        Veri hakları KABUKTA, "Hesabım" sekmesinde değil: o sekme koşullu
+        (`accountPageVisible`) ve gizliyken kullanıcının hesabını silecek ya da
+        analitik iznini geri alacak bir yeri kalmazdı. Bu iki bağlantı hiçbir
+        anahtara bağlı değildir ve her sekmede görünür.
+      */}
+      <footer className="mx-auto max-w-6xl px-4 pb-10 md:px-8">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-purple-500/10 pt-6 text-xs text-purple-200">
+          <AnalyticsPreferenceLink className="underline-offset-2 transition-colors hover:text-white hover:underline" />
+          <DeleteAccountDialog className="underline-offset-2 transition-colors hover:text-white hover:underline" />
+        </div>
+      </footer>
     </div>
   );
 }

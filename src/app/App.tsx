@@ -10,6 +10,7 @@ import { GeneratingReport } from "@/app/components/GeneratingReport";
 import { AuthCallback } from "@/app/components/AuthCallback";
 import { TelegramConnect } from "@/app/components/TelegramConnect";
 import { Login } from "@/app/components/Login";
+import { AnalyticsConsentBanner } from "@/app/components/AnalyticsConsent";
 
 export default function App() {
   return (
@@ -49,6 +50,8 @@ export default function App() {
           }
         />
       </Routes>
+      {/* Rotaların DIŞINDA: karar verilene kadar hangi sayfada olunursa olsun görünür. */}
+      <AnalyticsConsentBanner />
     </BrowserRouter>
   );
 }

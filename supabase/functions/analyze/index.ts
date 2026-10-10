@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { SENSITIVE_INFERENCE_RULE } from "../_shared/sensitive.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -59,6 +60,8 @@ VAR SAYMA: bu prompt'ta başlığı geçmeyen kategoriden konuşma, oraya dair �
    okuduklarından ve dinlediklerinden çıktı" gibi. Sitem etme, özür dileme, eksik
    bırakılan alanı kullanıcıya ödev gibi sunma; sadece dürüst ol. Aynı şeyi iki
    ayrı bölümde tekrarlama. threads ve contrasts'ta bu boşluğa hiç değinme.
+
+${SENSITIVE_INFERENCE_RULE}
 
 ## ÇIKTI FORMATI
 SADECE geçerli JSON döndür. Başka hiçbir şey yazma. JSON şeması:

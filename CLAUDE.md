@@ -47,6 +47,8 @@ src/
     types.ts       # KULLANMA — deprecated, src/lib/types.ts kullan
   lib/
     supabase.ts    # Tüm Supabase sorguları ve auth yardımcıları
+    posthog.ts     # PostHog'un TEK kapısı: rıza durumu + sarmalayıcı (rızasız init yok)
+    account.ts     # Hesap silme (delete-account'ı çağırır, cihazdaki izleri temizler)
     preferences.ts # user_preferences okuma/yazma + varsayılanlar
     entitlements.ts# Paket + premium anahtarı okumanın TEK noktası (lens_entitlements RPC)
     feedback.ts    # Karar sözlüğü + record/retract sarmalayıcıları
@@ -69,7 +71,9 @@ supabase/
     extract-works/     # Ekran görüntüsü / yapıştırılan metin → eser listesi (Claude vision)
     daily-discovery/   # Günlük keşif önerisi (cache: daily_discoveries tablosu)
     link-telegram/     # Telegram hesap bağlama
+    delete-account/    # Kullanıcının kendi hesabını siler (auth.users; veri CASCADE ile gider)
     _shared/           # watch.ts (izleme erişilebilirliği) · unsubscribe.ts (mail kapatma HMAC'i)
+                       #   · sensitive.ts (üç üretici prompt'un ortak "hassas çıkarım yok" kuralı)
     generate-weekly-picks/ # Haftalık seçki ÜRETİMİ (Claude [+ erişilebilirlik]) — index.ts + prompt.ts
     send-weekly-picks/ # Haftalık seçki maili (Resend) — index.ts + email.ts. Film SEÇMEZ
     unsubscribe/       # Maildeki tek-dokunuş kapatma linki (verify_jwt = false)
@@ -84,6 +88,8 @@ supabase/
     20260816...weekly_picks_cron.sql       # pg_cron + pg_net + Vault yardımcıları
     20261010...premium_switch.sql          # premium anahtarı + etkin paket; paketi
                                 # okuyan dört fonksiyon buna bağlandı
+    20261010120000_account_deletion.sql    # user_id FK'leri CASCADE + auth.users
+                                # BEFORE DELETE trigger'ı (FK'nin ulaşamadığı satırlar)
 guidelines/
   Guidelines.md        # Figma Make şablonu — uygulama kuralları değil
 docs/
@@ -230,7 +236,39 @@ oturumsuz kullanıcıyı `/login`'e attığı için telefonda gelen link sekiyor
    geçilse bile eser 30 gün boyunca aday değildir. İki yüzey tek kümeyi paylaşır: Cuma maili
    gelen film Pazar keşfinde çıkmaz.
 
+## Veri akışı: hesap silme ve analitik izni (KVKK)
+1. **Silme tek tanımlı ve tanım veritabanında.** `user_id` taşıyan her tablo `auth.users`'a
+   `ON DELETE CASCADE` ile bağlı; yabancı anahtarın ulaşamadığı satırları (Telegram kimliğiyle
+   doğmuş sahipsiz rapor/eser, bağlama kodları, kota sayacı) `auth.users` üzerindeki
+   `lens_purge_user_orphans` BEFORE DELETE trigger'ı toplar. Üç yol aynı sonucu verir:
+   `delete-account` edge function'ı (panelin altındaki "Hesabımı sil"), Supabase paneli
+   (e-postayla gelen talep) ve SQL.
+2. `delete-account` yalnızca JWT'deki kullanıcıyı siler, gövde almaz. Client ardından oturumu
+   ve yarım taslakları bu cihazdan temizler (`src/lib/account.ts`).
+3. **Elle kalan iki adım:** PostHog'daki kişi kaydı (distinct id = kullanıcı id'si; kişi
+   olaylarıyla birlikte silinir) ve Resend gönderim günlükleri. İkisi de bu ortamda olmayan
+   yönetim anahtarı ister.
+4. **Analitik izni:** PostHog yalnızca kullanıcı bantta "İzin ver" dedikten sonra başlar.
+   Karar `localStorage["lens_analytics_consent"]`'te durur; karar verilene kadar olaylar bellekte
+   bekler, izin gelirse kendi zaman damgalarıyla gider, gelmezse atılır. Geri alma yolu:
+   ana sayfanın ve panelin altındaki "Analitik tercihi".
+
 ## Kritik kurallar
+- **PostHog rıza olmadan BAŞLAMAZ.** `posthog-js`'i `src/lib/posthog.ts` dışında import etme;
+  oradaki sarmalayıcı tek kapı. Rıza yokken `init` bile çağrılmaz — opt-out modunda init de
+  PostHog'a istek atar ve IP'yi yurt dışına taşır. Banttaki iki düğme **aynı görünür**
+  (reddetmek kabul etmek kadar kolay olmalı; "İzin ver"i öne çıkarmak rızayı sakatlar).
+  `send-weekly-picks`'teki sunucu tarafı `weekly_pick_sent` bu kapıdan GEÇMİYOR — mail açılmadan
+  önce çözülmesi gereken açık bir borç.
+- **`auth.users`'a bağlanan her yeni tablo `ON DELETE CASCADE` ile bağlanır.** Kullanıcıya ait
+  olup `user_id` taşımayan bir satır doğuyorsa `lens_private.purge_user_orphans`'a eklenir.
+  Biri atlanırsa silme ya hata verir ya da sessizce eksik kalır. Edge function'a tablo tablo
+  DELETE yazma — ikinci bir liste ilk yeni tabloda eskir. O trigger fonksiyonundan EXECUTE
+  **geri alınmadı** (ateşleyen rol `supabase_auth_admin`; bkz. PG 17.6 notu).
+- Kullanıcı hakkında metin üreten üç prompt (`analyze`, `daily-discovery`,
+  `generate-weekly-picks`) `_shared/sensitive.ts`'teki kuralı içerir: inanç, siyasi görüş,
+  etnik köken, cinsel yönelim, sağlık hakkında **çıkarım yok**. Kopyalama, import et. Yeni bir
+  üretici prompt yazılırsa o da içerir. Bu bir prompt kuralı; çıktı kodla denetlenmiyor.
 - Onboarding eşiği **toplamda 6 sinyal**, kategori başına değil. Kategori zorunluluğuna geri
   dönme: "3 favori film yaz", film izlemeyen kullanıcıyı daha portresi çıkmadan eliyordu.
   Boş kategori bir kusur değil — rapor bunu bir kez, dürüstçe söyler.

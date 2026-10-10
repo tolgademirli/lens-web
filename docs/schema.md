@@ -12,7 +12,7 @@ Claude API tarafından üretilen estetik kimlik raporları. `analyze` edge funct
 |-------------------|--------------|--------|
 | `id`              | UUID PK      | gen_random_uuid() |
 | `created_at`      | TIMESTAMPTZ  | default NOW() |
-| `user_id`         | UUID         | nullable — `auth.users(id)`. Anonim rapor oluşturulabilir. |
+| `user_id`         | UUID         | nullable — `auth.users(id)` ON DELETE CASCADE. Anonim rapor oluşturulabilir. |
 | `telegram_user_id`| INTEGER      | nullable — bot kaynaklı raporlarda dolu, web'de null |
 | `source`          | TEXT         | `"web"` \| `"telegram"` |
 | `books`           | JSONB        | `[{title: string, author: string}]` — title boş olabilir (sadece yazar girilmişse) |
@@ -51,7 +51,7 @@ Kullanıcının eser havuzu. Edinim yolu ne olursa olsun (ekran görüntüsü, y
 | Kolon              | Tip          | Notlar |
 |--------------------|--------------|--------|
 | `id`               | UUID PK      | gen_random_uuid() |
-| `user_id`          | UUID         | nullable — `auth.users(id)`. Anonim akış için null; login sonrası sahiplenilir. |
+| `user_id`          | UUID         | nullable — `auth.users(id)` ON DELETE CASCADE. Anonim akış için null; login sonrası sahiplenilir. |
 | `telegram_user_id` | BIGINT       | nullable — bot kaynaklı edinim |
 | `type`             | TEXT         | `"book"` \| `"film"` \| `"song"` (CHECK) |
 | `creator`          | TEXT         | nullable — yazar / yönetmen / sanatçı |
@@ -92,9 +92,9 @@ Günlük keşif önerileri önbelleği. `daily-discovery` edge function, her kul
 | Kolon        | Tip          | Notlar |
 |--------------|--------------|--------|
 | `id`         | UUID PK      | gen_random_uuid() |
-| `user_id`    | UUID NOT NULL| `auth.users(id)` |
+| `user_id`    | UUID NOT NULL| `auth.users(id)` ON DELETE CASCADE |
 | `date`       | DATE NOT NULL| Istanbul timezone (`Europe/Istanbul`) olarak hesaplanır |
-| `report_id`  | UUID         | nullable — keşfi oluştururken baz alınan rapor |
+| `report_id`  | UUID         | nullable — keşfi oluştururken baz alınan rapor. `reports(id)` ON DELETE SET NULL: keşif, onu doğuran raporu aşar |
 | `book`       | TEXT NOT NULL| `"Kitap Adı - Yazar"` formatı |
 | `film`       | TEXT NOT NULL| `"Film Adı - Yönetmen"` formatı |
 | `music`      | TEXT NOT NULL| Sanatçı adı |
@@ -460,7 +460,7 @@ Telegram hesabı ↔ Lens hesabı eşlemesi. `link-telegram` edge function `tele
 | Kolon              | Tip           | Notlar |
 |--------------------|---------------|--------|
 | `telegram_user_id` | BIGINT PK     | Telegram'ın kullanıcı kimliği |
-| `user_id`          | UUID NOT NULL | `auth.users(id)` |
+| `user_id`          | UUID NOT NULL | `auth.users(id)` ON DELETE CASCADE |
 | `created_at`       | TIMESTAMPTZ   | NOT NULL, default NOW() |
 
 **Kısıt:** `PRIMARY KEY (telegram_user_id)` — bir Telegram hesabı en fazla bir Lens hesabına bağlanır.
@@ -484,7 +484,30 @@ Fonksiyon **fail-open** tasarlanmış (`extract-works/index.ts → quotaExceeded
 
 ## `auth.users` (Supabase Auth — yönetilir)
 
-Doğrudan sorgulama yapılmaz. `reports.user_id` ve `daily_discoveries.user_id` bu tabloya referans verir.
+Doğrudan sorgulama yapılmaz. `user_id` taşıyan bütün tablolar bu tabloya **ON DELETE CASCADE**
+ile bağlıdır (`20261010120000_account_deletion.sql`).
+
+### Kullanıcı silme
+
+Bir satır buradan silindiğinde kullanıcıya ait her şey gider — yol fark etmez
+(`delete-account` edge function'ı, Supabase paneli, SQL):
+
+| Ne | Nasıl |
+|----|-------|
+| `reports` (+ `report_works`), `user_works`, `daily_discoveries`, `weekly_picks`, `discovery_feedback`, `list_items`, `taste_profile`, `user_preferences`, `telegram_users` | Yabancı anahtar, ON DELETE CASCADE |
+| `user_id`'si boş, kullanıcının bağlı Telegram kimliğiyle doğmuş `reports` / `user_works`; o kimliğin `telegram_link_codes` satırları; `extraction_quota`'da `client_key = user_id` | `lens_purge_user_orphans` — `auth.users` BEFORE DELETE trigger'ı (`lens_private.purge_user_orphans`) |
+
+Trigger **BEFORE** çünkü sahipsiz satırları kullanıcıya bağlayan tek şey `telegram_users`
+eşlemesi; o CASCADE ile gittikten sonra bu satırların kime ait olduğu bulunamaz. Başka bir Lens
+hesabının sahiplendiği (`user_id` dolu) satırlara dokunmaz.
+
+**Veritabanının ulaşamadığı:** PostHog'daki kişi kaydı ve Resend gönderim günlükleri elle silinir.
+Anonim `extract-works` çağrısının IP'si (`extraction_quota.client_key`) kullanıcıya bağlanamaz;
+o satırlar için ayrı bir süre temizliği **henüz yok**.
+
+> Yeni bir tablo `auth.users`'a bağlanıyorsa ON DELETE CASCADE yazılır; kullanıcıya ait olup
+> `user_id` taşımayan yeni bir satır doğuyorsa trigger fonksiyonuna eklenir. 2026-10-10'dan önce
+> dört tablo NO ACTION ile bağlıydı ve raporu olan kullanıcı panelden bile silinemiyordu.
 
 Auth yöntemleri: magic link (email OTP) + Google OAuth.  
 `src/lib/supabase.ts` → `sendMagicLink`, `signInWithGoogle`, `getCurrentUser`.
