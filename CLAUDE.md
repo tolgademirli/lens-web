@@ -270,7 +270,8 @@ oturumsuz kullanıcıyı `/login`'e attığı için telefonda gelen link sekiyor
    (`src/lib/posthog.ts` → `disable_session_recording: true`, 11 Ekim 2026). Kayıt panelde
    açık bulunmuştu ve izin verenin ekranı — raporları ve eser listesi dahil — kaydediliyordu.
    Panel anahtarı o gün hâlâ açıktı; kod onu yok sayar (ölçüldü: izinli 40 saniyede 0 kayıt
-   yüklemesi, kaydedici betik inmiyor — aynı ölçüm eski kodda 10 yükleme). İzin sonrası
+   yüklemesi, kaydedici betik inmiyor — aynı ölçüm eski kodda 10 yükleme). Aynı gün panel
+   anahtarı da kapatıldı ve birikmiş kayıtlar panelden elle silindi. İzin sonrası
    giden: `$pageview`, kendi olaylarımız, ısı haritası koordinatları (`$$heatmap`) ve
    `$web_vitals`. Bant ve Hesabım'daki kart ekran kaydından söz etmiyor.
 
