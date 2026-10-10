@@ -499,8 +499,8 @@ export function Account() {
             daha uzun anlatılmış hâli. Anahtar yoksa (lokal geliştirme) ölçülecek
             bir şey de yoktur; kart çizilmez.
 
-            Maddeler PostHog proje ayarlarını anlatır — oturum kaydı açık olduğu
-            için burada yazıyor. Ayar değişirse metin de değişir (bkz.
+            Maddeler toplanan veriyi anlatır. Oturum kaydı `posthog.ts`'te kapalı,
+            o yüzden burada yazmıyor; toplanan değişirse metin de değişir (bkz.
             AnalyticsConsent.tsx başındaki not).
           */}
           {analyticsConfigured && (
@@ -533,7 +533,6 @@ export function Account() {
                 {[
                   "Tarayıcına bir çerez yazılır.",
                   "Hangi ekranlara uğradığın ve neye dokunduğun kaydedilir.",
-                  "Oturumunun ekran kaydı alınır: ekranda gördüklerin — raporların ve eser listen dahil — kayda girer; yazı alanlarına girdiklerin gizlenir.",
                   "Bu kayıtlar hesabınla eşleşir ve PostHog'un yurt dışındaki sunucularında tutulur.",
                 ].map((line) => (
                   <li key={line} className="flex gap-3">

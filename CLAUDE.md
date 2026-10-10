@@ -255,19 +255,24 @@ oturumsuz kullanıcıyı `/login`'e attığı için telefonda gelen link sekiyor
    bekler, izin gelirse kendi zaman damgalarıyla gider, gelmezse atılır. Geri alma yolu:
    Hesabım → Verilerim'deki "Kullanım ölçümü" anahtarı; oturumsuz ziyaretçi için ana sayfanın
    altındaki "Analitik tercihi".
-5. **PostHog projesinde oturum kaydı (session replay) AÇIK** (10 Ekim 2026'da uzak ayardan
-   doğrulandı: örnekleme yok, konsol kaydı açık, maske varsayılan = yalnızca yazı alanları).
-   İzin veren kullanıcının ekranı — raporları ve eser listesi dahil — kaydediliyor. Bant ve
-   Hesabım'daki kart bunu söylüyor.
+5. **Oturum kaydı (session replay) ALINMAZ; yetkilisi kod, PostHog paneli değil**
+   (`src/lib/posthog.ts` → `disable_session_recording: true`, 11 Ekim 2026). Kayıt panelde
+   açık bulunmuştu ve izin verenin ekranı — raporları ve eser listesi dahil — kaydediliyordu.
+   Panel anahtarı o gün hâlâ açıktı; kod onu yok sayar (ölçüldü: izinli 40 saniyede 0 kayıt
+   yüklemesi, kaydedici betik inmiyor — aynı ölçüm eski kodda 10 yükleme). İzin sonrası
+   giden: `$pageview`, kendi olaylarımız, ısı haritası koordinatları (`$$heatmap`) ve
+   `$web_vitals`. Bant ve Hesabım'daki kart ekran kaydından söz etmiyor.
 
 ## Kritik kurallar
 - **PostHog rıza olmadan BAŞLAMAZ.** `posthog-js`'i `src/lib/posthog.ts` dışında import etme;
   oradaki sarmalayıcı tek kapı. Rıza yokken `init` bile çağrılmaz — opt-out modunda init de
   PostHog'a istek atar ve IP'yi yurt dışına taşır. Banttaki iki düğme **aynı görünür**
   (reddetmek kabul etmek kadar kolay olmalı; "İzin ver"i öne çıkarmak rızayı sakatlar).
-  **Rıza metni PostHog proje ayarlarını anlatır ve onlarla birlikte değişir:** panoda yeni bir
-  veri türü açılırsa (oturum kaydı, maskenin kaldırılması, otomatik yakalama) bant ile
-  Hesabım'daki kart aynı gün güncellenir — söylenmeyen bir şeye verilen rıza geçersizdir.
+  **Rıza metni toplanan veriyi anlatır ve onunla birlikte değişir:** yeni bir veri türü
+  açılırsa (otomatik yakalama, anket, hata yakalama — panodan deploy'suz açılabilirler) bant
+  ile Hesabım'daki kart aynı gün güncellenir — söylenmeyen bir şeye verilen rıza geçersizdir.
+  Oturum kaydı bu yüzden panoya bırakılmadı: `disable_session_recording`'i kaldıran, aynı
+  commit'te iki metne ekran kaydını geri yazar ve yazı alanı maskesini yeniden sabitler.
   Bant yüksekliğini `--consent-banner-h` olarak yayınlar; ana sayfa ve (geniş ekranda) `/start`
   birincil aksiyonlarını onun üstünde tutar. Bandı uzatırsan ya da yeni bir alt-yapışkan
   düğme eklersen örtüşmeyi ölç: ilk sürüm ana sayfanın CTA'sını kapatıyordu.

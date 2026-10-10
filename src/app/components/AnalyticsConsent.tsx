@@ -35,11 +35,11 @@ const HEIGHT_VAR = "--consent-banner-h";
  * gönüllü olduğu); "Ayrıntılar" ikinci katmanı açar. Metni uzatıp tek katmana
  * dökme — uzun bant ekranı kaplıyor ve yukarıdaki sorunu geri getiriyor.
  *
- * METİN POSTHOG PROJE AYARLARINI ANLATIR ve onlarla birlikte değişmek zorunda:
- * oturum kaydı (session replay) projede AÇIK olduğu için "ekran kaydı" burada ve
- * Hesabım'daki kartta yazıyor. Kayıt kapatılırsa cümle çıkar; yeni bir veri türü
- * açılırsa (ör. yazı alanlarının maskesi kaldırılırsa) eklenir. Söylenmeyen bir
- * şeye verilen rıza, rıza değildir.
+ * METİN, TOPLANAN VERİYİ ANLATIR ve onunla birlikte değişmek zorunda. Oturum
+ * kaydı (session replay) `posthog.ts`'te kapalı (`disable_session_recording`),
+ * o yüzden burada ve Hesabım'daki kartta "ekran kaydı" YAZMIYOR. Yeni bir veri
+ * türü açılırsa (ekran kaydı, otomatik yakalama) aynı commit'te iki metne de
+ * eklenir. Söylenmeyen bir şeye verilen rıza, rıza değildir.
  *
  * z-40: diyaloglar (z-50) bandın üstünde kalır, giriş penceresi onu örter.
  */
@@ -83,9 +83,9 @@ export function AnalyticsConsentBanner() {
           <div className="min-w-0 flex-1">
             <h2 className="font-serif text-base sm:text-lg">Kullanımı ölçmeme izin verir misin?</h2>
             <p className="mt-1.5 text-[13px] leading-relaxed text-slate-300 sm:text-sm">
-              Lens'i iyileştirmek için uğradığın ekranları, dokunduğun yerleri ve oturumunun
-              ekran kaydını tutmak istiyorum. İzin verirsen bir çerez yazılır ve kayıtlar
-              yurt dışındaki PostHog sunucularına gider; vermesen de Lens aynı çalışır.{" "}
+              Lens'i iyileştirmek için uğradığın ekranları ve dokunduğun yerleri ölçmek
+              istiyorum. İzin verirsen bir çerez yazılır ve ölçümler yurt dışındaki PostHog
+              sunucularına gider; vermesen de Lens aynı çalışır.{" "}
               <button
                 type="button"
                 onClick={() => setExpanded((open) => !open)}
@@ -97,10 +97,9 @@ export function AnalyticsConsentBanner() {
             </p>
             {expanded && (
               <p className="mt-2 text-[13px] leading-relaxed text-slate-400">
-                Ekran kaydı ekranda gördüklerini — raporların ve eser listen dahil — kapsar;
-                yazı alanlarına girdiklerin gizlenir. Giriş yaptıysan kayıtlar hesabınla
-                eşleşir. Kararını ana sayfanın altındaki “Analitik tercihi” bağlantısından ya
-                da panelde Hesabım sekmesinden istediğin an değiştirebilirsin.
+                Giriş yaptıysan ölçümler hesabınla eşleşir. Kararını ana sayfanın altındaki
+                “Analitik tercihi” bağlantısından ya da panelde Hesabım sekmesinden istediğin
+                an değiştirebilirsin.
               </p>
             )}
             {consent !== "unset" && (

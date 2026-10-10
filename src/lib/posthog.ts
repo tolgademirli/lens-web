@@ -98,10 +98,15 @@ function start() {
     // Rıza geri alındığında (`opt_out_capturing`) PostHog'un çerezi ve
     // localStorage kaydı da silinsin; varsayılanda yalnızca gönderim durur.
     opt_out_persistence_by_default: true,
-    // Oturum kaydı PostHog projesinde açık. Rıza metni "yazı alanlarına
-    // girdiklerin gizlenir" diyor; bu söz kütüphanenin varsayılanına emanet
-    // edilmesin diye burada sabitleniyor.
-    session_recording: { maskAllInputs: true },
+    // Oturum kaydı (session replay) ALINMAZ ve bunun yetkilisi burası, PostHog
+    // paneli değil. Kayıt projede açık bulundu (11 Ekim 2026'da hâlâ açıktı) ve
+    // izin verenin ekranı — raporları dahil — kaydediliyordu. Panel anahtarı
+    // deploy'suz, tek tıkla geri açılabilir; bu satır durdukça açılsa da kayıt
+    // başlamaz, kaydedici betik indirilmez. Rıza metni ekran kaydından söz
+    // ETMİYOR: bu satırı kaldıran, aynı commit'te bandı ve Hesabım'daki kartı
+    // günceller, yazı alanlarının maskesini de (`session_recording.maskAllInputs`)
+    // yeniden sabitler.
+    disable_session_recording: true,
   });
   started = true;
 }
