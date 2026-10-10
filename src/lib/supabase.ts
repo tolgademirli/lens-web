@@ -7,20 +7,25 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+/**
+ * Raporu kimliğiyle getirir: açıksa herkese, özelse yalnızca sahibine.
+ *
+ * Tablodan DEĞİL `lens_report_by_id` fonksiyonundan okunur. Eskiden
+ * `from("reports")` + "herkese açık raporları herkes okur" politikasıydı ve o
+ * politika tabloyu LİSTELENEBİLİR yapıyordu: oturumsuz bir istemci bağlantıyı
+ * bilmeden açık raporların tamamını çekebiliyordu. Politika kaldırıldı; tablo
+ * artık yalnızca sahibine satır verir, başkasının açık raporu oradan gelmez.
+ *
+ * Kimin neyi göreceğine fonksiyon karar verir (çağıranın JWT'si varsa
+ * supabase-js onu zaten yollar), burada filtre yazılmaz. Sahibi olmayana
+ * `user_id` boş döner; sahiplik denetimleri buna dayanabilir.
+ */
 export async function fetchReport(id: string): Promise<Report | null> {
-  const { data: { session } } = await supabase.auth.getSession();
-
-  let query = supabase.from("reports").select("*").eq("id", id);
-
-  if (session) {
-    query = query.or(`is_public.eq.true,user_id.eq.${session.user.id}`);
-  } else {
-    query = query.eq("is_public", true);
-  }
-
-  const { data, error } = await query.single();
+  const { data, error } = await supabase
+    .rpc("lens_report_by_id", { p_id: id })
+    .maybeSingle();
   if (error) return null;
-  return data as Report;
+  return (data as Report | null) ?? null;
 }
 
 export async function updateReportVisibility(

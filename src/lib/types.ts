@@ -370,8 +370,10 @@ export interface WeeklyPick {
 export interface Report {
   id: string;
   created_at: string;
-  telegram_user_id?: number;
-  user_id?: string;
+  /** Yalnızca sahibine dolu gelir; `lens_report_by_id` başkasına boşaltır. */
+  telegram_user_id?: number | null;
+  /** Yalnızca sahibine dolu gelir; `lens_report_by_id` başkasına boşaltır. */
+  user_id?: string | null;
   source?: string;
   books?: { title: string; author: string }[];
   films?: { title: string; director: string }[];

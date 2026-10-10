@@ -1,12 +1,16 @@
 /**
  * Poster/OG endpoint'leri için rapor okuma.
  *
- * GİZLİLİK BURADA KOD İLE DEĞİL, RLS İLE KORUNUYOR. İstemcinin token'ı varsa
- * onunla, yoksa anon anahtarıyla client kuruluyor ve kararı veritabanı
- * veriyor: `is_public = true` ya da `auth.uid() = user_id`. Bu yüzden
- * `SUPABASE_SERVICE_ROLE_KEY` Vercel ortamına HİÇ konmuyor — service role ile
- * okusaydık her endpoint'te gizlilik kontrolünü elle yazmak zorunda kalırdık
- * ve bir gün biri unuturdu.
+ * GİZLİLİK BURADA KOD İLE DEĞİL, VERİTABANINDA KORUNUYOR. İstemcinin token'ı
+ * varsa onunla, yoksa anon anahtarıyla client kuruluyor ve kararı
+ * `lens_report_by_id` veriyor: rapor açıksa herkese, özelse yalnızca sahibine.
+ * Bu yüzden `SUPABASE_SERVICE_ROLE_KEY` Vercel ortamına HİÇ konmuyor — service
+ * role ile okusaydık her endpoint'te gizlilik kontrolünü elle yazmak zorunda
+ * kalırdık ve bir gün biri unuturdu.
+ *
+ * Tablodan (`from("reports")`) OKUNMAZ: açık raporları tablodan veren politika
+ * tabloyu listelenebilir yapıyordu ve kaldırıldı. Anon client artık tabloda
+ * hiçbir satır görmez.
  */
 import { createClient } from "@supabase/supabase-js";
 import type { Report } from "../../src/lib/types.js";
@@ -50,7 +54,7 @@ export async function loadReport(id: string, accessToken?: string | null): Promi
     global: accessToken ? { headers: { Authorization: `Bearer ${accessToken}` } } : {},
   });
 
-  const { data, error } = await supabase.from("reports").select("*").eq("id", id).single();
+  const { data, error } = await supabase.rpc("lens_report_by_id", { p_id: id }).maybeSingle();
   if (error || !data) return null;
   return data as Report;
 }
