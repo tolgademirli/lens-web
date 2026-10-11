@@ -589,8 +589,23 @@ export function ImportFlow({
       </button>
 
       <h3 className="text-2xl text-white mb-1">Yükle / Yapıştır</h3>
-      <p className="text-purple-200 text-sm mb-6">
+      <p className="text-purple-200 text-sm mb-2">
         Ekran görüntüsü at ya da metni yapıştır — okuyup buraya doldururum, sen onaylarsın.
+      </p>
+      {/* Bu adım girişten ÖNCE de yapılabiliyor, yani girişteki rıza kutusundan önce:
+          verinin nereye gittiği, gönderildiği yerde söylenmek zorunda. */}
+      <p className="text-purple-200 text-xs mb-6">
+        Gönderdiğin görsel ya da metin, okunmak üzere yurt dışındaki bir yapay zekâ servisine
+        iletilir ve saklanmaz. Ayrıntıları{" "}
+        <a
+          href="/privacy"
+          target="_blank"
+          rel="noopener"
+          className="text-white underline underline-offset-2"
+        >
+          Aydınlatma Metni
+        </a>
+        'nde okuyabilirsin.
       </p>
 
       <div className="grid grid-cols-2 gap-2 p-1 bg-slate-900/50 rounded-xl mb-6">

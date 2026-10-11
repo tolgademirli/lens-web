@@ -1,4 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { Link } from "react-router";
 import { Activity, CreditCard, Lock, Mail, MonitorPlay, Trash2 } from "lucide-react";
 import { DashboardShell } from "@/app/components/DashboardShell";
 import { DeleteAccountDialog } from "@/app/components/DeleteAccountDialog";
@@ -492,6 +493,26 @@ export function Account() {
                 </li>
               ))}
             </ul>
+            {/* Kart özet; ne için, kime ve ne kadar süreyle sorularının tamamı metinlerde. */}
+            <p className="mt-5 border-t border-purple-500/10 pt-4 text-sm leading-relaxed text-purple-300/70">
+              Bunların ne için kullanıldığını, kime gittiğini ve ne kadar süre tutulduğunu{" "}
+              {[
+                { to: "/privacy", label: "Aydınlatma Metni" },
+                { to: "/cookies", label: "Çerez Politikası" },
+                { to: "/terms", label: "Kullanım Koşulları" },
+              ].map((doc, i, docs) => (
+                <span key={doc.to}>
+                  {i > 0 && (i === docs.length - 1 ? " ve " : ", ")}
+                  <Link
+                    to={doc.to}
+                    className="text-purple-100 underline underline-offset-2 hover:text-white"
+                  >
+                    {doc.label}
+                  </Link>
+                </span>
+              ))}{" "}
+              metinlerinde okuyabilirsin.
+            </p>
           </div>
 
           {/*

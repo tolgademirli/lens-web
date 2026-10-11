@@ -49,6 +49,8 @@ src/
     supabase.ts    # Tüm Supabase sorguları ve auth yardımcıları
     posthog.ts     # PostHog'un TEK kapısı: rıza durumu + sarmalayıcı (rızasız init yok)
     account.ts     # Hesap silme (delete-account'ı çağırır, cihazdaki izleri temizler)
+    legal.ts       # Hukuki metinlerin verisi: veri sorumlusu, rıza sürümü, hizmet sağlayıcılar
+    transferConsent.ts # Yurt dışı aktarım rızası: giriş köprüsü + user_consents okuma/yazma
     preferences.ts # user_preferences okuma/yazma + varsayılanlar
     entitlements.ts# Paket + premium anahtarı okumanın TEK noktası (lens_entitlements RPC)
     feedback.ts    # Karar sözlüğü + record/retract sarmalayıcıları
@@ -64,6 +66,8 @@ src/
                        #   (analitik izni, hesap silme). HER ZAMAN görünür
                        #   (eski /settings buraya yönleniyor; Settings.tsx kaldırıldı)
     ReportsPage.tsx    # alternatif liste görünümü
+    Legal.tsx          # /privacy · /cookies · /terms — Aydınlatma Metni, Çerez Politikası,
+                       #   Kullanım Koşulları. Oturum istemez
   main.tsx
 supabase/
   functions/
@@ -95,6 +99,8 @@ supabase/
                                 # listelenebilir yapan SELECT politikasının kaldırılması
     20261011093000_blocked_works_auth_guard.sql # lens_blocked_works'te geri alınmış
                                 # yetki düzeltmesi (anon başkasının kümesini okuyordu)
+    20261011120000_user_consents.sql       # yurt dışı aktarım rızasının kaydı +
+                                # extraction_quota'da 7 günlük saklama (pg_cron)
 guidelines/
   Guidelines.md        # Figma Make şablonu — uygulama kuralları değil
 docs/
@@ -114,6 +120,7 @@ docs/
 | `/dashboard/list` | `MyList` | Panel — Listem sekmesi (Bekleyenler / Bitirdiklerim) |
 | `/account` | `Account` | Panel — Hesabım sekmesi: paket + tercihler (seçki opt-out, platform) + Verilerim (analitik izni, hesap silme). Her zaman görünür; paket bölümü premium anahtarına bağlı |
 | `/settings` | — | Eski tercih rotası; `/account`'a yönlenir (silinmedi, BUG-01 dersi) |
+| `/privacy` `/cookies` `/terms` | `PrivacyPage` `CookiesPage` `TermsPage` | Hukuki metinler (`src/pages/Legal.tsx`). Oturum istemez; rıza kapısı bu sayfaları örtmez |
 | `/auth/callback` | `AuthCallback` | OAuth + magic link dönüşü |
 | `/connect` | `TelegramConnect` | Telegram hesap bağlama |
 
@@ -274,6 +281,19 @@ oturumsuz kullanıcıyı `/login`'e attığı için telefonda gelen link sekiyor
    anahtarı da kapatıldı ve birikmiş kayıtlar panelden elle silindi. İzin sonrası
    giden: `$pageview`, kendi olaylarımız, ısı haritası koordinatları (`$$heatmap`) ve
    `$web_vitals`. Bant ve Hesabım'daki kart ekran kaydından söz etmiyor.
+6. **Hukuki metinler** `/privacy` (Aydınlatma Metni), `/cookies`, `/terms`: `src/pages/Legal.tsx`.
+   Veri sorumlusunun kimliği, rıza sürümü ve hizmet sağlayıcı tablosu `src/lib/legal.ts`'te.
+   Avukat görmedi; benzer platformların genel pratiğiyle yazıldı.
+7. **Yurt dışı aktarımına açık rıza (m.9)** giriş ekranındaki kutuyla alınır (`TransferConsentField`;
+   `EmailOptInModal` + `Login`), çünkü e-posta "bağlantı gönder"e basıldığı an yurt dışına gider.
+   O anda kullanıcı yoktur: karar `localStorage["lens_pending_consent"]`'te bekler (60 dk) ve
+   giriş dönüşünde `user_consents`'e yazılır. İşaret yoksa — bu kapıdan önce açılmış hesap,
+   bağlantıyı başka cihazda açan, sürüm yükseldikten sonra dönen — `TransferConsentGate`
+   (App.tsx, rotaların dışında) girişten sonra sorar. Damgayı trigger vurur, client yazamaz.
+   Rızanın geri alınması = hesabın silinmesi; ayrı bir "geri al" düğmesi yok.
+   **Bilinen risk:** 1 Eylül 2024'ten beri açık rıza yalnızca arızi aktarımın dayanağı; sürekli
+   aktarımın kanundaki yolu Kurul'a bildirilen standart sözleşme. Açık rıza + açık anlatım,
+   avukatsız atılabilen en iyi adım, tam uyum değil.
 
 ## Kritik kurallar
 - **PostHog rıza olmadan BAŞLAMAZ.** `posthog-js`'i `src/lib/posthog.ts` dışında import etme;
@@ -281,8 +301,9 @@ oturumsuz kullanıcıyı `/login`'e attığı için telefonda gelen link sekiyor
   PostHog'a istek atar ve IP'yi yurt dışına taşır. Banttaki iki düğme **aynı görünür**
   (reddetmek kabul etmek kadar kolay olmalı; "İzin ver"i öne çıkarmak rızayı sakatlar).
   **Rıza metni toplanan veriyi anlatır ve onunla birlikte değişir:** yeni bir veri türü
-  açılırsa (otomatik yakalama, anket, hata yakalama — panodan deploy'suz açılabilirler) bant
-  ile Hesabım'daki kart aynı gün güncellenir — söylenmeyen bir şeye verilen rıza geçersizdir.
+  açılırsa (otomatik yakalama, anket, hata yakalama — panodan deploy'suz açılabilirler) bant,
+  Hesabım'daki kart ve Çerez Politikası (`/cookies`) aynı gün güncellenir — üçü aynı şeyi
+  söyler; söylenmeyen bir şeye verilen rıza geçersizdir.
   Oturum kaydı bu yüzden panoya bırakılmadı: `disable_session_recording`'i kaldıran, aynı
   commit'te iki metne ekran kaydını geri yazar ve yazı alanı maskesini yeniden sabitler.
   Bant yüksekliğini `--consent-banner-h` olarak yayınlar; ana sayfa ve (geniş ekranda) `/start`
@@ -294,6 +315,41 @@ oturumsuz kullanıcıyı `/login`'e attığı için telefonda gelen link sekiyor
   birlikte dururlar.
   `send-weekly-picks`'teki sunucu tarafı `weekly_pick_sent` bu kapıdan GEÇMİYOR — mail açılmadan
   önce çözülmesi gereken açık bir borç.
+- **Hukuki metinler kodun yaptığını anlatır ve onunla birlikte değişir** (`src/pages/Legal.tsx`,
+  `src/lib/legal.ts`). Oradaki her cümle bir söz: "saklanmaz" yazıyorsa saklanmıyor, "7 gün"
+  yazıyorsa 7 günde siliniyor olmalı. Kişisel veri alan yeni bir dış servis → `PROCESSORS` +
+  Aydınlatma Metni; `localStorage`'a yeni anahtar → Çerez Politikası'ndaki tablo; saklama süresi
+  değişirse metindeki süre. Metinlerde "ücret/paket" dili yok (premium anahtarı kuralıyla aynı
+  gerekçe); ödeme akışı gelince Kullanım Koşulları'na kendi bölümüyle girer.
+  Veri sorumlusu bir şirket değil, gerçek kişi (`CONTROLLER`); **adres bilerek boş** (yazılacak
+  tek adres ev adresi olurdu, başvuru kanalı e-posta) ve boşken satırı çizilmez. Ad ya da
+  e-posta boşalırsa sayfalara "taslak" şeridi düşer (`LEGAL_DRAFT`). **18 yaş sınırı yok**
+  (karar, 11 Ekim 2026); metinlerdeki veli izni cümlesi doğrulama değil beyandır — yaş kapısı
+  eklenirse o cümleyle birlikte değişir.
+- **Hukuki metinlerde her cümle tam cümledir: öznesi bellidir ve yüklemle biter** (metnin
+  sahibinin isteği, 11 Ekim 2026). İlk sürüm arayüz diliyle yazılmıştı ve yarım kalmış gibi
+  okundu. Şunları yazma: başlık + parça ("Hesabın. Giriş yaptığın e-posta adresi."), etiket +
+  iki nokta ("Hukuki sebep: meşru menfaat.", "IP adresi: 7 gün."), yüklemi düşmüş cümle
+  ("Ayrıntısı Çerez Politikası'nda.", "Güvenliği sende."), devrik ya da tek kelimelik cümle
+  ("Hayır."), ok işaretli yol tarifi ("Hesabım → Verilerim"). Bölüm başlıkları ad öbeğidir
+  ("Saklama süreleri"), soru ya da yarım cümle değil. `legal.ts`'teki `purpose`/`data`/`note`
+  ve Çerez Politikası tablosundaki `purpose`/`lifetime` sayfaya olduğu gibi basılır; onlar da
+  tam cümle.
+  Kural hukuki metinler için; arayüzün edebi, kısa dili (kartlar, düğmeler) bundan muaf.
+- **Aydınlatma Metni Telegram'dan söz etmez:** bot desteklenmiyor ve yayına alınmayacak (karar,
+  11 Ekim 2026). `/connect`, `link-telegram` ve Telegram tabloları kodda **duruyor**; bot
+  yeniden açılırsa ya da bu yol canlıda kullanılır hâle gelirse Telegram kimliği aynı gün
+  metnin veri listesine girer (söylenmeyen işleme, aydınlatılmamış işlemedir).
+- **Aktarım rızası kutusu işaretsiz gelir ve giriş düğmeleri ona bağlıdır.** Kutuyu önceden
+  işaretleme, "devam ederek kabul etmiş olursun" cümlesine katlama: ikisi de açık rızayı
+  geçersiz kılar (o kalıp yalnızca Kullanım Koşulları için). Rıza cümlesi iki yerde de AYNI
+  bileşenden gelir (`TransferConsentField`). `TRANSFER_CONSENT_VERSION` yalnızca rızanın
+  **kapsamı** değişince yükselir (yeni ülke, yeni alıcı türü) — yazım düzeltmesinde yükseltirsen
+  herkese boş yere yeniden sorulur. Kapı (`TransferConsentGate`) `/account` ile metin sayfalarını
+  **örtmez**: rıza vermek istemeyenin çıkışı hesap silme, ve o yol hiçbir şeye bağlanamaz. Kayıt
+  okunamazsa kapı **açık kalır** (fail-open: tablo yokken herkesi kilitlemek daha kötü) —
+  konsolda `[transfer-consent]` hatası sıklaşırsa kapı sessizce kapalı demektir.
+  Sıra: **önce migration, sonra web** (tablo yokken web fail-open çalışır ama rıza kaydedilmez).
 - **`auth.users`'a bağlanan her yeni tablo `ON DELETE CASCADE` ile bağlanır.** Kullanıcıya ait
   olup `user_id` taşımayan bir satır doğuyorsa `lens_private.purge_user_orphans`'a eklenir.
   Biri atlanırsa silme ya hata verir ya da sessizce eksik kalır. Edge function'a tablo tablo

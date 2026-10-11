@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "motion/react";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { Sparkles } from "lucide-react";
 import { Button } from "./ui/button";
 import { EmailOptInModal } from "./EmailOptInModal";
@@ -25,6 +25,12 @@ export function Welcome() {
   // Kategori şeridi /start'ın sekmeleriyle aynı kaynaktan okunur; etiket ya da
   // ikon orada değişirse burası kendiliğinden takip eder.
   const iconTone = ["text-purple-400", "text-pink-400", "text-purple-400"];
+
+  // Boyut ve ağırlık her öğenin KENDİ üstünde: "Analitik tercihi" bir <button>
+  // ve temadaki düğme tabanı (16px, orta kalınlık) kapsayıcıdan miras almıyor —
+  // sınıflar nav'a konunca bağlantıların yanında iri ve kalın duruyordu.
+  const footerLink =
+    "text-xs font-normal underline-offset-2 transition-colors hover:text-white hover:underline";
 
   return (
     <>
@@ -110,11 +116,25 @@ export function Welcome() {
         </motion.div>
       </motion.div>
 
-      {/* Oturumsuz ziyaretçinin analitik iznini geri alabileceği tek yer burası.
+      {/* Hukuki metinler ve oturumsuz ziyaretçinin analitik iznini geri alabileceği
+          bağlantı. Etiketler KISA ve tek satır: iki satıra kırılan bir alt bilgi kısa
+          ekranlarda "Giriş yap" bağlantısının üstüne biniyor (absolute, akışta değil).
           Tam opak purple-200: yukarıdaki kontrast notuyla aynı gerekçe. */}
-      <div className="absolute inset-x-0 bottom-4 text-center">
-        <AnalyticsPreferenceLink className="text-xs text-purple-200 underline-offset-2 transition-colors hover:text-white hover:underline" />
-      </div>
+      <nav
+        aria-label="Hukuki metinler"
+        className="absolute inset-x-0 bottom-4 flex justify-center gap-x-4 px-4 text-purple-200"
+      >
+        {[
+          { to: "/privacy", label: "Gizlilik" },
+          { to: "/terms", label: "Koşullar" },
+          { to: "/cookies", label: "Çerezler" },
+        ].map((item) => (
+          <Link key={item.to} to={item.to} className={footerLink}>
+            {item.label}
+          </Link>
+        ))}
+        <AnalyticsPreferenceLink className={footerLink} />
+      </nav>
     </div>
     <EmailOptInModal open={showAuthModal} onOpenChange={setShowAuthModal} context="login" />
     </>

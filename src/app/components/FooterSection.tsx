@@ -1,4 +1,5 @@
 import { motion } from "motion/react";
+import { Link } from "react-router";
 
 export function FooterSection() {
   return (
@@ -19,6 +20,13 @@ export function FooterSection() {
         <p className="text-slate-600 text-xs">
           2026
         </p>
+        {/* Paylaşılan rapor, Lens'i ilk kez gören ziyaretçinin indiği sayfa:
+            metinlere buradan da ulaşılabilmeli. */}
+        <nav aria-label="Hukuki metinler" className="flex justify-center gap-4 pt-2 text-xs text-slate-400">
+          <Link to="/privacy" className="underline-offset-2 hover:text-white hover:underline">Gizlilik</Link>
+          <Link to="/terms" className="underline-offset-2 hover:text-white hover:underline">Koşullar</Link>
+          <Link to="/cookies" className="underline-offset-2 hover:text-white hover:underline">Çerezler</Link>
+        </nav>
       </motion.div>
     </section>
   );

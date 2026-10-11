@@ -518,6 +518,35 @@ uygulandıktan sonra güncellenmemişti.
 
 Fonksiyon **fail-open** tasarlanmış (`extract-works/index.ts → quotaExceeded`): RPC hata verirse `false` döner ve istek geçer. Yani kota altyapısı bozulursa çıkarım durmaz, sınırsız hâle döner.
 
+**Saklama: 7 gün.** Girişsiz çağrıda `client_key` IP adresidir. `lens-purge-extraction-quota`
+pg_cron işi (her gece 00:20 UTC) 7 günden eski satırları siler
+(`20261011120000_user_consents.sql`). İş sır istemez, lokalde de kuruludur. Aydınlatma
+Metni'ndeki "7 gün" bu işe dayanıyor — süre değişirse metin de değişir.
+Doğrulama: `select jobname, schedule from cron.job where jobname = 'lens-purge-extraction-quota';`
+
+---
+
+## `user_consents`
+
+Açık rıza kayıtları (KVKK m.9). Bugün tek tür var: verinin yurt dışına aktarımı.
+
+| Kolon        | Tip                  | Notlar |
+|--------------|----------------------|--------|
+| `user_id`    | UUID NOT NULL        | `auth.users(id)` ON DELETE CASCADE |
+| `kind`       | TEXT NOT NULL        | CHECK: `transfer_abroad` |
+| `version`    | TEXT NOT NULL        | Rıza metninin sürümü — `src/lib/legal.ts → TRANSFER_CONSENT_VERSION` |
+| `granted_at` | TIMESTAMPTZ NOT NULL | `user_consents_stamp` trigger'ı `now()` yazar; client'ın gönderdiği değer ezilir |
+
+**Kısıt:** `PRIMARY KEY (user_id, kind, version)`. Sürüm yükselince yeni satır eklenir, eskisi
+**durur** — kişinin neye, ne zaman rıza verdiği geçmişiyle birlikte kalır.
+
+**RLS:** sahibi kendi satırını okur ve yazar (`auth.uid() = user_id`). UPDATE ve DELETE politikası
+**bilerek yok**: verilmiş rızanın kaydı kullanıcı tarafından bile oynanamaz, yalnızca hesapla
+birlikte gider. Rızanın geri alınması hesabın silinmesidir.
+
+Web tarafı: `src/lib/transferConsent.ts` (`hasTransferConsent`, `recordTransferConsent`). Yazım
+`upsert` + `ignoreDuplicates` — ikinci yazım ilk damgayı değiştirmez.
+
 ---
 
 ## `auth.users` (Supabase Auth — yönetilir)
@@ -532,7 +561,7 @@ Bir satır buradan silindiğinde kullanıcıya ait her şey gider — yol fark e
 
 | Ne | Nasıl |
 |----|-------|
-| `reports` (+ `report_works`), `user_works`, `daily_discoveries`, `weekly_picks`, `discovery_feedback`, `list_items`, `taste_profile`, `user_preferences`, `telegram_users` | Yabancı anahtar, ON DELETE CASCADE |
+| `reports` (+ `report_works`), `user_works`, `daily_discoveries`, `weekly_picks`, `discovery_feedback`, `list_items`, `taste_profile`, `user_preferences`, `telegram_users`, `user_consents` | Yabancı anahtar, ON DELETE CASCADE |
 | `user_id`'si boş, kullanıcının bağlı Telegram kimliğiyle doğmuş `reports` / `user_works`; o kimliğin `telegram_link_codes` satırları; `extraction_quota`'da `client_key = user_id` | `lens_purge_user_orphans` — `auth.users` BEFORE DELETE trigger'ı (`lens_private.purge_user_orphans`) |
 
 Trigger **BEFORE** çünkü sahipsiz satırları kullanıcıya bağlayan tek şey `telegram_users`
@@ -541,7 +570,7 @@ hesabının sahiplendiği (`user_id` dolu) satırlara dokunmaz.
 
 **Veritabanının ulaşamadığı:** PostHog'daki kişi kaydı ve Resend gönderim günlükleri elle silinir.
 Anonim `extract-works` çağrısının IP'si (`extraction_quota.client_key`) kullanıcıya bağlanamaz;
-o satırlar için ayrı bir süre temizliği **henüz yok**.
+o satırlar hesap silmeyle değil süreyle gider: 7 gün (bkz. `extraction_quota`).
 
 > Yeni bir tablo `auth.users`'a bağlanıyorsa ON DELETE CASCADE yazılır; kullanıcıya ait olup
 > `user_id` taşımayan yeni bir satır doğuyorsa trigger fonksiyonuna eklenir. 2026-10-10'dan önce

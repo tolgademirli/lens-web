@@ -4,6 +4,7 @@ import { Dashboard } from "@/pages/Dashboard";
 import { DashboardReports } from "@/pages/DashboardReports";
 import { MyList } from "@/pages/MyList";
 import { Account } from "@/pages/Account";
+import { CookiesPage, PrivacyPage, TermsPage } from "@/pages/Legal";
 import { Welcome } from "@/app/components/Welcome";
 import { TasteForm } from "@/app/components/TasteForm";
 import { GeneratingReport } from "@/app/components/GeneratingReport";
@@ -11,6 +12,7 @@ import { AuthCallback } from "@/app/components/AuthCallback";
 import { TelegramConnect } from "@/app/components/TelegramConnect";
 import { Login } from "@/app/components/Login";
 import { AnalyticsConsentBanner } from "@/app/components/AnalyticsConsent";
+import { TransferConsentGate } from "@/app/components/TransferConsent";
 
 export default function App() {
   return (
@@ -38,6 +40,10 @@ export default function App() {
         {/* Tercihler /settings'ten /account'a taşındı. Rota SİLİNMEZ, yönlendirilir
             (BUG-01 dersi): yayına çıkmış haftalık seçki maillerinde bu adres var. */}
         <Route path="/settings" element={<Navigate to="/account" replace />} />
+        {/* Hukuki metinler. Oturum istemezler: rıza vermeden önce okunabilmeliler. */}
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/cookies" element={<CookiesPage />} />
+        <Route path="/terms" element={<TermsPage />} />
         <Route
           path="*"
           element={
@@ -52,6 +58,9 @@ export default function App() {
       </Routes>
       {/* Rotaların DIŞINDA: karar verilene kadar hangi sayfada olunursa olsun görünür. */}
       <AnalyticsConsentBanner />
+      {/* O da rotaların dışında: oturumu olup yurt dışı aktarımına rıza kaydı
+          olmayan kişiye hangi sayfadan girerse girsin sorulur. */}
+      <TransferConsentGate />
     </BrowserRouter>
   );
 }

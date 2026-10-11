@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { Link } from "react-router";
 import {
   analyticsConfigured,
   getConsentState,
@@ -99,7 +100,11 @@ export function AnalyticsConsentBanner() {
               <p className="mt-2 text-[13px] leading-relaxed text-slate-400">
                 Giriş yaptıysan ölçümler hesabınla eşleşir. Kararını ana sayfanın altındaki
                 “Analitik tercihi” bağlantısından ya da panelde Hesabım sekmesinden istediğin
-                an değiştirebilirsin.
+                an değiştirebilirsin. Tarayıcına neyin yazıldığını{" "}
+                <Link to="/cookies" className="text-slate-200 underline underline-offset-2 hover:text-white">
+                  Çerez Politikası
+                </Link>
+                'nda okuyabilirsin.
               </p>
             )}
             {consent !== "unset" && (

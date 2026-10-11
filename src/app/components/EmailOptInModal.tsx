@@ -5,7 +5,9 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { GoogleButton } from "./ui/google-button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "./ui/dialog";
+import { TransferConsentField } from "./TransferConsent";
 import { sendMagicLink, signInWithGoogle } from "@/lib/supabase";
+import { markPendingTransferConsent } from "@/lib/transferConsent";
 
 type View = "options" | "email-form" | "sent";
 type Status = "idle" | "sending" | "error";
@@ -22,11 +24,28 @@ export function EmailOptInModal({ open, onOpenChange, context = "report" }: Emai
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [googleLoading, setGoogleLoading] = useState(false);
+  // Yurt dışı aktarımına açık rıza. İki giriş yolu da bu kutudan geçer: e-posta
+  // "bağlantı gönder"e basıldığı an yurt dışındaki sunucuya gidiyor, rıza ondan
+  // önce alınmış olmalı. Düğmeler kutu boşken de BASILABİLİR — pasif bir düğme
+  // neden pasif olduğunu söylemez; basınca kutu neyin eksik olduğunu söyler.
+  const [consent, setConsent] = useState(false);
+  const [consentMissing, setConsentMissing] = useState(false);
 
   const isValidEmail = (v: string) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
+  /** Kutu işaretliyse kararı giriş dönüşüne taşır; değilse eksik olanı gösterir. */
+  const confirmConsent = () => {
+    if (!consent) {
+      setConsentMissing(true);
+      return false;
+    }
+    markPendingTransferConsent();
+    return true;
+  };
+
   const handleGoogleClick = async () => {
+    if (!confirmConsent()) return;
     setGoogleLoading(true);
     localStorage.setItem("lens_auth_method", "google");
     const redirectTo = `${window.location.origin}/auth/callback`;
@@ -70,6 +89,14 @@ export function EmailOptInModal({ open, onOpenChange, context = "report" }: Emai
             </DialogDescription>
 
             <div className="space-y-4 pt-2">
+              {/* Düğmelerin ÜSTÜNDE: rıza, onu gerektiren adımdan önce okunur. */}
+              <TransferConsentField
+                checked={consent}
+                onCheckedChange={setConsent}
+                missing={consentMissing}
+                disabled={googleLoading}
+              />
+
               <GoogleButton
                 onClick={handleGoogleClick}
                 disabled={googleLoading}
@@ -83,7 +110,9 @@ export function EmailOptInModal({ open, onOpenChange, context = "report" }: Emai
               </div>
 
               <Button
-                onClick={() => setView("email-form")}
+                onClick={() => {
+                  if (confirmConsent()) setView("email-form");
+                }}
                 size="lg"
                 className="w-full h-14 bg-slate-700/50 hover:bg-slate-700 border border-purple-500/30 text-white rounded-xl"
               >
