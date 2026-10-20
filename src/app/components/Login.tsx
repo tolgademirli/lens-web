@@ -5,37 +5,28 @@ import { ArrowLeft, Mail, Sparkles } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { GoogleButton } from "./ui/google-button";
-import { TransferConsentField } from "./TransferConsent";
 import { sendMagicLink, signInWithGoogle } from "@/lib/supabase";
-import { markPendingTransferConsent } from "@/lib/transferConsent";
 
 type Status = "idle" | "sending" | "sent" | "error";
 
+/**
+ * Dönen kullanıcının giriş sayfası: panelden oturumu düşen ve kullanılmış bağlantıyla
+ * dönen buraya gelir. Yurt dışı aktarımı rıza kutusu burada YOK — kutu kimin girdiğini
+ * bilmeden her seferinde boş geliyor ve kayıtlı rızayı yeniden soruyordu (20 Ekim 2026).
+ * Rızası kayıtlı olmayanı girişten sonraki kapı (`TransferConsentGate`) yakalar. İlk
+ * rapor yolundaki kutu için bkz. `EmailOptInModal`.
+ */
 export function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [googleLoading, setGoogleLoading] = useState(false);
-  // Yurt dışı aktarımına açık rıza — EmailOptInModal'daki kutuyla aynı kural:
-  // iki giriş yolu da buradan geçer, düğmeler kutu boşken de basılabilir.
-  const [consent, setConsent] = useState(false);
-  const [consentMissing, setConsentMissing] = useState(false);
 
   const isValidEmail = (v: string) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
-  const confirmConsent = () => {
-    if (!consent) {
-      setConsentMissing(true);
-      return false;
-    }
-    markPendingTransferConsent();
-    return true;
-  };
-
   const handleGoogleSignIn = async () => {
-    if (!confirmConsent()) return;
     setGoogleLoading(true);
     const redirectTo = `${window.location.origin}/auth/callback?intent=reports`;
     const { error } = await signInWithGoogle(redirectTo);
@@ -44,7 +35,6 @@ export function Login() {
 
   const handleSubmit = async () => {
     if (!isValidEmail(email)) return;
-    if (!confirmConsent()) return;
     setStatus("sending");
     const redirectTo = `${window.location.origin}/auth/callback?intent=reports`;
     const { error } = await sendMagicLink(email.trim(), redirectTo);
@@ -108,13 +98,6 @@ export function Login() {
         </div>
 
         <div className="space-y-4">
-          <TransferConsentField
-            checked={consent}
-            onCheckedChange={setConsent}
-            missing={consentMissing}
-            disabled={googleLoading || status === "sending"}
-          />
-
           <GoogleButton
             onClick={handleGoogleSignIn}
             disabled={googleLoading}

@@ -24,10 +24,16 @@ export function EmailOptInModal({ open, onOpenChange, context = "report" }: Emai
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [googleLoading, setGoogleLoading] = useState(false);
-  // Yurt dışı aktarımına açık rıza. İki giriş yolu da bu kutudan geçer: e-posta
-  // "bağlantı gönder"e basıldığı an yurt dışındaki sunucuya gidiyor, rıza ondan
-  // önce alınmış olmalı. Düğmeler kutu boşken de BASILABİLİR — pasif bir düğme
-  // neden pasif olduğunu söylemez; basınca kutu neyin eksik olduğunu söyler.
+  // Yurt dışı aktarımına açık rıza. Kutu YALNIZCA ilk rapor yolunda (context="report")
+  // durur: orada hesap açılmak üzere, e-posta "bağlantı gönder"e basıldığı an yurt
+  // dışındaki sunucuya gidiyor ve sinyaller girişin hemen ardından Claude'a (ABD)
+  // gönderiliyor — rıza ikisinden de önce alınmalı. Ana sayfadaki "Giriş yap"
+  // (context="login") dönen kullanıcının yolu: kutu orada kimin girdiğini bilmeden
+  // her seferinde boş geliyor ve kayıtlı rızayı yeniden soruyordu (20 Ekim 2026).
+  // O yolda rızayı girişten sonraki kapı (`TransferConsentGate`) sorar; kaydı olana
+  // hiç sormaz. Düğmeler kutu boşken de BASILABİLİR — pasif bir düğme neden pasif
+  // olduğunu söylemez; basınca kutu neyin eksik olduğunu söyler.
+  const asksConsent = context === "report";
   const [consent, setConsent] = useState(false);
   const [consentMissing, setConsentMissing] = useState(false);
 
@@ -36,6 +42,8 @@ export function EmailOptInModal({ open, onOpenChange, context = "report" }: Emai
 
   /** Kutu işaretliyse kararı giriş dönüşüne taşır; değilse eksik olanı gösterir. */
   const confirmConsent = () => {
+    // Kutu sorulmadıysa işaret de YAZILMAZ: işaret verilmiş bir rızanın kaydıdır.
+    if (!asksConsent) return true;
     if (!consent) {
       setConsentMissing(true);
       return false;
@@ -90,12 +98,14 @@ export function EmailOptInModal({ open, onOpenChange, context = "report" }: Emai
 
             <div className="space-y-4 pt-2">
               {/* Düğmelerin ÜSTÜNDE: rıza, onu gerektiren adımdan önce okunur. */}
-              <TransferConsentField
-                checked={consent}
-                onCheckedChange={setConsent}
-                missing={consentMissing}
-                disabled={googleLoading}
-              />
+              {asksConsent && (
+                <TransferConsentField
+                  checked={consent}
+                  onCheckedChange={setConsent}
+                  missing={consentMissing}
+                  disabled={googleLoading}
+                />
+              )}
 
               <GoogleButton
                 onClick={handleGoogleClick}

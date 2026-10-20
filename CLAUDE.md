@@ -284,12 +284,18 @@ oturumsuz kullanıcıyı `/login`'e attığı için telefonda gelen link sekiyor
 6. **Hukuki metinler** `/privacy` (Aydınlatma Metni), `/cookies`, `/terms`: `src/pages/Legal.tsx`.
    Veri sorumlusunun kimliği, rıza sürümü ve hizmet sağlayıcı tablosu `src/lib/legal.ts`'te.
    Avukat görmedi; benzer platformların genel pratiğiyle yazıldı.
-7. **Yurt dışı aktarımına açık rıza (m.9)** giriş ekranındaki kutuyla alınır (`TransferConsentField`;
-   `EmailOptInModal` + `Login`), çünkü e-posta "bağlantı gönder"e basıldığı an yurt dışına gider.
-   O anda kullanıcı yoktur: karar `localStorage["lens_pending_consent"]`'te bekler (60 dk) ve
-   giriş dönüşünde `user_consents`'e yazılır. İşaret yoksa — bu kapıdan önce açılmış hesap,
-   bağlantıyı başka cihazda açan, sürüm yükseldikten sonra dönen — `TransferConsentGate`
-   (App.tsx, rotaların dışında) girişten sonra sorar. Damgayı trigger vurur, client yazamaz.
+7. **Yurt dışı aktarımına açık rıza (m.9)** iki yerde alınır. **İlk rapor yolunda** giriş
+   penceresindeki kutuyla (`TransferConsentField`; `/start` → `EmailOptInModal`, `context="report"`),
+   çünkü e-posta "bağlantı gönder"e basıldığı an yurt dışına gider ve sinyaller girişin hemen
+   ardından Claude'a gönderilir. O anda kullanıcı yoktur: karar `localStorage["lens_pending_consent"]`'te
+   bekler (60 dk) ve giriş dönüşünde `user_consents`'e yazılır. **Dönen kullanıcının girişinde**
+   (ana sayfadaki "Giriş yap" → `context="login"`, `/login`) kutu YOK: kimin girdiğini bilmeden
+   her seferinde boş geliyor ve kayıtlı rızayı yeniden soruyordu (20 Ekim 2026). Orada ve işaretin
+   olmadığı her durumda — bu kapıdan önce açılmış hesap, bağlantıyı başka cihazda açan, sürüm
+   yükseldikten sonra dönen — `TransferConsentGate` (App.tsx, rotaların dışında) girişten sonra
+   kaydı okur ve yalnızca kaydı olmayana sorar. Damgayı trigger vurur, client yazamaz.
+   Bedeli: "Giriş yap"ı hesabı olmadan kullanan yeni biri, e-postası yurt dışına gidip hesabı
+   açıldıktan SONRA sorulur; reddederse çıkışı hesap silme.
    Rızanın geri alınması = hesabın silinmesi; ayrı bir "geri al" düğmesi yok.
    **Bilinen risk:** 1 Eylül 2024'ten beri açık rıza yalnızca arızi aktarımın dayanağı; sürekli
    aktarımın kanundaki yolu Kurul'a bildirilen standart sözleşme. Açık rıza + açık anlatım,
@@ -340,10 +346,15 @@ oturumsuz kullanıcıyı `/login`'e attığı için telefonda gelen link sekiyor
   11 Ekim 2026). `/connect`, `link-telegram` ve Telegram tabloları kodda **duruyor**; bot
   yeniden açılırsa ya da bu yol canlıda kullanılır hâle gelirse Telegram kimliği aynı gün
   metnin veri listesine girer (söylenmeyen işleme, aydınlatılmamış işlemedir).
-- **Aktarım rızası kutusu işaretsiz gelir ve giriş düğmeleri ona bağlıdır.** Kutuyu önceden
-  işaretleme, "devam ederek kabul etmiş olursun" cümlesine katlama: ikisi de açık rızayı
-  geçersiz kılar (o kalıp yalnızca Kullanım Koşulları için). Rıza cümlesi iki yerde de AYNI
-  bileşenden gelir (`TransferConsentField`). `TRANSFER_CONSENT_VERSION` yalnızca rızanın
+- **Aktarım rızası kutusu işaretsiz gelir ve ilk rapor yolunun giriş düğmeleri ona bağlıdır.**
+  Kutuyu önceden işaretleme, "devam ederek kabul etmiş olursun" cümlesine katlama: ikisi de açık
+  rızayı geçersiz kılar (o kalıp yalnızca Kullanım Koşulları için). Kutuyu ilk rapor yolundan
+  (`EmailOptInModal`, `context="report"`) KALDIRMA: orada kapı yetişmez, sinyaller girişin hemen
+  ardından Claude'a gider ve kapı sayfanın üstünde açıkken bile gönderim başlar. Dönen
+  kullanıcının giriş yollarına (`context="login"`, `/login`) kutuyu geri KOYMA ve oralarda
+  `lens_pending_consent` yazma: işaret verilmiş bir rızanın kaydıdır, sorulmamış rızayı kapı
+  sessizce kaydederdi. Rıza cümlesi pencerede de kapıda da AYNI bileşenden gelir
+  (`TransferConsentField`). `TRANSFER_CONSENT_VERSION` yalnızca rızanın
   **kapsamı** değişince yükselir (yeni ülke, yeni alıcı türü) — yazım düzeltmesinde yükseltirsen
   herkese boş yere yeniden sorulur. Kapı (`TransferConsentGate`) `/account` ile metin sayfalarını
   **örtmez**: rıza vermek istemeyenin çıkışı hesap silme, ve o yol hiçbir şeye bağlanamaz. Kayıt

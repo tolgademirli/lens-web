@@ -153,6 +153,17 @@ dönmeli ve **sinyaller yerinde durmalı** (`/`'a atmamalı).
 Depoyu temizle, doğrudan `localhost:5173/generating` aç →
 `/start`'a yönlenmeli (pazarlama sayfasına değil).
 
+### D11 ⚠️ Dönen kullanıcıya aktarım rızası yeniden sorulmaz
+Rıza kutusu yalnızca ilk rapor yolunda durur; dönen kullanıcının rızasını girişten
+sonraki kapı sorar ve kaydı olana hiç sormaz (20 Ekim 2026).
+1. Oturum açıkken ana sayfada `Giriş yap`a bas. Pencere açılmadan panele gidilmeli.
+2. Çıkış yap ve `Giriş yap`a yeniden bas. Pencerede rıza kutusu olmamalı. Giriş yap.
+   Panelde "Devam etmeden önce bir izin" penceresi ÇIKMAMALI (rıza kaydı var).
+3. Hesabı olmayan yeni bir e-postayla `Giriş yap` yolundan gir. Girişten sonra
+   "Devam etmeden önce bir izin" penceresi ÇIKMALI ve kutu işaretsiz gelmeli.
+4. Oturumsuzken `/start`'ta 6 sinyal gir. E-posta penceresinde kutu durmalı ve
+   işaretlenmeden giriş başlamamalı.
+
 ---
 
 ## E. Rota uyumluluğu

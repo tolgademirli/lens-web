@@ -6,6 +6,7 @@ import { Button } from "./ui/button";
 import { EmailOptInModal } from "./EmailOptInModal";
 import { AnalyticsPreferenceLink } from "./AnalyticsConsent";
 import { posthog } from "@/lib/posthog";
+import { getCurrentUser } from "@/lib/supabase";
 import { CATEGORIES } from "./categories";
 
 /**
@@ -21,6 +22,14 @@ export function Welcome() {
   useEffect(() => {
     posthog.capture("landing_viewed");
   }, []);
+
+  // Oturumu açık olan kişi "Giriş yap"a basınca doğrudan paneline gider. Eskiden
+  // giriş penceresi oturum varken de açılıyordu: kişi zaten içerideyken yeniden
+  // giriş yapıyordu (20 Ekim 2026).
+  async function handleSignIn() {
+    if (await getCurrentUser()) navigate("/dashboard");
+    else setShowAuthModal(true);
+  }
 
   // Kategori şeridi /start'ın sekmeleriyle aynı kaynaktan okunur; etiket ya da
   // ikon orada değişirse burası kendiliğinden takip eder.
@@ -107,7 +116,7 @@ export function Welcome() {
             {/* purple-300/70 gradyanın en açık yerinde 3.79:1 ile AA altındaydı;
                 tam opak purple-200 ile 7.99:1. */}
             <button
-              onClick={() => setShowAuthModal(true)}
+              onClick={() => void handleSignIn()}
               className="text-purple-200 hover:text-white text-sm transition-colors"
             >
               Zaten hesabın var mı? <span className="font-semibold">Giriş yap →</span>

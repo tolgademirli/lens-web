@@ -288,7 +288,8 @@ export function PrivacyPage() {
         <p>
           Yukarıdaki sağlayıcıların sunucuları yurt dışında ({TRANSFER_COUNTRIES}) bulunur. Lens
           bu altyapı olmadan çalışamadığı için verilerin bu ülkelere aktarılır. Aktarım, KVKK'nın
-          9. maddesi uyarınca açık rızana dayanır ve bu rızayı giriş yaparken verirsin.
+          9. maddesi uyarınca açık rızana dayanır. Bu rızayı ilk raporunu oluştururken giriş
+          penceresinde verirsin. Rızan kayıtlı değilse giriş yaptıktan sonra sorulur.
         </p>
         <p>
           Bu aktarımın bir riski vardır. Kişisel Verileri Koruma Kurulu bu ülkeler hakkında bir
@@ -383,8 +384,8 @@ export function PrivacyPage() {
       <Section title="Metindeki değişiklikler">
         <p>
           Bu metinde yapılan değişiklikler bu sayfada yayımlanır ve sayfanın altındaki tarih
-          güncellenir. Verilerinin yurt dışına aktarımının kapsamı değişirse rızan giriş sırasında
-          yeniden sorulur.
+          güncellenir. Verilerinin yurt dışına aktarımının kapsamı değişirse rızan Lens'i bir
+          sonraki açışında yeniden sorulur.
         </p>
       </Section>
     </LegalShell>
