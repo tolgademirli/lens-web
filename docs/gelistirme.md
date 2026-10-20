@@ -18,7 +18,7 @@ Lokal ortamı ayağa kaldırma, test etme ve production'a çıkarma. Şema detay
 
 **İki ortam tamamen ayrıdır.** Lokalde ürettiğin rapor canlıya gitmez, canlı veriyi lokalde göremezsin.
 
-Telegram botu ayrı bir depodadır (`lens`, Railway'de çalışır) ama **production veritabanını paylaşır**. Şema değişikliği yaparken botu da etkileyebileceğini unutma.
+Telegram botu ayrı bir depodadır (`lens`, Railway'de çalışır) ama **production veritabanını paylaşır**. Şema değişikliği yaparken botu da etkileyebileceğini unutma. Bot 11 Ekim 2026'dan beri desteklenmiyor; web'deki bağlama sayfası (`/connect`) ve `link-telegram` 20 Ekim 2026'da kaldırıldı. Bot hâlâ çalışıyorsa veritabanına yazmayı sürdürür; onu durdurmak Railway'den yapılır.
 
 ### Hangi komut hangi ortama bakıyor
 

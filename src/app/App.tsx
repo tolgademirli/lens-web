@@ -9,7 +9,6 @@ import { Welcome } from "@/app/components/Welcome";
 import { TasteForm } from "@/app/components/TasteForm";
 import { GeneratingReport } from "@/app/components/GeneratingReport";
 import { AuthCallback } from "@/app/components/AuthCallback";
-import { TelegramConnect } from "@/app/components/TelegramConnect";
 import { Login } from "@/app/components/Login";
 import { AnalyticsConsentBanner } from "@/app/components/AnalyticsConsent";
 import { TransferConsentGate } from "@/app/components/TransferConsent";
@@ -26,7 +25,10 @@ export default function App() {
         <Route path="/movies" element={<Navigate to="/start" replace />} />
         <Route path="/music" element={<Navigate to="/start" replace />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
-        <Route path="/connect" element={<TelegramConnect />} />
+        {/* Telegram hesap bağlama sayfasıydı; bot desteklenmiyor, sayfa ve
+            link-telegram kaldırıldı (20 Ekim 2026). Botun eski mesajlarındaki
+            bağlantılar ana sayfaya düşer (BUG-01 dersi). */}
+        <Route path="/connect" element={<Navigate to="/" replace />} />
         <Route path="/generating" element={<GeneratingReport />} />
         <Route path="/report/:id" element={<ReportPage />} />
         <Route path="/login" element={<Login />} />

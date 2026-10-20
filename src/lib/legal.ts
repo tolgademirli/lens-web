@@ -75,8 +75,9 @@ export interface Processor {
  * şey gitmez. Bir gün kullanıcı kimliği ya da IP'si de gidecek olursa girerler.
  *
  * Telegram da YOK: bot desteklenmiyor ve yayına alınmayacak (karar, 11 Ekim
- * 2026). `/connect` ve `link-telegram` kodda duruyor; yeniden açılırsa buraya
- * ve Aydınlatma Metni'ndeki veri listesine girer.
+ * 2026). Bağlama sayfası ve `link-telegram` 20 Ekim 2026'da kaldırıldı; Telegram
+ * tabloları duruyor. Yeniden açılırsa buraya ve Aydınlatma Metni'ndeki veri
+ * listesine girer.
  */
 export const PROCESSORS: Processor[] = [
   {

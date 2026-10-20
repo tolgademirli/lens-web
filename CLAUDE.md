@@ -75,7 +75,6 @@ supabase/
     extract-works/     # Ekran görüntüsü / yapıştırılan metin → eser listesi (Claude vision)
     daily-discovery/   # Günlük keşif önerisi (cache: daily_discoveries tablosu) — index.ts
                        #   + workCheck.ts (kitap/film gerçekten var mı: Open Library + Wikidata)
-    link-telegram/     # Telegram hesap bağlama
     delete-account/    # Kullanıcının kendi hesabını siler (auth.users; veri CASCADE ile gider)
     _shared/           # watch.ts (izleme erişilebilirliği) · unsubscribe.ts (mail kapatma HMAC'i)
                        #   · sensitive.ts (üç üretici prompt'un ortak "hassas çıkarım yok" kuralı)
@@ -122,7 +121,7 @@ docs/
 | `/settings` | — | Eski tercih rotası; `/account`'a yönlenir (silinmedi, BUG-01 dersi) |
 | `/privacy` `/cookies` `/terms` | `PrivacyPage` `CookiesPage` `TermsPage` | Hukuki metinler (`src/pages/Legal.tsx`). Oturum istemez; rıza kapısı bu sayfaları örtmez |
 | `/auth/callback` | `AuthCallback` | OAuth + magic link dönüşü |
-| `/connect` | `TelegramConnect` | Telegram hesap bağlama |
+| `/connect` | — | Eski Telegram bağlama sayfası; `/`'a yönlenir (sayfa ve `link-telegram` 20 Ekim 2026'da kaldırıldı) |
 
 ## Veri akışı: rapor oluşturma
 1. Kullanıcı `/start`'ta tek ekranda sinyal girer. Eşik **toplamda 6**, dağılım serbest —
@@ -343,9 +342,12 @@ oturumsuz kullanıcıyı `/login`'e attığı için telefonda gelen link sekiyor
   tam cümle.
   Kural hukuki metinler için; arayüzün edebi, kısa dili (kartlar, düğmeler) bundan muaf.
 - **Aydınlatma Metni Telegram'dan söz etmez:** bot desteklenmiyor ve yayına alınmayacak (karar,
-  11 Ekim 2026). `/connect`, `link-telegram` ve Telegram tabloları kodda **duruyor**; bot
-  yeniden açılırsa ya da bu yol canlıda kullanılır hâle gelirse Telegram kimliği aynı gün
-  metnin veri listesine girer (söylenmeyen işleme, aydınlatılmamış işlemedir).
+  11 Ekim 2026). Bağlama sayfası ve `link-telegram` **20 Ekim 2026'da kaldırıldı**; `/connect`
+  `/`'a yönlenir. Telegram **tabloları ve kolonları duruyor** — hesap silme trigger'ı ve
+  `lens_report_by_id` onlara dokunuyor; düşürmek ayrı bir migration işi. Bot ayrı depoda ve
+  production veritabanını paylaşıyor: Railway'de hâlâ çalışıyorsa yazmayı sürdürür. Bot
+  yeniden açılırsa ya da bağlama yolu geri gelirse Telegram kimliği aynı gün metnin veri
+  listesine girer (söylenmeyen işleme, aydınlatılmamış işlemedir).
 - **Aktarım rızası kutusu işaretsiz gelir ve ilk rapor yolunun giriş düğmeleri ona bağlıdır.**
   Kutuyu önceden işaretleme, "devam ederek kabul etmiş olursun" cümlesine katlama: ikisi de açık
   rızayı geçersiz kılar (o kalıp yalnızca Kullanım Koşulları için). Kutuyu ilk rapor yolundan

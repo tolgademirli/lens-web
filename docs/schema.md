@@ -478,7 +478,7 @@ yeniden hesaplanabilir.
 
 ## `telegram_link_codes`
 
-Telegram hesabı bağlama akışının tek kullanımlık kodları. Bot kodu üretir, kullanıcı `/connect` sayfasında girer, `link-telegram` edge function doğrular ve `telegram_users`'a satır yazar.
+Telegram hesabı bağlama akışının tek kullanımlık kodları. Bot kodu üretiyordu, kullanıcı `/connect` sayfasında giriyordu, `link-telegram` edge function doğrulayıp `telegram_users`'a satır yazıyordu. Sayfa ve fonksiyon 20 Ekim 2026'da kaldırıldı (bot desteklenmiyor); tablo, hesap silme trigger'ı onu temizlediği için duruyor.
 
 | Kolon              | Tip            | Notlar |
 |--------------------|----------------|--------|
@@ -493,7 +493,7 @@ Telegram hesabı bağlama akışının tek kullanımlık kodları. Bot kodu üre
 
 ## `telegram_users`
 
-Telegram hesabı ↔ Lens hesabı eşlemesi. `link-telegram` edge function `telegram_link_codes` üzerinden doğrulama yaptıktan sonra buraya satır yazar.
+Telegram hesabı ↔ Lens hesabı eşlemesi. `link-telegram` edge function `telegram_link_codes` üzerinden doğrulama yaptıktan sonra buraya satır yazıyordu; fonksiyon 20 Ekim 2026'da kaldırıldı, web tarafında bu tabloya yazan bir yol kalmadı.
 
 | Kolon              | Tip           | Notlar |
 |--------------------|---------------|--------|

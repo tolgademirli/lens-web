@@ -12,7 +12,7 @@ enabled = false
 #
 # DİKKAT: burada YALNIZCA bu fonksiyon var. Çıplak bir `[functions]` bloğu
 # yazmak varsayılanı BÜTÜN fonksiyonlar için değiştirir ve analyze /
-# daily-discovery / extract-works / link-telegram / send-weekly-picks'in
+# daily-discovery / extract-works / send-weekly-picks'in
 # korumasını sessizce kaldırır. Deploy sonrası diğerlerinin hâlâ JWT
 # istediğini doğrula.
 [functions.unsubscribe]

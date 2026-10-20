@@ -42,7 +42,7 @@ import {
  * kurmuyor, metinler de kurmaz. Ödeme akışı geldiğinde Kullanım Koşulları'na
  * kendi bölümüyle girer.
  *
- * Telegram YOK: bot desteklenmiyor ve yayına alınmayacak (bkz. `legal.ts`).
+ * Telegram YOK: bot desteklenmiyor ve bağlama sayfası kaldırıldı (bkz. `legal.ts`).
  *
  * Düz koyu yüzey, gradyan değil: burası okuma sayfası. Alt boşluk analitik bandı
  * kadar büyür — karar vermemiş ziyaretçi metnin sonunu bandın altında okuyamazdı.
