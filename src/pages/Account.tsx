@@ -485,7 +485,7 @@ export function Account() {
                 "Hesabın: giriş yaptığın e-posta adresi; Google ile girdiysen Google'ın paylaştığı adın ve profil görselin.",
                 "Eserlerin: yazdığın, yapıştırdığın ya da ekran görüntüsünden okunan eser ve yaratıcı adları. Ekran görüntüsünün kendisi saklanmaz.",
                 "Raporların: sen paylaşana kadar yalnızca sana görünür.",
-                "Keşif ve seçki geçmişin, verdiğin geri bildirimler ve Listem: önerileri sana göre ayarlamak için tutulur.",
+                "Keşiflerin: sana önerilen eserler, onlara verdiğin geri bildirimler ve Listem'e kaydettiklerin. Önerileri sana göre ayarlamak için tutulur.",
               ].map((line) => (
                 <li key={line} className="flex gap-3">
                   <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-purple-400" />
@@ -588,12 +588,11 @@ export function Account() {
               <div className="min-w-0">
                 <p className="text-white">Hesabı sil</p>
                 <p className="mt-1 text-sm leading-relaxed text-purple-300/70">
-                  Hesabını sildiğinde yukarıda sayılanların tamamı — e-posta adresin,
-                  eserlerin, raporların, keşif ve seçki geçmişin, geri bildirimlerin, Listem
-                  ve tercihlerin — Lens'ten kalıcı olarak silinir. Paylaştığın rapor
-                  bağlantıları çalışmaz olur; daha önce indirdiğin ya da paylaştığın poster
-                  görselleri ise sende kalır, onlara ulaşamam. Bu işlem geri alınamaz: aynı
-                  adresle yeniden girersen sıfırdan başlarsın.
+                  Hesabını sildiğinde e-posta adresin, eserlerin, raporların, keşif ve seçki
+                  geçmişin, geri bildirimlerin, Listem ve tercihlerin Lens'ten kalıcı olarak
+                  silinir. Paylaştığın rapor bağlantıları çalışmaz olur; daha önce indirdiğin
+                  ya da paylaştığın poster görselleri ise sende kalır, onlara ulaşamam. Bu
+                  işlem geri alınamaz: aynı adresle yeniden girersen sıfırdan başlarsın.
                 </p>
               </div>
             </div>
