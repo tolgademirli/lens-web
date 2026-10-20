@@ -153,6 +153,30 @@ dönmeli ve **sinyaller yerinde durmalı** (`/`'a atmamalı).
 Depoyu temizle, doğrudan `localhost:5173/generating` aç →
 `/start`'a yönlenmeli (pazarlama sayfasına değil).
 
+### D7 ⚠️ **E-postadaki kod — başka tarayıcı.** ✅ (lokalde, 11 Ekim 2026)
+D2 yalnızca "aynı tarayıcı, yeni sekme"yi sınar. Bağlantı BAŞKA bir tarayıcıda
+açılınca (Instagram / LinkedIn'in uygulama içi tarayıcısından gelende her zaman)
+taslak ilk tarayıcıda kalır ve kullanıcı boş panele düşer. Çaresi kod:
+6 sinyal gir → e-posta modalı → **bağlantıya dokunma**, Mailpit'teki kodu
+modaldaki alana yaz → `/generating` → rapor. Aktarım rızası yeniden sorulmamalı.
+
+### D8 🔍 Kullanılmış bağlantı
+D7'den sonra aynı e-postadaki bağlantıyı **gizli pencerede** aç →
+"Bu giriş bağlantısı artık geçerli değil" + `Yeniden giriş yap` çıkmalı
+(sonsuza dek "Oturum açılıyor..." değil). Aynı bağlantıyı D7'nin tarayıcısında
+açarsan oturum düşmemeli.
+
+### D9 🔍 Yanlış kod ve yeniden gönderim
+Modalda `000000` yaz → "Bu kod geçersiz…" ve modal yerinde kalmalı →
+`yeniden gönderin` → Mailpit'e ikinci e-posta düşmeli; **eski** kod reddedilmeli,
+yenisi çalışmalı.
+
+### D10 ⚠️ Canlıda: e-postada kod var mı
+Kodun e-postada durması koda değil **Supabase panelindeki "Magic Link"
+şablonuna** bağlı (`{{ .Token }}`). Lokal şablon kodu kendiliğinden içerir, canlı
+içermez — o yüzden lokalde yeşil olan D7 canlı hakkında bir şey söylemez.
+Şablona dokunulduktan sonra canlıda kendine bir giriş e-postası iste ve kodu gör.
+
 ### D11 ⚠️ Dönen kullanıcıya aktarım rızası yeniden sorulmaz
 Rıza kutusu yalnızca ilk rapor yolunda durur; dönen kullanıcının rızasını girişten
 sonraki kapı sorar ve kaydı olana hiç sormaz (20 Ekim 2026).

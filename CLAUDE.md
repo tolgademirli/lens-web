@@ -18,8 +18,16 @@ npm run dev         # geliştirme — PRODUCTION Supabase'e bağlanır
 npm run build       # production build → dist/
 npx supabase start / stop / db reset / db push
 npx supabase functions deploy <name>   # edge function deploy
+npm test            # unit testler (Vitest, <1 dk) — ağ, Supabase ve Claude kredisi GEREKTİRMEZ
+npm run test:report # koş + önceki koşuyla karşılaştır   ·   npm run test:scan  # eksik test taraması
+npm run test:mutate # bir satırı geçici boz, testin DÜŞTÜĞÜNÜ doğrula, geri yaz
 ```
-Test komutu yok. **`vite build` tip denetimi YAPMAZ** (esbuild tipleri sadece siler) ve
+Unit testler `tests/` altında — kaynağın yanında DEĞİL (`api/` altındaki her `.ts` endpoint olur).
+Koşma, eksik tarama, test yazma ve aralıklı koşu: `lens-unit-test` skill'i (`.claude/skills/`).
+Düşen testi gevşetme ya da `skip` etme: çoğu aşağıdaki bir Kritik kuralın ya da kullanıcıya
+verilmiş bir sözün karşılığı; kural bilerek değişiyorsa test onunla BİRLİKTE değişir. Paket SQL'i,
+kapı taşımayan bileşenleri ve prompt çıktısını SINAMAZ — yeşil olması onlar hakkında bir şey söylemez.
+**`vite build` tip denetimi YAPMAZ** (esbuild tipleri sadece siler) ve
 typescript projede bağımlı değil. Gerçek denetim için:
 `npx --yes --package typescript@5.6 tsc --noEmit -p tsconfig.json`
 (Mevcut, bu değişiklikten önce de var olan hatalar: `vite/client` ve `@types/react-dom`
@@ -39,6 +47,14 @@ scripts/
   poster-samples.mjs     # Elle kurulmuş verilerle poster örnekleri + inceleme sayfası
   kapi2-real-reports.mjs # Gerçek analyze çıktısıyla doğrulama (REUSE=1 kredi harcamaz)
   check-glyphs.mjs       # Font Türkçe glif denetimi
+  unit-test-run.mjs      # `npm run test:report` — koş, önceki koşuyla karşılaştır
+  unit-test-scan.mjs     # `npm run test:scan` — kapsamdan eksik test raporu
+  unit-test-mutate.mjs   # `npm run test:mutate` — mutasyon denetimi (dosyayı bellekten geri yazar)
+tests/                   # Unit testler: lib/ (jsdom) · ui/ (bileşenlerdeki KAPILAR: rıza, giriş, silme)
+                         #   · api/ · functions/ · guards/ (depo kuralları, elle-senkron kopyalar,
+                         #   hukuki metin ↔ kod) · helpers/ (sahte Supabase, Deno köprüsü, render) · setup/
+vitest.config.ts         # Test ayarı: `.env.local` yüklenmez; edge function'lar üretim kodu
+                         #   değişmeden Node'da koşar (`edgeFunctions` eklentisi)
 src/
   app/
     components/   # UI bileşenleri (step akışı + rapor bölümleri)
@@ -120,7 +136,7 @@ docs/
 | `/account` | `Account` | Panel — Hesabım sekmesi: paket + tercihler (seçki opt-out, platform) + Verilerim (analitik izni, hesap silme). Her zaman görünür; paket bölümü premium anahtarına bağlı |
 | `/settings` | — | Eski tercih rotası; `/account`'a yönlenir (silinmedi, BUG-01 dersi) |
 | `/privacy` `/cookies` `/terms` | `PrivacyPage` `CookiesPage` `TermsPage` | Hukuki metinler (`src/pages/Legal.tsx`). Oturum istemez; rıza kapısı bu sayfaları örtmez |
-| `/auth/callback` | `AuthCallback` | OAuth + magic link dönüşü |
+| `/auth/callback` | `AuthCallback` | OAuth + magic link dönüşü; e-postadaki kodla giren de buradan geçer. Kullanılmış/süresi dolmuş bağlantıda beklemez, "geçerli değil" der |
 | `/connect` | — | Eski Telegram bağlama sayfası; `/`'a yönlenir (sayfa ve `link-telegram` 20 Ekim 2026'da kaldırıldı) |
 
 ## Veri akışı: rapor oluşturma
@@ -135,6 +151,8 @@ docs/
    sıfırlar, localStorage köprüyü sağlar). İkisi kasıtlı — tek kaynağa indirme dürtüsüne kapılma.
    Okuma/yazma `src/lib/tasteDraft.ts` + `src/lib/pendingReport.ts`; kayıt 60 dakika sonra geçersizleşir.
    İkisi de eski 9-anahtarlı / string[] biçimini okuyup yükseltir (deploy anındaki kullanıcı kaybolmasın).
+   Köprü **tarayıcıya** özgüdür: bağlantı başka bir tarayıcıda açılırsa taslak oraya gelmez. O yüzden
+   giriş e-postasında bir kod da durur ve aynı ekrana yazılır (`EmailCodeField`) — bkz. Kritik kurallar.
 4. `/generating` **bütün taslağı** seçer (kategori kategori karıştırmaz — taze bir kategoriyi
    bayat bir kategoriyle birleştirmek sessizce yanlış rapor üretirdi), sonra `analyzeAndCreateReport()`.
 5. `analyze` edge function: Claude API → JSON rapor → `reports` insert → `reportId`.
@@ -331,6 +349,9 @@ oturumsuz kullanıcıyı `/login`'e attığı için telefonda gelen link sekiyor
   e-posta boşalırsa sayfalara "taslak" şeridi düşer (`LEGAL_DRAFT`). **18 yaş sınırı yok**
   (karar, 11 Ekim 2026); metinlerdeki veli izni cümlesi doğrulama değil beyandır — yaş kapısı
   eklenirse o cümleyle birlikte değişir.
+  Bu eşleşmelerin kodla denetlenebilen kısmı `tests/guards/kvkk.test.ts`'te (dış adresler ↔
+  `PROCESSORS`, depolama anahtarları ↔ Çerez Politikası, saklama süreleri, üç analitik metni);
+  o dosyadaki bir test düşerse ya kodu sözüne döndür ya da metni güncelle — testi tek başına değil.
 - **Hukuki metinlerde her cümle tam cümledir: öznesi bellidir ve yüklemle biter** (metnin
   sahibinin isteği, 11 Ekim 2026). İlk sürüm arayüz diliyle yazılmıştı ve yarım kalmış gibi
   okundu. Şunları yazma: başlık + parça ("Hesabın. Giriş yaptığın e-posta adresi."), etiket +
@@ -339,7 +360,8 @@ oturumsuz kullanıcıyı `/login`'e attığı için telefonda gelen link sekiyor
   ("Hayır."), ok işaretli yol tarifi ("Hesabım → Verilerim"). Bölüm başlıkları ad öbeğidir
   ("Saklama süreleri"), soru ya da yarım cümle değil. `legal.ts`'teki `purpose`/`data`/`note`
   ve Çerez Politikası tablosundaki `purpose`/`lifetime` sayfaya olduğu gibi basılır; onlar da
-  tam cümle.
+  tam cümle. Görülen kalıpları `tests/ui/legal.test.tsx` yakalar ("her cümle tam cümledir") —
+  dilbilgisi denetimi değil, yeni bir yarım cümle biçimi görülürse kalıbı oraya eklenir.
   Kural hukuki metinler için; arayüzün edebi, kısa dili (kartlar, düğmeler) bundan muaf.
 - **Aydınlatma Metni Telegram'dan söz etmez:** bot desteklenmiyor ve yayına alınmayacak (karar,
   11 Ekim 2026). Bağlama sayfası ve `link-telegram` **20 Ekim 2026'da kaldırıldı**; `/connect`
@@ -376,6 +398,29 @@ oturumsuz kullanıcıyı `/login`'e attığı için telefonda gelen link sekiyor
   eklendiğinde model raporları ASCII yazmaya başladı ve bu canlıya çıktı ("Kalabalikta Yalniz
   Kalan Ironist"). Üretici prompt'a kural ekleyince tek raporla yetinme — aynı listeyle
   kurallı/kuralsız birkaç örnek üretip Türkçe harf oranına bak (düzgün metin ≈ %10-13).
+- **Giriş e-postasında bağlantının yanında KOD da durur; giriş ekranındaki kod alanını kaldırma.**
+  `lens_pending_report` ve `lens_pending_consent` yalnızca formun doldurulduğu TARAYICIDA yaşar.
+  Bağlantı başka bir tarayıcıda açılınca — Instagram / LinkedIn'in uygulama içi tarayıcısından
+  gelende her zaman; masaüstünde yazıp postayı telefonda açanda da — giriş başarılı olur ama
+  kullanıcı boş panele düşer, aktarım rızası yeniden sorulur ve altı sinyal ilk tarayıcıda kalır
+  (lokalde iki tarayıcıyla ölçüldü, 11 Ekim 2026). Kod (`EmailCodeField` → `verifyEmailCode`)
+  oturumu taslağın durduğu tarayıcıda açar; sonrası bağlantıyla gelenle AYNI yoldan yürür
+  (`/auth/callback`) — ikinci bir giriş-sonrası yol açma.
+  **Kodun e-postada durması koda değil Supabase panelindeki "Magic Link" şablonuna bağlı
+  (`{{ .Token }}`).** O satır şablondan silinirse kod alanı sessizce işe yaramaz ve hiçbir test
+  düşmez: lokal şablon kodu kendiliğinden içerir, canlı içermez. Sıra: **önce şablon, sonra web**
+  (şablondaki fazladan kod eski web'e zarar vermez; tersi kullanıcıya olmayan bir kodu sordurur).
+  Giriş e-postası Supabase'in "Custom SMTP" ayarıyla **Resend'den** gider (`lens@lensestetik.com`,
+  20 Ekim 2026); Aydınlatma Metni'ndeki Resend satırı (`PROCESSORS`) buna dayanır. Ayar kapatılırsa
+  ya da gönderici değişirse o satır aynı gün değişir. Şablonun konusundaki Türkçe harfleri elle yaz:
+  kopyalanan "ğ" ayrık (g + kıvrık işaret) gelip Gmail'de kaydı.
+  Kod uzunluğu panelden ayarlı ve buradan okunamıyor — arayüzde "6 haneli" deme, alan 6-10 rakam
+  kabul eder. Kod ile bağlantı TEK kimliktir: biri kullanılınca öbürü ölür; `AuthCallback` bu
+  yüzden hata parametreli dönüşte beklemez. Yeniden gönderimi kod bileşeni değil EBEVEYN yapar:
+  giriş başlatan çağrı `EmailOptInModal` ya da `Login`'de kalır (`tests/guards/kvkk.test.ts`).
+  **Google yolu uygulama içi tarayıcıda ölçülemedi** (taklit kimlikle Google normal giriş ekranını
+  gösterdi; gerçek gömülü tarayıcı başka davranabilir) — telefonda denenmeden "çalışıyor" ya da
+  "reddediyor" deme. Kod, Google reddetse bile o tarayıcıda çalışan giriş yolu olsun diye var.
 - Onboarding eşiği **toplamda 6 sinyal**, kategori başına değil. Kategori zorunluluğuna geri
   dönme: "3 favori film yaz", film izlemeyen kullanıcıyı daha portresi çıkmadan eliyordu.
   Boş kategori bir kusur değil — rapor bunu bir kez, dürüstçe söyler.

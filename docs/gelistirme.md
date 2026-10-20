@@ -74,7 +74,8 @@ Bitince `npx supabase stop`. Veri korunur, bir dahaki `start`'ta yerinde durur.
 `npm run dev:local` açıkken kaydet, tarayıcı kendini günceller. Bitince:
 
 ```bash
-npm run build          # TypeScript hatalarını burada yakalarsın (ayrı test komutu yok)
+npm run build          # derleme hatalarını burada yakalarsın
+npm test               # unit testler — bir dakikadan kısa; ağ, Supabase ve Claude kredisi gerektirmez
 ```
 
 ### Edge function değişikliği
@@ -115,8 +116,38 @@ npx supabase db reset
 
 > `supabase/migrations/` içindeki zaman damgasız eski `.sql` dosyaları (`user_works.sql` vb.) CLI tarafından atlanır — tarihsel kayıt olarak duruyorlar, çalıştırılmıyorlar. "Skipping migration" uyarıları normaldir.
 
+### Unit testler
+
+```bash
+npm test                  # hepsini koş
+npm run test:watch        # dosya kaydettikçe ilgili testleri yeniden koşar
+npm run test:report       # koş + önceki koşuyla karşılaştır: ne YENİ düştü, hangi dosyalar değişti
+npm run test:scan         # kapsam ölçümüyle koş: testlerin hiç çalıştırmadığı kodu listeler
+npm run test:mutate -- --file <dosya> --find "<satır>" --replace "<bozuk hâli>" --test <test>
+                          # satırı geçici bozar; test DÜŞMELİ. Düşmüyorsa test o satırı sınamıyor
+npx vitest run tests/functions/analyze.test.ts   # tek dosya
+```
+
+Testler `tests/` altında durur: `lib/` (istemci mantığı), `ui/` (bileşenlerdeki kapılar: rıza
+kutusu, giriş kapısı, analitik bandı, hesap silme, Hesabım), `api/` (poster ve link önizlemesi),
+`functions/` (edge function'lar), `guards/` (CLAUDE.md kuralları, elle senkron tutulan kopyalar,
+hukuki metinlerin koda uyması). Hiçbiri ağa çıkmaz; `.env.local` yüklenmez, yani production'a
+dokunamazlar. Lokal Supabase'in çalışması gerekmez.
+
+**Neyi sınamaz:** veritabanı fonksiyonları ve RLS, kapı taşımayan bileşenler (görünüm, akış),
+Claude'un ürettiği metnin kalitesi. Onlar için aşağıdaki kontrol listesi ve
+[`test-senaryolari.md`](test-senaryolari.md) geçerli.
+
+Hukuki metne, rıza akışına, yeni bir dış servise ya da yeni bir `localStorage` anahtarına
+dokunduysan `tests/guards/kvkk.test.ts` düşebilir — bu beklenen davranış: metin ile kod ayrışmış
+demektir. Kodu sözüne döndür ya da metni güncelle; testi tek başına değiştirme.
+
+Claude Code'da aynı işler `lens-unit-test` skill'iyle yapılır (`/lens-unit-test run | scan | fill |
+watch 30m`); test yazım kuralları `.claude/skills/lens-unit-test/references/test-yazimi.md`'de.
+
 ### Prod'a çıkmadan önce kontrol listesi
 
+- [ ] `npm test` yeşil
 - [ ] `npm run build` hatasız geçiyor
 - [ ] Değişiklik `dev:local` üstünde (lokal DB'ye bağlı) test edildi
 - [ ] Şema değiştiyse `npx supabase db reset` temiz geçiyor
@@ -201,6 +232,8 @@ Geri alma: Vercel panosundan önceki deploy'a dönebilirsin. **Migration'ın oto
 **Lokal anahtarlar gizli değil.** `.env.localdb` içindeki JWT'ler her Supabase kurulumunda aynı olan herkese açık demo anahtarlarıdır; commit edilmeleri sorun değil.
 
 **`ANTHROPIC_API_KEY` ve `SUPABASE_SERVICE_ROLE_KEY` yalnızca edge function ortamında yaşar.** Client koduna asla import edilmez.
+
+**Giriş e-postasının şablonu depoda değil, Supabase panelinde yaşar** (Authentication → Emails → "Magic Link"). Giriş ekranındaki kod alanı, o şablonda `{{ .Token }}` durduğu sürece işe yarar; lokal yığın kodu kendiliğinden yollar, canlı yollamaz. Şablona dokunduysan canlıda kendine bir giriş e-postası isteyip kodu gör. Panelde "Confirm email" bugün kapalı, o yüzden ilk giriş de bu şablonu alır — açılırsa "Confirm signup" şablonuna da aynı satır gerekir (`GET /auth/v1/settings` → `mailer_autoconfirm`).
 
 **Rapor üretimi 30-40 saniye sürer.** Bu normaldir, takılma değil.
 

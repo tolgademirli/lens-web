@@ -9,7 +9,13 @@
     "dev:local": "vite --mode localdb",
     "poster:samples": "node --import ./scripts/_ts-resolve.mjs scripts/poster-samples.mjs",
     "poster:real": "node --import ./scripts/_ts-resolve.mjs scripts/kapi2-real-reports.mjs",
-    "poster:glyphs": "node scripts/check-glyphs.mjs"
+    "poster:glyphs": "node scripts/check-glyphs.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:report": "node scripts/unit-test-run.mjs",
+    "test:scan": "node scripts/unit-test-scan.mjs",
+    "test:mutate": "node scripts/unit-test-mutate.mjs"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
@@ -78,8 +84,11 @@
     "@types/node": "^22.20.1",
     "@types/opentype.js": "^1.3.10",
     "@vitejs/plugin-react": "4.7.0",
+    "@vitest/coverage-v8": "^4.1.11",
+    "jsdom": "^29.1.1",
     "tailwindcss": "4.1.12",
-    "vite": "6.4.3"
+    "vite": "6.4.3",
+    "vitest": "^4.1.11"
   },
   "peerDependencies": {
     "react": "18.3.1",
