@@ -36,7 +36,7 @@ export const CONTROLLER = {
 export const LEGAL_DRAFT = !CONTROLLER.name || !CONTROLLER.email;
 
 /** Metinlerin altındaki "son güncelleme" satırı. */
-export const LEGAL_UPDATED = "11 Ekim 2026";
+export const LEGAL_UPDATED = "20 Ekim 2026";
 
 /**
  * Yurt dışı aktarımına verilen açık rızanın metin sürümü. `user_consents.version`
@@ -107,12 +107,15 @@ export const PROCESSORS: Processor[] = [
   },
   {
     name: "Resend",
-    purpose: "Haftalık seçki e-postaları Resend üzerinden gönderilir.",
-    data: "Bu sağlayıcıya e-posta adresin, adın ve o haftanın seçkisi iletilir.",
+    // Giriş e-postası Supabase'in "Custom SMTP" ayarıyla Resend'den gider (20 Ekim
+    // 2026). Ayar kod değil panel: kapatılırsa bu cümle de değişir.
+    purpose: "Giriş e-postaları ve haftalık seçki e-postaları Resend üzerinden gönderilir.",
+    data: "Giriş e-postası için bu sağlayıcıya e-posta adresin ile giriş bağlantın ve kodun iletilir. Haftalık seçki e-postası için e-posta adresin, adın ve o haftanın seçkisi iletilir.",
     country: "ABD",
     // Mail kanalı açılınca not kendiliğinden düşer; satırın kendisi kalır ki
-    // lansman günü metne dokunmak gerekmesin.
-    note: WEEKLY_PICKS_EMAIL_PAUSED ? "Bu e-postalar şu anda gönderilmemektedir." : undefined,
+    // lansman günü metne dokunmak gerekmesin. Not yalnızca seçkiyi anlatır:
+    // giriş e-postaları her zaman gider.
+    note: WEEKLY_PICKS_EMAIL_PAUSED ? "Haftalık seçki e-postaları şu anda gönderilmemektedir." : undefined,
   },
   {
     name: "PostHog",

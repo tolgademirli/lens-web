@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { useNavigate } from "react-router";
 import { motion } from "motion/react";
 import { ArrowLeft, Mail, Sparkles } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { GoogleButton } from "./ui/google-button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "./ui/dialog";
+import { EmailCodeField } from "./EmailCode";
 import { TransferConsentField } from "./TransferConsent";
 import { sendMagicLink, signInWithGoogle } from "@/lib/supabase";
 import { markPendingTransferConsent } from "@/lib/transferConsent";
@@ -19,6 +21,7 @@ interface EmailOptInModalProps {
 }
 
 export function EmailOptInModal({ open, onOpenChange, context = "report" }: EmailOptInModalProps) {
+  const navigate = useNavigate();
   const [view, setView] = useState<View>("options");
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<Status>("idle");
@@ -61,18 +64,28 @@ export function EmailOptInModal({ open, onOpenChange, context = "report" }: Emai
     if (error) setGoogleLoading(false);
   };
 
+  // İlk gönderim de "yeniden gönder" de buradan geçer: aynı adres, aynı dönüş adresi.
+  const sendLink = () =>
+    sendMagicLink(email.trim(), `${window.location.origin}/auth/callback`);
+
   const handleEmailSubmit = async () => {
     if (!isValidEmail(email)) return;
     setStatus("sending");
     localStorage.setItem("lens_auth_method", "magic_link");
-    const redirectTo = `${window.location.origin}/auth/callback`;
-    const { error } = await sendMagicLink(email.trim(), redirectTo);
+    const { error } = await sendLink();
     if (error) {
       setErrorMsg(error.message);
       setStatus("error");
     } else {
       setView("sent");
     }
+  };
+
+  // Kodla girişte yönlendirme olmaz; oturum bu sekmede açılır. Sonrası bağlantıyla
+  // gelenle AYNI yoldan yürür (/auth/callback): taslak varsa rapor, yoksa panel.
+  const handleCodeVerified = () => {
+    localStorage.setItem("lens_auth_method", "email_code");
+    navigate("/auth/callback", { replace: true });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -194,13 +207,25 @@ export function EmailOptInModal({ open, onOpenChange, context = "report" }: Emai
             <DialogTitle className="text-2xl text-white font-serif">
               Email'inizi kontrol edin
             </DialogTitle>
+            {/* Eskiden "linke tıkladığınızda raporunuz otomatik oluşturulacak" diyordu;
+                bağlantı başka bir tarayıcıda açılınca bu söz tutulmuyordu. */}
             <DialogDescription className="text-purple-200">
-              <span className="text-white font-medium">{email}</span> adresine bir bağlantı gönderdik.
-              Gelen kutusundaki linke tıkladığınızda raporunuz otomatik oluşturulacak.
+              <span className="text-white font-medium">{email}</span> adresine bir giriş bağlantısı
+              ve bir kod gönderdik.{" "}
+              {context === "login"
+                ? "Kodu aşağıya yazın; girişiniz bu ekranda tamamlanır."
+                : "Kodu aşağıya yazın; raporunuz bu ekranda oluşur."}
             </DialogDescription>
-            <p className="text-slate-400 text-sm">
-              Email gelmedi mi? Spam klasörünü kontrol edin.
-            </p>
+            <EmailCodeField
+              email={email.trim()}
+              onVerified={handleCodeVerified}
+              onResend={sendLink}
+              hint={
+                context === "login"
+                  ? "Bağlantıya da dokunabilirsiniz; giriş, bağlantının açıldığı tarayıcıda tamamlanır."
+                  : "Bağlantıya da dokunabilirsiniz — ama bağlantı başka bir tarayıcıda açılırsa yazdıklarınız oraya taşınmaz."
+              }
+            />
           </div>
         )}
       </DialogContent>

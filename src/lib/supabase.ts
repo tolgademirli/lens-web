@@ -94,6 +94,32 @@ export async function sendMagicLink(email: string, redirectTo: string) {
   });
 }
 
+/** `rejected`: kod yanlış, kullanılmış ya da süresi dolmuş. `failed`: sorulamadı (ağ, sınır). */
+export type EmailCodeResult = "ok" | "rejected" | "failed";
+
+/**
+ * Giriş e-postasındaki kodla giriş. Oturum, kodun YAZILDIĞI tarayıcıda açılır —
+ * bağlantı ise nerede açıldıysa orada. Fark önemli: yazılan sinyaller
+ * (`lens_pending_report`) ve aktarım rızası (`lens_pending_consent`) bağlantının
+ * istendiği tarayıcıda durur; bağlantı başka bir tarayıcıda açılınca (Instagram /
+ * LinkedIn'in uygulama içi tarayıcısından gelen herkeste) kullanıcı boş panele
+ * düşüyordu (ölçüldü, 11 Ekim 2026).
+ *
+ * `type: "email"` ilk girişi de dönen kullanıcıyı da kapsar. Kod, aynı
+ * e-postadaki bağlantıyla TEK kimliktir: biri kullanılınca öbürü geçersizleşir.
+ * Kodun e-postada durması koda değil Supabase panelindeki "Magic Link"
+ * şablonuna bağlı (`{{ .Token }}`) — bkz. CLAUDE.md.
+ */
+export async function verifyEmailCode(email: string, code: string): Promise<EmailCodeResult> {
+  try {
+    const { data, error } = await supabase.auth.verifyOtp({ email, token: code, type: "email" });
+    if (error) return error.status === 403 || error.code === "otp_expired" ? "rejected" : "failed";
+    return data.session ? "ok" : "failed";
+  } catch {
+    return "failed";
+  }
+}
+
 export async function signInWithGoogle(redirectTo: string) {
   return supabase.auth.signInWithOAuth({
     provider: "google",

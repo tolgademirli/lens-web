@@ -5,6 +5,7 @@ import { ArrowLeft, Mail, Sparkles } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { GoogleButton } from "./ui/google-button";
+import { EmailCodeField } from "./EmailCode";
 import { sendMagicLink, signInWithGoogle } from "@/lib/supabase";
 
 type Status = "idle" | "sending" | "sent" | "error";
@@ -33,11 +34,14 @@ export function Login() {
     if (error) setGoogleLoading(false);
   };
 
+  // İlk gönderim de "yeniden gönder" de buradan geçer: aynı adres, aynı dönüş adresi.
+  const sendLink = () =>
+    sendMagicLink(email.trim(), `${window.location.origin}/auth/callback?intent=reports`);
+
   const handleSubmit = async () => {
     if (!isValidEmail(email)) return;
     setStatus("sending");
-    const redirectTo = `${window.location.origin}/auth/callback?intent=reports`;
-    const { error } = await sendMagicLink(email.trim(), redirectTo);
+    const { error } = await sendLink();
     if (error) {
       setErrorMsg(error.message);
       setStatus("error");
@@ -63,10 +67,16 @@ export function Login() {
           </div>
           <h2 className="text-2xl text-white font-serif">Email'inizi kontrol edin</h2>
           <p className="text-purple-200">
-            <span className="text-white font-medium">{email}</span> adresine bir bağlantı
-            gönderdik. Bağlantıya tıkladığınızda raporlarınıza yönlendirileceksiniz.
+            <span className="text-white font-medium">{email}</span> adresine bir giriş bağlantısı
+            ve bir kod gönderdik. Kodu aşağıya yazın; girişiniz bu ekranda tamamlanır.
           </p>
-          <p className="text-purple-400/70 text-sm">Email gelmedi mi? Spam klasörünü kontrol edin.</p>
+          {/* Kodla girişte yönlendirme olmaz; sonrası bağlantıyla gelenle aynı yoldan yürür. */}
+          <EmailCodeField
+            email={email.trim()}
+            onVerified={() => navigate("/auth/callback?intent=reports", { replace: true })}
+            onResend={sendLink}
+            hint="Bağlantıya da dokunabilirsiniz; giriş, bağlantının açıldığı tarayıcıda tamamlanır."
+          />
           <button
             onClick={() => navigate("/")}
             className="inline-flex items-center gap-1.5 text-purple-300/60 hover:text-purple-200 text-sm transition-colors mx-auto"
