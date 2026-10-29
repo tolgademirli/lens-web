@@ -170,7 +170,7 @@ export function TasteForm() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="max-w-3xl w-full bg-slate-800/90 backdrop-blur-sm rounded-3xl shadow-2xl p-8 md:p-12 border border-purple-500/20"
+          className="max-w-3xl w-full bg-slate-800/90 backdrop-blur-sm rounded-3xl shadow-2xl p-6 sm:p-8 md:p-12 border border-purple-500/20"
         >
           {/* Üç satır, üç ayrı iş: başlık davet eder, alt başlık ne ekleneceğini
               söyler, ilerleme satırı durumu verir. "6" yalnızca ilerleme satırında
@@ -222,11 +222,17 @@ export function TasteForm() {
           </div>
 
           {/* Sekmeler. İçe aktarım sürerken kilitli: sekme değişimi ImportFlow'u
-              unmount edip kullanıcının onay ekranını çöpe atardı. */}
+              unmount edip kullanıcının onay ekranını çöpe atardı.
+              Telefonda satır sıkışık: 390 px'te 292 px yer var. Eski hâli (text-base,
+              gap-6) 356 px istiyordu; "Müzik"in rozeti ekrandan taşıyor, sayfa yana
+              kayıyordu (29 Ekim 2026, Instagram'da görüldü). Küçük ekranda yazı küçülür,
+              aralık daralır, ikon gizlenir (sinyal listesinde yine görünür) ve etiket
+              kırılmaz; kartın iç boşluğu da telefonda p-8'den p-6'ya iner. Etiket ya da
+              sekme eklersen 360 px'te ölç. */}
           <div
             role="tablist"
             aria-label="Sinyal kategorileri"
-            className="flex gap-6 border-b border-purple-500/20"
+            className="flex justify-between sm:justify-start gap-2 sm:gap-6 border-b border-purple-500/20"
           >
             {CATEGORIES.map((cfg, i) => {
               const selected = active === cfg.key;
@@ -243,17 +249,17 @@ export function TasteForm() {
                     setActive(CATEGORIES[next].key);
                   }}
                   onClick={() => setActive(cfg.key)}
-                  className={`flex items-center gap-2 pb-3 -mb-px border-b-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                  className={`flex shrink-0 items-center gap-1.5 sm:gap-2 whitespace-nowrap text-sm sm:text-base pb-3 -mb-px border-b-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                     selected
                       ? "border-purple-400 text-white"
                       : "border-transparent text-purple-300 hover:text-purple-100"
                   }`}
                 >
-                  <cfg.icon className="w-4 h-4" strokeWidth={1.75} aria-hidden />
+                  <cfg.icon className="hidden sm:block w-4 h-4 shrink-0" strokeWidth={1.75} aria-hidden />
                   {cfg.label}
                   {counts[cfg.key] > 0 && (
                     <span
-                      className={`ml-1 px-1.5 py-0.5 rounded-full text-xs ${
+                      className={`sm:ml-1 px-1.5 py-0.5 rounded-full text-xs ${
                         counts[cfg.key] >= MAX_ENTRIES_PER_CATEGORY
                           ? "bg-emerald-500/20 text-emerald-200"
                           : "bg-purple-500/25 text-purple-100"

@@ -133,8 +133,13 @@
   * These are in @layer base, so Tailwind utility classes (like text-sm, text-lg) automatically override them.
   */
 
+  /* Tuvalin rengi koyu: sayfaların hepsi kendi koyu zeminini çiziyor, ama sayfanın
+     dışına taşan alanı (iOS'ta esneme, Instagram'ın tarayıcısında görünüm kayması)
+     `html` boyar. Rengi verilmeyince body'nin beyazı oraya yayılıyordu ve panelin
+     altında beyaz bir bant görünüyordu (29 Ekim 2026). */
   html {
     font-size: var(--font-size);
+    background-color: #0f172a;
   }
 
   h1 {
