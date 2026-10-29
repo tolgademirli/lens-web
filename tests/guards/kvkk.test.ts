@@ -90,9 +90,10 @@ describe("kişisel veri alan servisler ↔ Aydınlatma Metni'ndeki tablo", () =>
     }
   });
 
-  // Adresi env'den gelen (Supabase, PostHog istemcisi) ya da tarayıcı yönlendirmesiyle
-  // ulaşılan (Google, Vercel) sağlayıcılar yukarıdaki taramada görünmez.
-  it.each(["Supabase", "Vercel", "Google", "PostHog"])("%s tabloda yer alır", (name) => {
+  // Adresi env'den gelen (Supabase, PostHog istemcisi), tarayıcı yönlendirmesiyle
+  // ulaşılan (Google, Vercel) ya da yalnızca panelde kurulu olan (Cloudflare: Lens'e
+  // yazılan e-postaların yönlendirmesi) sağlayıcılar yukarıdaki taramada görünmez.
+  it.each(["Supabase", "Vercel", "Google", "PostHog", "Cloudflare"])("%s tabloda yer alır", (name) => {
     expect(processors).toContain(name);
   });
 });

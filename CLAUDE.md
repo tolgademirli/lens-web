@@ -346,7 +346,13 @@ oturumsuz kullanıcıyı `/login`'e attığı için telefonda gelen link sekiyor
   gerekçe); ödeme akışı gelince Kullanım Koşulları'na kendi bölümüyle girer.
   Veri sorumlusu bir şirket değil, gerçek kişi (`CONTROLLER`); **adres bilerek boş** (yazılacak
   tek adres ev adresi olurdu, başvuru kanalı e-posta) ve boşken satırı çizilmez. Ad ya da
-  e-posta boşalırsa sayfalara "taslak" şeridi düşer (`LEGAL_DRAFT`). **18 yaş sınırı yok**
+  e-posta boşalırsa sayfalara "taslak" şeridi düşer (`LEGAL_DRAFT`).
+  **Başvuru adresi `kvkk@lensestetik.com` (29 Ekim 2026) ve `lens@` posta kutusu DEĞİL**, Cloudflare
+  Email Routing ile Tolga'nın Gmail'ine yönlendirmedir. Ayar panelde: yönlendirme kaldırılırsa
+  metindeki adres sessizce ölür ve hiçbir test düşmez. Bu yüzden `PROCESSORS`'ta Cloudflare
+  (e-postaları iletir) ve Google'ın ikinci rolü (Gmail'de okunur) durur. Cloudflare proxy'si
+  **kapalı** (site doğrudan Vercel'e çözülüyor, ölçüldü 29 Ekim 2026). Proxy açılırsa ziyaretçinin
+  IP'si de Cloudflare'e gider ve satırın `data` cümlesi aynı gün değişir. **18 yaş sınırı yok**
   (karar, 11 Ekim 2026); metinlerdeki veli izni cümlesi doğrulama değil beyandır — yaş kapısı
   eklenirse o cümleyle birlikte değişir.
   Bu eşleşmelerin kodla denetlenebilen kısmı `tests/guards/kvkk.test.ts`'te (dış adresler ↔

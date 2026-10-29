@@ -29,14 +29,19 @@ export const CONTROLLER = {
   name: "Tolga Demirli",
   address: "",
   /** KVKK başvurularının geldiği kutu. Yayından önce var olmalı ve OKUNMALI:
-   *  başvurunun yasal yanıt süresi 30 gün. */
-  email: "lensestetik@gmail.com",
+   *  başvurunun yasal yanıt süresi 30 gün.
+   *
+   *  Bu bir posta kutusu DEĞİL, Cloudflare Email Routing yönlendirmesi (29 Ekim
+   *  2026): `kvkk@` Tolga'nın Gmail'ine iletilir, orada filtreyle işaretlenir.
+   *  Ayar kod değil panel: yönlendirme kaldırılırsa bu adres sessizce ölür ve
+   *  hiçbir test düşmez. Eskisi `lensestetik@gmail.com`'du. */
+  email: "kvkk@lensestetik.com",
 };
 
 export const LEGAL_DRAFT = !CONTROLLER.name || !CONTROLLER.email;
 
 /** Metinlerin altındaki "son güncelleme" satırı. */
-export const LEGAL_UPDATED = "20 Ekim 2026";
+export const LEGAL_UPDATED = "29 Ekim 2026";
 
 /**
  * Yurt dışı aktarımına verilen açık rızanın metin sürümü. `user_consents.version`
@@ -100,9 +105,26 @@ export const PROCESSORS: Processor[] = [
     country: "ABD",
   },
   {
+    // Lens'in adreslerine (`lens@`, `kvkk@`) yazılan e-postalar alan adının
+    // MX kayıtlarıyla Cloudflare'e düşer ve oradan Gmail'e iletilir (Email
+    // Routing, 20 ve 29 Ekim 2026). Sitenin trafiği Cloudflare'den GEÇMİYOR:
+    // alan adı doğrudan Vercel'e çözülüyor (proxy kapalı, ölçüldü 29 Ekim 2026).
+    // Proxy açılırsa her ziyaretçinin IP'si ve tarayıcı bilgisi de buraya gider
+    // ve `data` cümlesi değişir. Eklenmesi rıza sürümünü YÜKSELTMEDİ: rıza
+    // cümlesi sağlayıcıları adıyla saymıyor ve ülke (ABD) zaten listede.
+    name: "Cloudflare",
+    purpose: "Lens'in alan adı Cloudflare'de yönetilir ve Lens'e yazılan e-postalar Cloudflare üzerinden iletilir.",
+    data: "Lens'e e-posta yazarsan bu sağlayıcıya e-posta adresin ve iletin ulaşır.",
+    country: "ABD",
+  },
+  {
+    // İki ayrı rol: Google ile giriş ve Lens'e yazılan e-postaların okunduğu
+    // Gmail kutusu (yönlendirmenin hedefi). Gmail'den vazgeçilirse ikinci
+    // cümleler düşer.
     name: "Google",
-    purpose: "Google, yalnızca Google ile giriş yapmayı seçersen devreye girer.",
-    data: "Bu durumda Google, e-posta adresini, adını ve profil görselini Lens ile paylaşır.",
+    purpose:
+      "Google ile giriş yapmayı seçersen giriş Google üzerinden yapılır. Lens'e yazdığın e-postalar da Google'ın e-posta hizmeti Gmail'de okunur.",
+    data: "Google ile giriş yaparsan Google, e-posta adresini, adını ve profil görselini Lens ile paylaşır. Lens'e e-posta yazarsan e-posta adresin ve iletin Gmail'de saklanır.",
     country: "ABD",
   },
   {

@@ -190,6 +190,10 @@ export function PrivacyPage() {
             saklanır.
           </li>
           <li>
+            Lens'e e-posta yazarsan, sana yanıt verebilmek için <Key>e-posta adresin ve iletin</Key>{" "}
+            işlenir.
+          </li>
+          <li>
             <Key>IP adresin ve tarayıcı bilgin</Key>, siteyi sunan altyapının erişim kayıtlarına
             düşer. Giriş yapmadan ekran görüntüsü ya da metin okuttuğunda IP adresin günlük
             kullanım sayacında da tutulur.
@@ -331,6 +335,12 @@ export function PrivacyPage() {
             adın ve e-posta adresin oraya gönderilmez. İzni kapattığında ölçüm durur. Hesabını
             sildiğinde bu numara Lens'te artık hiç kimseyi göstermez. Kayıtlarının PostHog'dan da
             silinmesini istersen <Mail /> adresine yazman yeterlidir.
+          </li>
+          {/* E-postalar Lens'in veritabanında değil, Gmail'de durur: `delete-account`
+              onlara ulaşmaz. Bu cümle o yüzden var. */}
+          <li>
+            Lens'e yazdığın e-postalar Gmail'deki kutuda saklanır ve hesabını sildiğinde silinmez.
+            Bu e-postaların silinmesini istersen <Mail /> adresine yazman yeterlidir.
           </li>
         </Bullets>
       </Section>
