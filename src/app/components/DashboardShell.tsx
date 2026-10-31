@@ -1,8 +1,9 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router";
 import { motion } from "motion/react";
-import { Bookmark, Compass, FileText, LogOut, Plus, Sparkles, User, UserCog } from "lucide-react";
+import { Bookmark, Compass, FileText, LogOut, Plus, User, UserCog } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
+import { LensMark } from "@/app/components/LensMark";
 import { getCurrentUser, supabase } from "@/lib/supabase";
 
 /**
@@ -64,9 +65,7 @@ export function DashboardShell({ children, loading = false }: DashboardShellProp
             {/* min-w-0: sol grup küçülebilmeli, yoksa e-posta satırı kırpılmak yerine
                 sağdaki aksiyonları (shrink-0 butonlar) mobilde ekran dışına iter. */}
             <div className="flex min-w-0 flex-1 items-center gap-3 md:gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 shadow-lg">
-                <Sparkles className="h-6 w-6 text-white" />
-              </div>
+              <LensMark className="h-12 w-12 rounded-xl shadow-lg" />
               <div className="min-w-0">
                 <h1 className="text-2xl font-light tracking-widest text-white">LENS</h1>
                 <div className="flex items-center gap-2 text-sm text-purple-200">
@@ -132,11 +131,11 @@ function ShellLoading() {
   return (
     <div className="flex justify-center py-24">
       <motion.div
-        animate={{ rotate: 360 }}
-        transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-        className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-pink-500"
+        animate={{ scale: [1, 1.08, 1] }}
+        transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+        className="inline-flex"
       >
-        <Sparkles className="h-8 w-8 text-white" />
+        <LensMark className="h-16 w-16 rounded-full" />
       </motion.div>
     </div>
   );

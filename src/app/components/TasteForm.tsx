@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { motion } from "motion/react";
-import { Sparkles } from "lucide-react";
+import { LensMark } from "./LensMark";
 import { Button } from "./ui/button";
 import { EmailOptInModal } from "./EmailOptInModal";
 import { ImportFlow } from "./ImportFlow";
@@ -177,9 +177,7 @@ export function TasteForm() {
               yaşıyor — başlıkta ve alt başlıkta da tekrarlanınca kaldırmaya
               çalıştığımız "kota" hissini geri getiriyordu. */}
           <div className="flex items-center gap-4 mb-6">
-            <div className="flex items-center justify-center w-16 h-16 shrink-0 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 shadow-lg">
-              <Sparkles className="w-8 h-8 text-white" />
-            </div>
+            <LensMark className="w-16 h-16 rounded-2xl shadow-lg" />
             <div>
               <h1 className="text-3xl mb-1 text-white">Hadi, seni tanıyayım</h1>
               <p className="text-purple-200">

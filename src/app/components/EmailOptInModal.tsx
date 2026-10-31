@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { motion } from "motion/react";
-import { ArrowLeft, Mail, Sparkles } from "lucide-react";
+import { ArrowLeft, Mail } from "lucide-react";
+import { LensMark } from "./LensMark";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { GoogleButton } from "./ui/google-button";
@@ -201,9 +202,7 @@ export function EmailOptInModal({ open, onOpenChange, context = "report" }: Emai
 
         {view === "sent" && (
           <div className="text-center space-y-6 py-4">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 mx-auto">
-              <Sparkles className="w-8 h-8 text-white" />
-            </div>
+            <LensMark className="w-16 h-16 rounded-full mx-auto" />
             <DialogTitle className="text-2xl text-white font-serif">
               Email'inizi kontrol edin
             </DialogTitle>

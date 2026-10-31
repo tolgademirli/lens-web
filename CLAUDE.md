@@ -372,10 +372,26 @@ oturumsuz kullanıcıyı `/login`'e attığı için telefonda gelen link sekiyor
 - **Aydınlatma Metni Telegram'dan söz etmez:** bot desteklenmiyor ve yayına alınmayacak (karar,
   11 Ekim 2026). Bağlama sayfası ve `link-telegram` **20 Ekim 2026'da kaldırıldı**; `/connect`
   `/`'a yönlenir. Telegram **tabloları ve kolonları duruyor** — hesap silme trigger'ı ve
-  `lens_report_by_id` onlara dokunuyor; düşürmek ayrı bir migration işi. Bot ayrı depoda ve
-  production veritabanını paylaşıyor: Railway'de hâlâ çalışıyorsa yazmayı sürdürür. Bot
+  `lens_report_by_id` onlara dokunuyor; düşürmek ayrı bir migration işi. **29 Ekim 2026'da
+  tablolar boşaltıldı:** botun 14 raporu silindi (hiçbiri bir web hesabına bağlı değildi), eser
+  ve eşleme tablolarında satır yoktu. Botun Railway projesi aynı gün **silindi**; kodu ayrı
+  depoda (`tolgademirli/lens`) duruyor ve production veritabanına yazan bir bot artık yok. Bot
   yeniden açılırsa ya da bağlama yolu geri gelirse Telegram kimliği aynı gün metnin veri
   listesine girer (söylenmeyen işleme, aydınlatılmamış işlemedir).
+- **`index.html`'deki görünmez statik blok ve ana sayfadaki düz cümle Google marka doğrulaması
+  için duruyor (31 Ekim 2026).** Site istemcide çizildiği için ham HTML boştu; denetim ana sayfada
+  uygulamanın adını, amacını ve gizlilik bağlantısını arıyor. Blok `#root`'un içinde, görünmez ve
+  React açılınca silinir. Bloktaki gizlilik adresi Google panelindeki "Privacy policy" alanıyla
+  birebir aynı kalır (`https://lensestetik.com/privacy`, yönlendirmesiz). Ana sayfa cümlesi de
+  "Lens" adını taşır: kısaltılabilir ama **satır eklenemez**, çünkü iPhone'da Instagram'ın görünür
+  alanında (390×741) "Kimliğini Keşfet" analitik bandının yalnızca 13 px üstünde. Yerleşimi ölçerken
+  bandın gerçekten çizildiğine bak: `VITE_POSTHOG_KEY` boşsa band hiç çıkmaz ve ölçüm yanıltır.
+- **Logo tek çizimdir: `src/app/components/LensMark.tsx` (31 Ekim 2026).** Sitedeki her logo bu
+  bileşenden gelir. `public/` altındaki sekme simgeleri ile Google ve Instagram'a yüklenen PNG'ler
+  (`docs/tanitim/img/lens-logo-120.png`, `-512.png`; bu klasör git'te değil) aynı çizimden üretildi.
+  Renkler sabit: zemin `#0a111c`, çizgi `#efe9dc`, altın `#cfae72`. Logo değişirse hepsi birlikte
+  değişir ve Google marka doğrulaması yeniden gerekir. Bekleme ekranlarında logo dönmez, çünkü harf
+  taşıyor. `Sparkles` artık logo değil, keşif başlığında ve boş ekranında içerik ikonu olarak durur.
 - **Aktarım rızası kutusu işaretsiz gelir ve ilk rapor yolunun giriş düğmeleri ona bağlıdır.**
   Kutuyu önceden işaretleme, "devam ederek kabul etmiş olursun" cümlesine katlama: ikisi de açık
   rızayı geçersiz kılar (o kalıp yalnızca Kullanım Koşulları için). Kutuyu ilk rapor yolundan

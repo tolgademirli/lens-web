@@ -4,6 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Lens Estetik Raporu</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-48.png" type="image/png" sizes="48x48" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta
       name="description"
       content="Okuduklarından, izlediklerinden ve dinlediklerinden estetik kimliğini çıkarır. Sen hangisisin?"
@@ -37,7 +40,35 @@
   </head>
 
   <body>
-    <div id="root"></div>
+    <!--
+      Statik blok: site istemcide çizildiği için ham HTML boştu ve sayfayı JavaScript
+      çalıştırmadan okuyan denetimler (Google'ın marka doğrulaması ana sayfada uygulamanın
+      adını, amacını ve gizlilik bağlantısını arıyor) hiçbirini göremiyordu. Blok görünmez
+      ve React açılınca kökle birlikte silinir, yani kullanıcı onu hiç görmez. Her rotada
+      aynı HTML döndüğü için sayfaya özel bir şey yazma. Gizlilik bağlantısı, Google
+      panelindeki "Privacy policy" adresiyle BİREBİR aynı kalmalı.
+    -->
+    <div id="root">
+      <div
+        style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap"
+      >
+        <h1>Lens</h1>
+        <p>
+          Lens, kullanıcının okuduğu kitaplardan, izlediği filmlerden ve dinlediği müziklerden
+          kişisel bir estetik kimlik raporu yazan bir web uygulamasıdır. Kullanıcı en az altı eser
+          girer ve Lens bu eserlerin ortak çizgisini anlatan raporu hazırlar. Uygulama ardından
+          günlük keşif önerileri ve haftalık film ve dizi seçkileri sunar. Google ile giriş yalnızca
+          hesabın açılması için kullanılır.
+        </p>
+        <p lang="en">
+          Lens is a web application that writes a personal aesthetic identity report from the books,
+          films and music a user loves, then offers daily discoveries and weekly film picks. Google
+          Sign-In is used only to create the user's account.
+        </p>
+        <a href="https://lensestetik.com/privacy">Gizlilik Politikası</a>
+        <a href="https://lensestetik.com/terms">Kullanım Koşulları</a>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

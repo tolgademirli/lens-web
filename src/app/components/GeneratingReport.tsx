@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { motion } from "motion/react";
-import { Sparkles, BookOpen, Film, Music } from "lucide-react";
+import { BookOpen, Film, Music } from "lucide-react";
+import { LensMark } from "./LensMark";
 import { analyzeAndCreateReport, AnalyzeError } from "@/lib/supabase";
 import {
   readPendingReport,
@@ -184,17 +185,11 @@ export function GeneratingReport() {
         className="max-w-2xl w-full text-center"
       >
         <motion.div
-          animate={{
-            rotate: 360,
-            scale: [1, 1.2, 1],
-          }}
-          transition={{
-            rotate: { duration: 2, repeat: Infinity, ease: "linear" },
-            scale: { duration: 1, repeat: Infinity, ease: "easeInOut" },
-          }}
-          className="inline-flex items-center justify-center w-24 h-24 mb-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 shadow-2xl"
+          animate={{ scale: [1, 1.08, 1] }}
+          transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+          className="inline-flex mb-8"
         >
-          <Sparkles className="w-12 h-12 text-white" />
+          <LensMark className="w-24 h-24 rounded-full shadow-2xl" />
         </motion.div>
 
         <motion.h2

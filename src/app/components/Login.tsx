@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { motion } from "motion/react";
-import { ArrowLeft, Mail, Sparkles } from "lucide-react";
+import { ArrowLeft, Mail } from "lucide-react";
+import { LensMark } from "./LensMark";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { GoogleButton } from "./ui/google-button";
@@ -98,9 +99,7 @@ export function Login() {
         className="max-w-md w-full space-y-8"
       >
         <div className="text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 mb-6">
-            <Sparkles className="w-8 h-8 text-white" />
-          </div>
+          <LensMark className="w-16 h-16 rounded-full mb-6" />
           <h2 className="text-2xl text-white font-serif mb-3">Raporlarınıza Erişin</h2>
           <p className="text-purple-200 text-sm leading-relaxed">
             Email adresinize bir giriş bağlantısı göndereceğiz.

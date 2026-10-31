@@ -1,16 +1,16 @@
 import { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { Link, useNavigate } from "react-router";
-import { Sparkles } from "lucide-react";
 import { Button } from "./ui/button";
 import { EmailOptInModal } from "./EmailOptInModal";
+import { LensMark } from "./LensMark";
 import { AnalyticsPreferenceLink } from "./AnalyticsConsent";
 import { posthog } from "@/lib/posthog";
 import { getCurrentUser } from "@/lib/supabase";
 import { CATEGORIES } from "./categories";
 
 /**
- * Giriş sayfası. Ortalanmış kompozisyon, gradyan zemin ve sparkle markı kasıtlı:
+ * Giriş sayfası. Ortalanmış kompozisyon, gradyan zemin ve iri logo kasıtlı:
  * burası bir "marka anı", form değil. /start'ın düz koyu yüzeyi ise çalışma
  * ekranı — iki dilin farklı olması bilinçli, tutarlılık adına buranın sakinliği
  * feda edilmiyor.
@@ -59,9 +59,9 @@ export function Welcome() {
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-          className="inline-flex items-center justify-center w-24 h-24 mb-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 shadow-2xl"
+          className="inline-flex mb-8"
         >
-          <Sparkles className="w-12 h-12 text-white" />
+          <LensMark className="w-24 h-24 rounded-full shadow-2xl" />
         </motion.div>
 
         <motion.h1
@@ -80,8 +80,12 @@ export function Welcome() {
           className="space-y-4 mb-12"
         >
           <h2 className="text-2xl text-purple-200">Estetik Kimlik Raporu</h2>
+          {/* Bu cümle ürünün ne yaptığını düz söyler ve adını taşır: Google'ın marka
+              doğrulaması ana sayfada uygulamanın amacını ve adını arıyor (`index.html`deki
+              statik blokla aynı nedenle). SATIR EKLEME: 390×741'de (iPhone'da Instagram'ın
+              görünür alanı) "Kimliğini Keşfet" analitik bandının 13 px üstünde. */}
           <p className="text-lg text-gray-300 max-w-xl mx-auto leading-relaxed">
-            Son zamanlarda sende iz bırakan birkaç şeyi söyle, gerisini ben tamamlarım.
+            Sende iz bırakan kitap, film ve müzikleri söyle, raporunu Lens yazsın.
           </p>
         </motion.div>
 

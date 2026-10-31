@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { motion } from "motion/react";
-import { Sparkles } from "lucide-react";
+import { LensMark } from "./LensMark";
 import { supabase } from "@/lib/supabase";
 import { readPendingReport, pendingReportIsComplete } from "@/lib/pendingReport";
 import { posthog } from "@/lib/posthog";
@@ -91,11 +91,11 @@ export function AuthCallback() {
         className="text-center space-y-4"
       >
         <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-          className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-pink-500"
+          animate={{ scale: [1, 1.08, 1] }}
+          transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+          className="inline-flex"
         >
-          <Sparkles className="w-8 h-8 text-white" />
+          <LensMark className="w-16 h-16 rounded-full" />
         </motion.div>
         <p className="text-purple-200">Oturum açılıyor...</p>
       </motion.div>
