@@ -162,10 +162,16 @@ watch 30m`); test yazım kuralları `.claude/skills/lens-unit-test/references/te
 ### 1. Şema (varsa, önce bu)
 
 ```bash
-npx supabase db push
+npx supabase migration list --remote   # canlıda bekleyenleri gör
+npx supabase db push --remote
 ```
 
 Yalnızca uygulanmamış migration'ları gönderir. Onay ister, listeyi okuyup onayla.
+
+> **`--remote` şart.** Bu CLI sürümünde `db push` bayraksız çağrılınca **lokal** yığına gider
+> (8 Kasım 2026'da görüldü: çıktının ilk satırı `Target: local stack`). Lokal açıksa migration
+> lokale uygulanır, komut "Finished" der ve canlıda hiçbir şey değişmez. Onaydan önce çıktıdaki
+> `Target:` satırında `LensReports · production` yazdığına bak.
 
 **Sıralama önemli:** yeni kolon bekleyen bir frontend'i şemadan önce yayınlarsan canlı hata alırsın. Önce şema, sonra kod.
 

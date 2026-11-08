@@ -16,7 +16,8 @@ Lens (lensestetik.com): kullanıcıların kitap/film/müzik zevkinden "estetik a
 npm run dev:local   # geliştirme — LOKAL Supabase stack'e bağlanır
 npm run dev         # geliştirme — PRODUCTION Supabase'e bağlanır
 npm run build       # production build → dist/
-npx supabase start / stop / db reset / db push
+npx supabase start / stop / db reset
+npx supabase db push --remote          # canlıya şema — `--remote`sız LOKALE gider
 npx supabase functions deploy <name>   # edge function deploy
 npm test            # unit testler (Vitest, <1 dk) — ağ, Supabase ve Claude kredisi GEREKTİRMEZ
 npm run test:report # koş + önceki koşuyla karşılaştır   ·   npm run test:scan  # eksik test taraması
@@ -303,7 +304,9 @@ oturumsuz kullanıcıyı `/login`'e attığı için telefonda gelen link sekiyor
    karar geçerli kalır (fail-open, günlükte `[analytics-consent]`). Bilinen boşluk: tarayıcıda izin
    varken PostHog sayfa açılınca hemen başlar, başka cihazda geri alınan izin burada bir istek sonra
    uygulanır. Sıra: **önce migration, sonra web** (tablo yokken web eskisi gibi yalnızca tarayıcıda
-   hatırlar).
+   hatırlar). Giriş yapmamış ziyaretçiye bant **yine sorar** (karar, 8 Kasım 2026): kim olduğu
+   bilinmeden hesaptaki karar okunamaz, bandı yalnızca girişten sonra göstermek ise girişsiz
+   ziyaretçiyi hiç ölçmez ve huninin tepesini (ana sayfa, form) kaybettirirdi.
 5. **Oturum kaydı (session replay) ALINMAZ; yetkilisi kod, PostHog paneli değil**
    (`src/lib/posthog.ts` → `disable_session_recording: true`, 11 Ekim 2026). Kayıt panelde
    açık bulunmuştu ve izin verenin ekranı — raporları ve eser listesi dahil — kaydediliyordu.
