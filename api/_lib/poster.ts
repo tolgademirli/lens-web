@@ -93,6 +93,50 @@ function arrowDataUri(color: string): string {
   return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
 }
 
+/**
+ * Lens'in işareti, alt imzanın solunda TEK BAŞINA.
+ *
+ * Yanına "Lens." yazılmaz: işaret L harfinden türüyor ve adın önünde "L Lens."
+ * diye okunuyordu. Ad posterde zaten iki kez geçiyor (üstte LENS, sağda
+ * lensestetik.com); işareti ilk kez gören adı oradan okur.
+ *
+ * Çizim `src/app/components/LensMark.tsx`'ten birebir kopya: `api/` React
+ * bileşenini import edemiyor. İki kopyayı `tests/guards/sync.test.ts` eşit tutar;
+ * logo değişirse burası da değişir.
+ *
+ * Logonun kendi renkleri (krem çizgi, altın ışın, gece zemini) KULLANILMAZ.
+ * Paletler rapora göre değişiyor ve altın açık ya da sıcak bir zeminde okunmuyor;
+ * işaret posterin yazı rengiyle tek renk çizilir, çünkü o rengin her paletteki
+ * kontrastı zaten ölçülüyor. Zemin karesi de yok: poster zaten koyu.
+ *
+ * viewBox çizimin kendi sınır kutusuna kırpıldı (x 17.6–105, y 16–108.4); yoksa
+ * 120'lik kutunun boş kenarı işareti küçültür ve hizasını kaydırırdı.
+ */
+const MARK_VIEWBOX = { x: 17, y: 15, width: 89, height: 95 };
+/**
+ * İşaretin yüksekliği ve üst boşluğu, footerSize'a oranla. Yazı boyunda (1.15)
+ * tek başına kaybolup köşeye düşmüş bir harf gibi duruyordu. Bu ölçüde L'nin
+ * tepesi "lensestetik.com"un büyük harf boyuyla, merceğin ucu "sen hangisisin?"in
+ * taban çizgisiyle hizalanır ve işaret sağdaki iki satırlık bloğu dengeler.
+ * İkisinin toplamı sağ bloğun yüksekliğini (~2.07) AŞMAMALI: aşarsa alt çubuk
+ * uzar ve üstündeki her şey yukarı itilir.
+ */
+const MARK_SIZE = 1.75;
+const MARK_TOP = 0.2;
+
+export function lensMarkDataUri(color: string): string {
+  const { x, y, width, height } = MARK_VIEWBOX;
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x} ${y} ${width} ${height}" width="${width}" height="${height}" fill="none">` +
+    `<g transform="translate(-8 6)">` +
+    `<path d="M40 14V66" stroke="${color}" stroke-width="8" stroke-linecap="round"/>` +
+    `<path d="M60 88H100" stroke="${color}" stroke-width="8" stroke-linecap="round"/>` +
+    `<circle cx="104" cy="88" r="9" fill="${color}"/>` +
+    `<path d="M0 -26C14 -10 14 10 0 26C-14 10 -14 -10 0 -26Z" fill="${color}" transform="translate(44 84) rotate(-45)"/>` +
+    `</g></svg>`;
+  return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
+}
+
 /*
  * FİLM GRAIN YOK — bu bir eksiklik değil, ölçülmüş bir karar.
  *
@@ -342,6 +386,7 @@ function palette(m: Metrics, t: PosterTheme, report: Report): Node | null {
 }
 
 function bottomBar(m: Metrics, t: PosterTheme): Node {
+  const markHeight = Math.round(m.footerSize * MARK_SIZE);
   return box(
     { flexDirection: "column", width: "100%" },
     box({ height: 1, width: "100%", backgroundColor: t.rule }),
@@ -350,10 +395,12 @@ function bottomBar(m: Metrics, t: PosterTheme): Node {
         justifyContent: "space-between", alignItems: "flex-start",
         width: "100%", marginTop: Math.round(m.footerSize * 0.7),
       },
-      text(
-        { fontFamily: "Inter", fontSize: m.footerSize, fontWeight: 600, color: t.text },
-        "Lens."
-      ),
+      h("img", {
+        src: lensMarkDataUri(t.text),
+        width: Math.round((markHeight * MARK_VIEWBOX.width) / MARK_VIEWBOX.height),
+        height: markHeight,
+        style: { marginTop: Math.round(m.footerSize * MARK_TOP) },
+      }),
       box(
         { flexDirection: "column", alignItems: "flex-end" },
         text(
@@ -433,7 +480,7 @@ export function posterTree(
 }
 
 /** Rapor okunamadığında dönen jenerik marka posteri — içerik sızdırmaz. */
-export function genericTree(format: PosterFormat): { node: Node; metrics: Metrics } {
+export function genericTree(format: PosterFormat): { node: Node; metrics: Metrics; theme: PosterTheme } {
   const m = METRICS[format];
   const theme: PosterTheme = {
     background: "#0d0d10", glowTop: "#241f2e", glowBottom: "#1a1d24",
@@ -473,7 +520,7 @@ export function genericTree(format: PosterFormat): { node: Node; metrics: Metric
     )
   );
 
-  return { node, metrics: m };
+  return { node, metrics: m, theme };
 }
 
 export function formatOf(value: unknown): PosterFormat {

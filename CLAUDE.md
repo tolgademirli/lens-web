@@ -409,6 +409,13 @@ oturumsuz kullanıcıyı `/login`'e attığı için telefonda gelen link sekiyor
   Renkler sabit: zemin `#0a111c`, çizgi `#efe9dc`, altın `#cfae72`. Logo değişirse hepsi birlikte
   değişir ve Google marka doğrulaması yeniden gerekir. Bekleme ekranlarında logo dönmez, çünkü harf
   taşıyor. `Sparkles` artık logo değil, keşif başlığında ve boş ekranında içerik ikonu olarak durur.
+  **Posterde logo tek renktir (8 Kasım 2026).** Story, Feed, OG ve jenerik posterin alt imzasındaki
+  işaret (`api/_lib/poster.ts`, `lensMarkDataUri`) bu çizimin kopyasıdır, çünkü `api/` React
+  bileşenini import edemez. İşaret alt çubuğun solunda **tek başına** durur ve yanına "Lens." yazılmaz:
+  işaret L'den türediği için adın önünde "L Lens." diye okunuyordu, ad da posterde üstteki LENS'te ve
+  sağdaki adreste zaten geçiyor. Rengi logonun renkleri değil posterin yazı rengidir (`t.text`):
+  paletler rapora göre değişir ve altın açık zeminde okunmaz. Kopyanın geometrisini
+  `tests/guards/sync.test.ts` çizimle eşit tutar; logo değişirse o test düşer ve poster de değişir.
 - **Aktarım rızası kutusu işaretsiz gelir ve ilk rapor yolunun giriş düğmeleri ona bağlıdır.**
   Kutuyu önceden işaretleme, "devam ederek kabul etmiş olursun" cümlesine katlama: ikisi de açık
   rızayı geçersiz kılar (o kalıp yalnızca Kullanım Koşulları için). Kutuyu ilk rapor yolundan

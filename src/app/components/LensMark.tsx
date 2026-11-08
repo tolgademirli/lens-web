@@ -7,6 +7,9 @@
  * zeminin %74'ünü kaplar: daire kırpmada altın nokta kenara değmez.
  *
  * Çizim `public/favicon.svg` ile, Google ve Instagram'a yüklenen PNG'lerle aynıdır.
+ * Tek istisna posterdir: `api/` bu bileşeni import edemediği için `api/_lib/poster.ts`
+ * çizimi kopyalar ve posterin yazı rengiyle tek renk basar. Geometriyi
+ * `tests/guards/sync.test.ts` eşit tutar; burada bir koordinat değişirse orası da değişir.
  * Bu işareti DÖNDÜRME: harf taşıyor ve dönerken okunmuyor, bekleme ekranlarında nefes
  * alır.
  */

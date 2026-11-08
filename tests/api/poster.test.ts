@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Node } from "../../api/_lib/h.ts";
-import { formatOf, genericTree, posterTree, type PosterFormat } from "../../api/_lib/poster.ts";
+import { formatOf, genericTree, lensMarkDataUri, posterTree, type PosterFormat } from "../../api/_lib/poster.ts";
 import { renderGeneric, renderPoster } from "../../api/_lib/render.ts";
 import { pngSize } from "../helpers/http";
 import { reportRow } from "../helpers/fixtures";
@@ -36,6 +36,32 @@ function texts(root: unknown): string[] {
 
 const styleOf = (node: Node) => (node.props.style ?? {}) as Record<string, unknown>;
 
+const images = (root: unknown) => nodes(root).filter((node) => node.type === "img");
+
+/** Görselin data URI'sindeki SVG kaynağı. */
+const svgOf = (node: Node) =>
+  Buffer.from(String(node.props.src).replace(/^data:image\/svg\+xml;base64,/, ""), "base64").toString("utf8");
+
+/** Alt imzadaki logoyu doğrular: tek renk, `color` ile, alt çubuğun solunda tek başına. */
+function expectMark(root: Node, color: string) {
+  const marks = images(root).filter((node) => node.props.src === lensMarkDataUri(color));
+  expect(marks).toHaveLength(1);
+
+  // Yalnızca yazı rengi: altın (#cfae72), krem (#efe9dc) ya da gece zemini (#0a111c) yok.
+  const colors = new Set([...svgOf(marks[0]).matchAll(/(?:fill|stroke)="([^"]+)"/g)].map((m) => m[1]));
+  expect([...colors].sort()).toEqual([color, "none"].sort());
+
+  // Alt çubuğun ilk çocuğu; karşısında adres bloğu durur.
+  const row = nodes(root).find((node) => Array.isArray(node.props.children) && node.props.children.includes(marks[0]))!;
+  const siblings = row.props.children as Node[];
+  expect(siblings).toHaveLength(2);
+  expect(siblings[0]).toBe(marks[0]);
+  expect(texts(siblings[1])).toEqual(["lensestetik.com", "sen hangisisin?"]);
+
+  // İşaret L'den türüyor; yanına ad yazılınca "L Lens." diye okunuyordu.
+  expect(texts(root)).not.toContain("Lens.");
+}
+
 describe("formatOf", () => {
   it("yalnızca 'feed' ve 'og' tanınır; gerisi 'story'", () => {
     expect(formatOf("feed")).toBe("feed");
@@ -57,7 +83,7 @@ describe("posterTree", () => {
 
   it.each(FORMATS)("%s: iskelet metinleri, iki katmanlı arketip ve özet basılır", (format) => {
     const printed = texts(posterTree(report, format).node);
-    expect(printed).toEqual(expect.arrayContaining(["LENS", "ESTETİK KİMLİK", "Lens.", "lensestetik.com", "sen hangisisin?"]));
+    expect(printed).toEqual(expect.arrayContaining(["LENS", "ESTETİK KİMLİK", "lensestetik.com", "sen hangisisin?"]));
     expect(printed.join(" ")).toContain("Kadife ceketli");
     expect(printed.join(" ")).toContain("Sokak Filozofu");
     expect(printed.join(" ")).toContain("Salonla sokağı");
@@ -83,12 +109,29 @@ describe("posterTree", () => {
 
   // ⟷ (U+27F7) fontlarda yok; metin olarak yazılsa tofu kutusu çıkardı.
   it.each(FORMATS)("%s: ok METİN değil, SVG görselidir", (format) => {
-    const tree = posterTree(report, format).node;
+    const { node: tree, theme } = posterTree(report, format);
     expect(texts(tree).join("")).not.toMatch(/[⟷↔→←]/);
 
-    const arrows = nodes(tree).filter((node) => node.type === "img");
+    const arrows = images(tree).filter((node) => node.props.src !== lensMarkDataUri(theme.text));
     expect(arrows).toHaveLength(1);
     expect(String(arrows[0].props.src)).toMatch(/^data:image\/svg\+xml;base64,/);
+  });
+
+  // Paletler rapora göre değişiyor; logonun altını açık ya da sıcak zeminde okunmuyor.
+  it.each(FORMATS)("%s: logo alt imzada, posterin yazı rengiyle tek renk çizilir", (format) => {
+    const { node, theme } = posterTree(report, format);
+    expectMark(node, theme.text);
+  });
+
+  it("logonun rengi her raporda o raporun yazı rengidir", () => {
+    const warm = reportRow({ texture: { colors: [{ name: "Krem", hex: "#EDE4CE" }, { name: "Bej", hex: "#C9B999" }] } } as never);
+    const cold = reportRow({ texture: { colors: [{ name: "Lacivert", hex: "#1A2138" }, { name: "Buz", hex: "#A8C6D9" }] } } as never);
+    const a = posterTree(warm, "story");
+    const b = posterTree(cold, "story");
+
+    expect(a.theme.text).not.toBe(b.theme.text);
+    expectMark(a.node, a.theme.text);
+    expectMark(b.node, b.theme.text);
   });
 
   // Grain PNG sıkıştırmasını kırıyor (Story 373 KB → 2273 KB); ölçülmüş bir karar.
@@ -152,13 +195,15 @@ describe("posterTree", () => {
 
 describe("genericTree — rapor okunamadığında", () => {
   it.each(FORMATS)("%s: yalnızca marka metni taşır, rapor içeriği SIZMAZ", (format) => {
-    const { node, metrics } = genericTree(format);
+    const { node, metrics, theme } = genericTree(format);
     const printed = texts(node);
 
     expect([metrics.width, metrics.height]).toEqual(SIZE[format]);
     expect(printed).toEqual(expect.arrayContaining(["LENS", "Estetik Kimlik", "SEN HANGİSİSİN?"]));
     expect(printed.join(" ")).not.toContain("Filozof");
-    expect(nodes(node).filter((n) => n.type === "img")).toHaveLength(0);
+    // Tek görsel logodur; karşıtlık oku (rapor içeriği) yok.
+    expect(images(node)).toHaveLength(1);
+    expectMark(node, theme.text);
   });
 });
 

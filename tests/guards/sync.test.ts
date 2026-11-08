@@ -1,4 +1,7 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { lensMarkDataUri } from "../../api/_lib/poster.ts";
 import * as analyze from "../../supabase/functions/analyze/index.ts";
 import * as daily from "../../supabase/functions/daily-discovery/index.ts";
 import * as generate from "../../supabase/functions/generate-weekly-picks/index.ts";
@@ -15,6 +18,25 @@ import { internals } from "../helpers/edge";
  * `src/`'ten ve birbirlerinden import edemiyor; aynı sayı/kural iki-üç yerde duruyor.
  * Biri değişip öbürü unutulursa hiçbir derleyici yakalamaz — bu dosya yakalar.
  */
+
+describe("logo çizimi: LensMark.tsx ↔ poster", () => {
+  // `api/` React bileşenini import edemiyor; poster çizimi kopyalayıp yazı rengiyle tek
+  // renk basıyor. Renkler bilerek farklı, geometri (şekiller, koordinatlar, kalınlık) aynı.
+  const geometry = (svg: string) => ({
+    shapes: [...svg.matchAll(/<(g|path|circle|rect|line|ellipse|polygon|polyline)\b/g)].map((m) => m[1]),
+    attributes: [...svg.matchAll(/\s(d|transform|cx|cy|r|rx|strokeWidth|stroke-width|strokeLinecap|stroke-linecap)="([^"]+)"/g)].map(
+      (m) => `${m[1].replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}=${m[2]}`,
+    ),
+  });
+
+  it("posterdeki işaret sitedeki logoyla aynı çizimdir", () => {
+    const site = readFileSync(path.resolve(process.cwd(), "src/app/components/LensMark.tsx"), "utf8");
+    const poster = Buffer.from(lensMarkDataUri("#ffffff").split(",")[1], "base64").toString("utf8");
+
+    expect(geometry(site).shapes.length).toBeGreaterThan(0);
+    expect(geometry(poster)).toEqual(geometry(site));
+  });
+});
 
 describe("form sınırları: src/lib/formLimits.ts ↔ analyze", () => {
   it("toplam eşik ve kategori tavanı iki tarafta aynıdır", () => {
