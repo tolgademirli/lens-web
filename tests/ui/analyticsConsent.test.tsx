@@ -1,3 +1,4 @@
+import { act } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { button, click, hasButton, mount, pageText, query, unmountAll } from "../helpers/render";
 
@@ -20,6 +21,7 @@ vi.mock("posthog-js", () => ({
 }));
 
 const CONSENT_KEY = "lens_analytics_consent";
+const storedDecision = () => JSON.parse(localStorage.getItem(CONSENT_KEY) ?? "null")?.value;
 const banner = () => document.querySelector('[aria-label="Analitik izni"]');
 const heightVar = () => document.documentElement.style.getPropertyValue("--consent-banner-h");
 
@@ -125,7 +127,7 @@ describe("karar", () => {
 
     expect(js.init).toHaveBeenCalledTimes(1);
     expect(js.opt_in_capturing).toHaveBeenCalledTimes(1);
-    expect(localStorage.getItem(CONSENT_KEY)).toBe("granted");
+    expect(storedDecision()).toBe("granted");
     expect(banner()).toBeNull();
   });
 
@@ -135,7 +137,7 @@ describe("karar", () => {
     await click(button("İzin verme"));
 
     expect(js.init).not.toHaveBeenCalled();
-    expect(localStorage.getItem(CONSENT_KEY)).toBe("denied");
+    expect(storedDecision()).toBe("denied");
     expect(banner()).toBeNull();
   });
 
@@ -163,7 +165,7 @@ describe("kararı değiştirme — rıza, verildiği kadar kolay geri alınabilm
     await click(button("İzin verme"));
 
     expect(js.opt_out_capturing).toHaveBeenCalledTimes(1);
-    expect(localStorage.getItem(CONSENT_KEY)).toBe("denied");
+    expect(storedDecision()).toBe("denied");
     expect(banner()).toBeNull();
   });
 
@@ -175,7 +177,7 @@ describe("kararı değiştirme — rıza, verildiği kadar kolay geri alınabilm
     await click(button("İzin ver"));
 
     expect(js.init).toHaveBeenCalledTimes(1);
-    expect(localStorage.getItem(CONSENT_KEY)).toBe("granted");
+    expect(storedDecision()).toBe("granted");
   });
 
   it("aynı kararı yeniden vermek de bandı kapatır", async () => {
@@ -183,6 +185,41 @@ describe("kararı değiştirme — rıza, verildiği kadar kolay geri alınabilm
     await click(button("Analitik tercihi"));
     await click(button("İzin verme"));
     expect(banner()).toBeNull();
+  });
+});
+
+describe("hesaptaki karar okunurken", () => {
+  // Kararı hesabında duran kişi yeni bir tarayıcıda bandı bir an görüp kaybolmasını izlemesin.
+  it("bant çizilmez; okuma bitince karar yoksa görünür", async () => {
+    await load();
+    const { holdConsentBanner } = await import("@/lib/posthog");
+
+    await act(async () => holdConsentBanner(true));
+    expect(banner()).toBeNull();
+    expect(heightVar()).toBe("0px");
+
+    await act(async () => holdConsentBanner(false));
+    expect(banner()).not.toBeNull();
+  });
+
+  it("hesaptan izin gelirse bant hiç görünmeden ölçüm başlar", async () => {
+    const { js } = await load();
+    const { adoptAccountConsent, holdConsentBanner } = await import("@/lib/posthog");
+
+    await act(async () => {
+      holdConsentBanner(true);
+      adoptAccountConsent("granted", 1);
+      holdConsentBanner(false);
+    });
+
+    expect(banner()).toBeNull();
+    expect(js.init).toHaveBeenCalledTimes(1);
+  });
+
+  it("ikinci katman kararın hesaba da kaydedildiğini söyler", async () => {
+    await load();
+    await click(button("Ayrıntılar"));
+    expect(pageText()).toContain("kararın hesabına da kaydedilir");
   });
 });
 

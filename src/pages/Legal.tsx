@@ -186,8 +186,8 @@ export function PrivacyPage() {
             ağırlıklarından oluşan bir <Key>zevk profili</Key> hesaplanır.
           </li>
           <li>
-            Öneri ve e-posta <Key>tercihlerin</Key> ile yurt dışı aktarımına verdiğin iznin tarihi
-            saklanır.
+            Öneri ve e-posta <Key>tercihlerin</Key> saklanır. Yurt dışı aktarımına verdiğin izin ve
+            kullanım ölçümü için verdiğin kararlar da tarihleriyle birlikte saklanır.
           </li>
           <li>
             Lens'e e-posta yazarsan, sana yanıt verebilmek için <Key>e-posta adresin ve iletin</Key>{" "}
@@ -312,8 +312,8 @@ export function PrivacyPage() {
       <Section title="Saklama süreleri">
         <Bullets>
           <li>
-            Hesabın, eserlerin, raporların, keşif ve seçki geçmişin, geri bildirimlerin ve
-            tercihlerin, sen hesabını silene kadar saklanır. Hesabını sildiğinde bu veriler
+            Hesabın, eserlerin, raporların, keşif ve seçki geçmişin, geri bildirimlerin,
+            tercihlerin ve izin kararların, sen hesabını silene kadar saklanır. Hesabını sildiğinde bu veriler
             Lens'in veritabanından kalıcı olarak silinir.
           </li>
           {/* Süre ve "saklanmaz" cümleleri kaynakta TEK SATIRDA durur: bekçi testi
@@ -420,7 +420,7 @@ const STORED = [
     name: "Analitik kararın",
     keys: "lens_analytics_consent",
     purpose:
-      "Bu kayıt, ölçüme izin verip vermediğini hatırlar; böylece karar her ziyarette yeniden sorulmaz.",
+      "Bu kayıt, ölçüme izin verip vermediğini ve bu kararı ne zaman verdiğini hatırlar; böylece karar her ziyarette yeniden sorulmaz.",
     lifetime: "Kayıt, sen kararını değiştirene kadar tarayıcında kalır.",
   },
   {
@@ -493,6 +493,21 @@ export function CookiesPage() {
         </p>
       </Section>
 
+      {/* Kayıt `analytics_consents` tablosunda; uzlaştırma kuralı `src/lib/analyticsConsent.ts`.
+          "En son verdiğin karar geçerli olur" cümlesi oradaki kuralın kendisidir. */}
+      <Section title="Kararının hesabında saklanması">
+        <p>
+          Kullanım ölçümü için verdiğin karar önce tarayıcında saklanır. Giriş yaptıysan kararın,
+          verdiğin tarihle birlikte hesabına da kaydedilir; giriş yapmadan önce verdiğin karar da
+          giriş yaptığında hesabına yazılır. Bu sayede başka bir cihazda ya da tarayıcıda giriş
+          yaptığında karar yeniden sorulmaz.
+        </p>
+        <p>
+          Kararını farklı cihazlarda farklı verdiysen en son verdiğin karar geçerli olur. Bu
+          kayıtlar hesabını sildiğinde silinir.
+        </p>
+      </Section>
+
       <Section title="Kararını değiştirmek">
         <p>
           Kararını istediğin an değiştirebilirsin. Giriş yaptıysan Hesabım sekmesindeki Verilerim
@@ -516,7 +531,8 @@ export function CookiesPage() {
         </p>
         <p>
           Tarayıcının ayarlarından bu siteye ait bütün kayıtları silebilirsin. Kayıtları sildiğinde
-          oturumun kapanır ve analitik kararın yeniden sorulur.
+          oturumun kapanır ve analitik kararın yeniden sorulur. Yeniden giriş yaptığında hesabına
+          kayıtlı karar geçerli olur.
         </p>
       </Section>
     </LegalShell>

@@ -22,7 +22,9 @@ const HEIGHT_VAR = "--consent-banner-h";
 
 /**
  * Analitik izni bandı. Karar verilene kadar ya da kullanıcı kararını değiştirmek
- * için yeniden açtığında görünür; kapının kendisi `src/lib/posthog.ts`.
+ * için yeniden açtığında görünür; kapının kendisi `src/lib/posthog.ts`. Giriş
+ * yapmış kişinin kararı hesabında da durur (`src/lib/analyticsConsent.ts`): o
+ * kişiye başka bir cihazda ya da tarayıcıda yeniden sorulmaz.
  *
  * Modal DEĞİL: yanıtlamadan da Lens kullanılabilir. Yanıt gelene kadar hiçbir şey
  * gönderilmediği için beklemek kimseye zarar vermez; onboarding'in önüne cevabı
@@ -45,11 +47,13 @@ const HEIGHT_VAR = "--consent-banner-h";
  * z-40: diyaloglar (z-50) bandın üstünde kalır, giriş penceresi onu örter.
  */
 export function AnalyticsConsentBanner() {
-  const { consent, reopened } = useSyncExternalStore(subscribeConsent, getConsentState);
+  const { consent, reopened, checking } = useSyncExternalStore(subscribeConsent, getConsentState);
   const [expanded, setExpanded] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  const visible = analyticsConfigured && (consent === "unset" || reopened);
+  // `checking`: oturumu açık kişinin hesabındaki karar okunuyor. Kararı hesabında
+  // duran kişiye bant hiç görünmemeli, bir an görünüp kaybolması da sormaktır.
+  const visible = analyticsConfigured && !checking && (consent === "unset" || reopened);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -98,9 +102,10 @@ export function AnalyticsConsentBanner() {
             </p>
             {expanded && (
               <p className="mt-2 text-[13px] leading-relaxed text-slate-400">
-                Giriş yaptıysan ölçümler hesabınla eşleşir. Kararını ana sayfanın altındaki
-                “Analitik tercihi” bağlantısından ya da panelde Hesabım sekmesinden istediğin
-                an değiştirebilirsin. Tarayıcına neyin yazıldığını{" "}
+                Giriş yaptıysan ölçümler hesabınla eşleşir ve kararın hesabına da kaydedilir;
+                böylece başka bir cihazda giriş yaptığında yeniden sorulmaz. Kararını ana
+                sayfanın altındaki “Analitik tercihi” bağlantısından ya da panelde Hesabım
+                sekmesinden istediğin an değiştirebilirsin. Tarayıcına neyin yazıldığını{" "}
                 <Link to="/cookies" className="text-slate-200 underline underline-offset-2 hover:text-white">
                   Çerez Politikası
                 </Link>

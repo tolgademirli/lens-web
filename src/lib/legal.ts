@@ -41,7 +41,7 @@ export const CONTROLLER = {
 export const LEGAL_DRAFT = !CONTROLLER.name || !CONTROLLER.email;
 
 /** Metinlerin altındaki "son güncelleme" satırı. */
-export const LEGAL_UPDATED = "29 Ekim 2026";
+export const LEGAL_UPDATED = "8 Kasım 2026";
 
 /**
  * Yurt dışı aktarımına verilen açık rızanın metin sürümü. `user_consents.version`

@@ -549,6 +549,39 @@ Web tarafı: `src/lib/transferConsent.ts` (`hasTransferConsent`, `recordTransfer
 
 ---
 
+## `analytics_consents`
+
+Kullanım ölçümü (PostHog) için verilen kararların defteri (`20261108090000_analytics_consents.sql`).
+Karar önce tarayıcıda durur (`localStorage["lens_analytics_consent"]`); giriş yapan kişinin kararı
+buraya da yazılır ve web girişte buradan okur. Böylece kararı hesabında duran kişiye başka bir
+cihazda ya da tarayıcıda bant yeniden sorulmaz.
+
+| Kolon        | Tip                  | Notlar |
+|--------------|----------------------|--------|
+| `id`         | BIGINT IDENTITY      | Birincil anahtar |
+| `user_id`    | UUID NOT NULL        | `auth.users(id)` ON DELETE CASCADE |
+| `decision`   | TEXT NOT NULL        | CHECK: `granted` · `denied` |
+| `decided_at` | TIMESTAMPTZ NOT NULL | `analytics_consents_stamp` trigger'ı `now()` yazar; client'ın gönderdiği değer ezilir |
+
+**Neden `user_consents` değil:** aktarım rızası geri alınamaz (geri almanın yolu hesap silmek) ve
+o tablo yalnızca verilmiş rızayı tutar. Analitik izni istenildiği an açılıp kapanır ve "hayır" da
+bir karardır. Her karar yeni bir satırdır; geçerli olan kişinin **en son** satırıdır
+(`order by decided_at desc limit 1`, indeks `analytics_consents_user_latest`).
+
+**RLS:** sahibi kendi satırını okur ve ekler. UPDATE ve DELETE politikası **bilerek yok**: kararı
+değiştirmek yeni satır eklemektir, satırlar yalnızca hesapla birlikte gider. Lokal Supabase'te
+ölçüldü (8 Kasım 2026): başkasının adına ekleme 42501 ile reddedilir, başkasının satırı ve oturumsuz
+okuma boş döner, kendi satırında UPDATE/DELETE 0 satır etkiler, ileri tarihli damga ezilir, hesap
+silinince satırlar gider.
+
+**Uzlaştırma kuralı** web'de (`src/lib/analyticsConsent.ts`): hesapta karar yoksa tarayıcıdaki karar
+yazılır; tarayıcıdaki karar başka bir hesaptan geldiyse yazılmaz, unutulur ve kişiye sorulur; iki
+taraf farklıysa en son verilen geçerlidir. Tarayıcıdaki kayıt bunun için kararın anını (`at`) ve
+bir hesaba yazılıp yazılmadığını (`synced`) da taşır. Kayıt okunamazsa tarayıcıdaki karar geçerli
+kalır (fail-open; günlükte `[analytics-consent]`).
+
+---
+
 ## `auth.users` (Supabase Auth — yönetilir)
 
 Doğrudan sorgulama yapılmaz. `user_id` taşıyan bütün tablolar bu tabloya **ON DELETE CASCADE**
@@ -561,7 +594,7 @@ Bir satır buradan silindiğinde kullanıcıya ait her şey gider — yol fark e
 
 | Ne | Nasıl |
 |----|-------|
-| `reports` (+ `report_works`), `user_works`, `daily_discoveries`, `weekly_picks`, `discovery_feedback`, `list_items`, `taste_profile`, `user_preferences`, `telegram_users`, `user_consents` | Yabancı anahtar, ON DELETE CASCADE |
+| `reports` (+ `report_works`), `user_works`, `daily_discoveries`, `weekly_picks`, `discovery_feedback`, `list_items`, `taste_profile`, `user_preferences`, `telegram_users`, `user_consents`, `analytics_consents` | Yabancı anahtar, ON DELETE CASCADE |
 | `user_id`'si boş, kullanıcının bağlı Telegram kimliğiyle doğmuş `reports` / `user_works`; o kimliğin `telegram_link_codes` satırları; `extraction_quota`'da `client_key = user_id` | `lens_purge_user_orphans` — `auth.users` BEFORE DELETE trigger'ı (`lens_private.purge_user_orphans`) |
 
 Trigger **BEFORE** çünkü sahipsiz satırları kullanıcıya bağlayan tek şey `telegram_users`

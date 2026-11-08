@@ -173,11 +173,11 @@ describe("kullanım ölçümü kartı", () => {
 
     await click(consentSwitch()!);
 
-    expect(localStorage.getItem("lens_analytics_consent")).toBe("granted");
+    expect(JSON.parse(localStorage.getItem("lens_analytics_consent")!).value).toBe("granted");
     expect(consentSwitch()!.getAttribute("aria-checked")).toBe("true");
 
     await click(consentSwitch()!);
-    expect(localStorage.getItem("lens_analytics_consent")).toBe("denied");
+    expect(JSON.parse(localStorage.getItem("lens_analytics_consent")!).value).toBe("denied");
   });
 
   it("önceki ziyarette verilen izni açık gösterir", async () => {
@@ -193,6 +193,13 @@ describe("kullanım ölçümü kartı", () => {
     expect(text).toContain("Hangi ekranlara uğradığın ve neye dokunduğun kaydedilir.");
     expect(text).toContain("PostHog'un yurt dışındaki sunucularında tutulur.");
     expect(text).not.toMatch(/ekran kayd/i);
+  });
+
+  it("kararın hesaba kaydedildiğini ve başka cihazda yeniden sorulmadığını söyler", async () => {
+    await load({ analyticsKey: "phc_test" });
+    expect(pageText()).toContain(
+      "Kararın hesabına da kaydedilir; başka bir cihazda ya da tarayıcıda giriş yaptığında yeniden sorulmaz.",
+    );
   });
 });
 

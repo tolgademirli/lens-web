@@ -518,7 +518,8 @@ export function Account() {
           {/*
             Kullanım ölçümü. Bantla AYNI karar (`lens_analytics_consent`), yalnızca
             daha uzun anlatılmış hâli. Anahtar yoksa (lokal geliştirme) ölçülecek
-            bir şey de yoktur; kart çizilmez.
+            bir şey de yoktur; kart çizilmez. Karar hesaba da yazılır
+            (`src/lib/analyticsConsent.ts`); bu sayfa onu ayrıca yazmaz.
 
             Maddeler toplanan veriyi anlatır. Oturum kaydı `posthog.ts`'te kapalı,
             o yüzden burada yazmıyor; toplanan değişirse metin de değişir (bkz.
@@ -564,7 +565,8 @@ export function Account() {
               </ul>
               <p className="mt-3 text-sm leading-relaxed text-purple-300/70">
                 Kapalıyken hiçbir şey ölçülmez ve tarayıcındaki ölçüm çerezi silinir; Lens
-                aynı şekilde çalışır.
+                aynı şekilde çalışır. Kararın hesabına da kaydedilir; başka bir cihazda ya da
+                tarayıcıda giriş yaptığında yeniden sorulmaz.
               </p>
 
               <div className="mt-5 border-t border-purple-500/10 pt-4">

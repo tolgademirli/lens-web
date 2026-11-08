@@ -67,6 +67,7 @@ src/
     account.ts     # Hesap silme (delete-account'ı çağırır, cihazdaki izleri temizler)
     legal.ts       # Hukuki metinlerin verisi: veri sorumlusu, rıza sürümü, hizmet sağlayıcılar
     transferConsent.ts # Yurt dışı aktarım rızası: giriş köprüsü + user_consents okuma/yazma
+    analyticsConsent.ts# Analitik kararının hesaptaki kaydı (analytics_consents): girişte uzlaştırma
     preferences.ts # user_preferences okuma/yazma + varsayılanlar
     entitlements.ts# Paket + premium anahtarı okumanın TEK noktası (lens_entitlements RPC)
     feedback.ts    # Karar sözlüğü + record/retract sarmalayıcıları
@@ -116,6 +117,8 @@ supabase/
                                 # yetki düzeltmesi (anon başkasının kümesini okuyordu)
     20261011120000_user_consents.sql       # yurt dışı aktarım rızasının kaydı +
                                 # extraction_quota'da 7 günlük saklama (pg_cron)
+    20261108090000_analytics_consents.sql  # analitik kararlarının defteri (her karar
+                                # bir satır, geçerli olan en sonuncusu; UPDATE/DELETE yok)
 guidelines/
   Guidelines.md        # Figma Make şablonu — uygulama kuralları değil
 docs/
@@ -290,6 +293,17 @@ oturumsuz kullanıcıyı `/login`'e attığı için telefonda gelen link sekiyor
    bekler, izin gelirse kendi zaman damgalarıyla gider, gelmezse atılır. Geri alma yolu:
    Hesabım → Verilerim'deki "Kullanım ölçümü" anahtarı; oturumsuz ziyaretçi için ana sayfanın
    altındaki "Analitik tercihi".
+   **Karar hesaba da yazılır (8 Kasım 2026)** — `analytics_consents`, `src/lib/analyticsConsent.ts`.
+   Yalnızca tarayıcıdayken başka cihazda, başka tarayıcıda ya da uygulama içi tarayıcıda bant her
+   girişte yeniden soruyordu. Aktarım rızasıyla aynı desen: girişten önce verilen karar giriş
+   dönüşünde hesaba yazılır, hesabında kararı olan kişiye bir daha sorulmaz. İki cihazda iki ayrı
+   karar varsa **en son verilen** geçerli; tarayıcıdaki karar başka bir hesaptan geldiyse (aynı
+   cihazda iki kişi) hesaba yazılmaz, unutulur ve kişiye sorulur. Bant, oturumu açık kişinin
+   hesabı okunana kadar çizilmez (`checking`); okuma başarısızsa ya da 5 sn'de bitmezse tarayıcıdaki
+   karar geçerli kalır (fail-open, günlükte `[analytics-consent]`). Bilinen boşluk: tarayıcıda izin
+   varken PostHog sayfa açılınca hemen başlar, başka cihazda geri alınan izin burada bir istek sonra
+   uygulanır. Sıra: **önce migration, sonra web** (tablo yokken web eskisi gibi yalnızca tarayıcıda
+   hatırlar).
 5. **Oturum kaydı (session replay) ALINMAZ; yetkilisi kod, PostHog paneli değil**
    (`src/lib/posthog.ts` → `disable_session_recording: true`, 11 Ekim 2026). Kayıt panelde
    açık bulunmuştu ve izin verenin ekranı — raporları ve eser listesi dahil — kaydediliyordu.

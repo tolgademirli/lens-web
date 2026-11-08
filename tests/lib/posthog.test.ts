@@ -19,6 +19,9 @@ vi.mock("posthog-js", () => ({
 const CONSENT_KEY = "lens_analytics_consent";
 const KEY = "phc_test";
 
+/** Tarayıcıdaki kayıt: karar + ne zaman verildiği + hesaba yazılıp yazılmadığı. */
+const storedConsent = () => JSON.parse(localStorage.getItem(CONSENT_KEY) ?? "null");
+
 async function load(options: { key?: string; consent?: "granted" | "denied" } = {}) {
   vi.resetModules();
   vi.stubEnv("VITE_POSTHOG_KEY", options.key ?? KEY);
@@ -62,7 +65,7 @@ describe("rıza yokken", () => {
     posthog.capture("form_started");
 
     expect(getConsentState().consent).toBe("denied");
-    expect(localStorage.getItem(CONSENT_KEY)).toBe("denied");
+    expect(storedConsent()).toMatchObject({ value: "denied", synced: false });
     expect(js.init).not.toHaveBeenCalled();
     expect(js.capture).not.toHaveBeenCalled();
 
@@ -94,7 +97,8 @@ describe("izin verilince", () => {
 
     expect(js.init).toHaveBeenCalledTimes(1);
     expect(js.opt_in_capturing).toHaveBeenCalledTimes(1);
-    expect(localStorage.getItem(CONSENT_KEY)).toBe("granted");
+    // Kararın anı da saklanır: iki cihazda iki karar varsa en son verilen geçerli.
+    expect(storedConsent()).toEqual({ value: "granted", at: Date.parse("2026-10-11T10:00:09Z"), synced: false });
     expect(js.capture.mock.calls).toEqual([
       ["landing_viewed", undefined, { timestamp: new Date("2026-10-11T10:00:00Z") }],
       ["form_started", { category: "books" }, { timestamp: new Date("2026-10-11T10:00:05Z") }],
@@ -151,7 +155,7 @@ describe("izin verilince", () => {
     posthog.capture("report_viewed");
 
     expect(js.opt_out_capturing).toHaveBeenCalledTimes(1);
-    expect(localStorage.getItem(CONSENT_KEY)).toBe("denied");
+    expect(storedConsent()).toMatchObject({ value: "denied", synced: false });
     expect(js.capture).not.toHaveBeenCalled();
   });
 
@@ -204,11 +208,11 @@ describe("bant durumu", () => {
     const unsubscribe = subscribeConsent(listener);
 
     openConsentBanner();
-    expect(getConsentState()).toEqual({ consent: "denied", reopened: true });
+    expect(getConsentState()).toEqual({ consent: "denied", reopened: true, checking: false });
 
     // Aynı kararı yeniden vermek de bandı kapatır.
     setAnalyticsConsent("denied");
-    expect(getConsentState()).toEqual({ consent: "denied", reopened: false });
+    expect(getConsentState()).toEqual({ consent: "denied", reopened: false, checking: false });
     expect(listener).toHaveBeenCalledTimes(2);
 
     unsubscribe();
@@ -232,6 +236,131 @@ describe("bant durumu", () => {
     localStorage.setItem(CONSENT_KEY, "yes");
     const { getConsentState } = await load();
     expect(getConsentState().consent).toBe("unset");
+  });
+});
+
+/**
+ * Hesaptaki kayıtla uzlaşmanın KAPI tarafı. Uzlaşma kuralı (hangisi kazanır)
+ * `tests/lib/analyticsConsent.test.ts`'te; burada kapının hesaptan gelen kararı
+ * kullanıcının kararıyla aynı titizlikle uyguladığı sınanır.
+ */
+describe("hesaptaki kayıtla uzlaşma", () => {
+  it("önceki sürümün düz değeri okunur: her karardan eski ve henüz hiçbir hesaba yazılmamış sayılır", async () => {
+    const { js, getStoredConsent } = await load({ consent: "granted" });
+    expect(getStoredConsent()).toEqual({ value: "granted", at: 0, synced: false });
+    expect(js.init).toHaveBeenCalledTimes(1);
+  });
+
+  it("bozuk JSON kaydı 'unset' sayılır; rıza varsayılmaz", async () => {
+    localStorage.setItem(CONSENT_KEY, '{"value":"granted"');
+    const { js, getConsentState } = await load();
+    expect(getConsentState().consent).toBe("unset");
+    expect(js.init).not.toHaveBeenCalled();
+  });
+
+  it("kullanıcının kararı dinleyenlere bildirilir (hesaba yazılsın diye); aynı karar yeniden bildirilmez", async () => {
+    const { setAnalyticsConsent, onConsentDecision } = await load();
+    const listener = vi.fn();
+    const unsubscribe = onConsentDecision(listener);
+
+    setAnalyticsConsent("granted");
+    setAnalyticsConsent("granted");
+    setAnalyticsConsent("denied");
+    unsubscribe();
+    setAnalyticsConsent("granted");
+
+    expect(listener.mock.calls).toEqual([["granted"], ["denied"]]);
+  });
+
+  it("hesaptaki izin bu tarayıcıda ölçümü başlatır, bekleyen olayları yollar ve kimliği bağlar", async () => {
+    const { js, posthog, adoptAccountConsent, getConsentState } = await load();
+    posthog.identify("user-1");
+    posthog.capture("landing_viewed");
+
+    adoptAccountConsent("granted", 1_700_000_000_000);
+
+    expect(getConsentState().consent).toBe("granted");
+    expect(js.init).toHaveBeenCalledTimes(1);
+    expect(js.opt_in_capturing).toHaveBeenCalledTimes(1);
+    expect(js.identify).toHaveBeenCalledWith("user-1");
+    expect(js.capture.mock.calls.map((call) => call[0])).toEqual(["landing_viewed"]);
+    expect(storedConsent()).toEqual({ value: "granted", at: 1_700_000_000_000, synced: true });
+  });
+
+  it("hesaptaki ret, bu tarayıcıda başlamış ölçümü durdurur", async () => {
+    const { js, posthog, adoptAccountConsent } = await load({ consent: "granted" });
+
+    adoptAccountConsent("denied", 1_700_000_000_000);
+    posthog.capture("report_viewed");
+
+    expect(js.opt_out_capturing).toHaveBeenCalledTimes(1);
+    expect(js.capture).not.toHaveBeenCalled();
+    expect(storedConsent()).toEqual({ value: "denied", at: 1_700_000_000_000, synced: true });
+  });
+
+  // Hesaptan gelen karar hesaba geri yazılmaz; yazılsaydı her girişte yeni bir satır doğardı.
+  it("hesaptan gelen karar kullanıcı kararı sayılmaz: dinleyenlere bildirilmez", async () => {
+    const { adoptAccountConsent, onConsentDecision } = await load();
+    const listener = vi.fn();
+    onConsentDecision(listener);
+
+    adoptAccountConsent("granted", 1);
+
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it("hesaptaki karar buradakiyle aynıysa kütüphaneye dokunulmaz, yalnızca kayıt işaretlenir", async () => {
+    const { js, adoptAccountConsent } = await load({ consent: "granted" });
+
+    adoptAccountConsent("granted", 5);
+
+    expect(js.opt_in_capturing).not.toHaveBeenCalled();
+    expect(js.opt_out_capturing).not.toHaveBeenCalled();
+    expect(storedConsent()).toEqual({ value: "granted", at: 5, synced: true });
+  });
+
+  // Yazım sürerken verilen yeni karar, eskisinin yazımıyla "yazıldı" sayılırsa hiç yazılmaz.
+  it("markConsentSynced yalnızca hesaba yazılan kararın kendisini işaretler", async () => {
+    const { setAnalyticsConsent, markConsentSynced, getStoredConsent } = await load();
+    setAnalyticsConsent("granted");
+    setAnalyticsConsent("denied");
+
+    markConsentSynced("granted");
+    expect(getStoredConsent()).toMatchObject({ value: "denied", synced: false });
+
+    markConsentSynced("denied");
+    expect(getStoredConsent()).toMatchObject({ value: "denied", synced: true });
+    expect(storedConsent()).toMatchObject({ value: "denied", synced: true });
+  });
+
+  it("başka bir hesabın kararı unutulur: ölçüm durur, kayıt silinir ve karar yeniden sorulur", async () => {
+    const { js, posthog, forgetConsent, getConsentState, setAnalyticsConsent } = await load({ consent: "granted" });
+
+    forgetConsent();
+    posthog.capture("landing_viewed");
+
+    expect(getConsentState().consent).toBe("unset");
+    expect(localStorage.getItem(CONSENT_KEY)).toBeNull();
+    expect(js.opt_out_capturing).toHaveBeenCalledTimes(1);
+    expect(js.capture).not.toHaveBeenCalled();
+
+    // Oturumdaki kişi kendisi izin verirse unutulduktan sonraki olaylar gider.
+    setAnalyticsConsent("granted");
+    expect(js.capture.mock.calls.map((call) => call[0])).toEqual(["landing_viewed"]);
+  });
+
+  it("holdConsentBanner bekleme durumunu açar, kapatır ve dinleyenlere haber verir", async () => {
+    const { holdConsentBanner, getConsentState, subscribeConsent } = await load();
+    const listener = vi.fn();
+    subscribeConsent(listener);
+
+    holdConsentBanner(true);
+    holdConsentBanner(true);
+    expect(getConsentState().checking).toBe(true);
+    holdConsentBanner(false);
+
+    expect(getConsentState().checking).toBe(false);
+    expect(listener).toHaveBeenCalledTimes(2);
   });
 });
 

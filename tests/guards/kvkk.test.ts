@@ -197,6 +197,13 @@ describe("kullanım ölçümü: bant, Hesabım'daki kart ve Çerez Politikası A
     expect(text).toMatch(/PostHog/);
   });
 
+  // Karar giriş yapan kişinin hesabına da yazılıyor (`src/lib/analyticsConsent.ts`);
+  // yazılmayı bırakırsa üç metin de aynı commit'te bu cümleyi düşürür.
+  it.each(texts)("%s kararın hesaba da kaydedildiğini söyler", (_name, text) => {
+    expect(stripComments(read("src/main.tsx"))).toMatch(/watchAnalyticsConsent\(\)/);
+    expect(text).toMatch(/hesabına da kaydedilir/);
+  });
+
   // "Adın ve e-posta adresin oraya gönderilmez."
   it("PostHog'a kimlik olarak yalnızca hesap numarası gider; hiçbir olay e-posta ya da ad taşımaz", () => {
     const offenders: string[] = [];
@@ -325,5 +332,60 @@ describe("rıza kaydı: istemci ↔ `user_consents` tablosu", () => {
   // Rızanın geri alınması = hesabın silinmesi; satır hesapla birlikte gider.
   it("rıza satırı hesapla birlikte silinir (CASCADE)", () => {
     expect(table).toMatch(/user_id\s+UUID NOT NULL REFERENCES auth\.users\(id\) ON DELETE CASCADE/);
+  });
+});
+
+describe("analitik kararı: istemci ↔ `analytics_consents` tablosu", () => {
+  const migrations = walk("supabase/migrations", (file) => /\/\d{14}_[^/]+\.sql$/.test(file)).sort();
+  const sql = (file: string) => read(file).replace(/--.*$/gm, "");
+  const source = migrations.find((file) => /CREATE TABLE IF NOT EXISTS public\.analytics_consents/.test(read(file)));
+  const table = source ? sql(source) : "";
+  const client = stripComments(read("src/lib/analyticsConsent.ts"));
+
+  it("tabloyu kuran migration vardır ve istemci aynı tabloya yazar", () => {
+    expect(source, "analytics_consents migration'ı").toBeDefined();
+    expect(/const TABLE = "([^"]+)"/.exec(client)![1]).toBe("analytics_consents");
+  });
+
+  // İstemcinin yazabildiği iki karar da tablonun CHECK'inden geçmeli; biri geçmezse o
+  // karar hiçbir hesaba yazılmaz ve kişiye her cihazda yeniden sorulur.
+  it("istemcinin yazdığı kararlar tablonun kabul ettiği kararlardır", () => {
+    const allowed = /CHECK \(decision IN \(([^)]*)\)\)/.exec(table)![1];
+    const decisions = /export type AnalyticsConsent = ([^;]+);/.exec(read("src/lib/posthog.ts"))![1];
+    for (const decision of ["granted", "denied"]) {
+      expect(decisions).toContain(`"${decision}"`);
+      expect(allowed).toContain(`'${decision}'`);
+    }
+  });
+
+  // "En son verdiğin karar geçerli olur" bu damgaya dayanıyor; client yazabilseydi
+  // geleceğe tarihli bir satır sonraki her kararı ezerdi.
+  it("zaman damgasını trigger vurur; istemci damga göndermez", () => {
+    expect(table).toMatch(/NEW\.decided_at := now\(\)/);
+    expect(table).toMatch(/BEFORE INSERT ON public\.analytics_consents/);
+    const payload = /\.insert\((\{[^}]*\})\)/.exec(client);
+    expect(payload, "istemcinin insert gövdesi").not.toBeNull();
+    expect(payload![1]).not.toMatch(/decided_at/);
+  });
+
+  // Kararı değiştirmek yeni satır eklemektir; verilmiş bir kararın kaydı oynanamaz.
+  it("hiçbir migration `analytics_consents`'e UPDATE / DELETE politikası açmaz", () => {
+    const operations = new Set<string>();
+    for (const file of migrations) {
+      for (const match of sql(file).matchAll(/CREATE POLICY[^;]*?ON\s+(?:public\.)?analytics_consents\s+(?:AS\s+\w+\s+)?FOR\s+(\w+)/gi)) {
+        operations.add(match[1].toUpperCase());
+      }
+    }
+    expect([...operations].sort()).toEqual(["INSERT", "SELECT"]);
+  });
+
+  // "Bu kayıtlar hesabını sildiğinde silinir."
+  it("karar satırları hesapla birlikte silinir (CASCADE)", () => {
+    expect(table).toMatch(/user_id\s+UUID NOT NULL REFERENCES auth\.users\(id\) ON DELETE CASCADE/);
+    expect(legalPage).toMatch(/Bu\s+kayıtlar hesabını sildiğinde silinir\./);
+  });
+
+  it("Aydınlatma Metni bu kararların tarihleriyle saklandığını söyler", () => {
+    expect(legalPage).toMatch(/kullanım ölçümü için verdiğin kararlar da tarihleriyle birlikte saklanır/);
   });
 });
