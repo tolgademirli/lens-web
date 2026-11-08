@@ -12,7 +12,7 @@ bir test çoğu zaman "test eskidi" değil, "kural çiğnendi" demektir.
 
 | Komut | Ne yapar |
 |---|---|
-| `npm run test:report` | Hepsini koşar; önceki koşuyla karşılaştırır (yeni düşen, son yeşilden beri değişen dosyalar) |
+| `npm run test:report` | Hepsini koşar; önceki koşuyla karşılaştırır (yeni düşen, koşmayan dosya, azalan test sayısı, son yeşilden beri değişen dosyalar) |
 | `npm run test:scan` | Kapsam ölçümüyle koşar; testlerin hiç çalıştırmadığı kodu raporlar |
 | `npm run test:mutate -- …` | Bir satırı geçici olarak bozar, ilgili testin DÜŞTÜĞÜNÜ doğrular, geri yazar |
 | `npm test` / `npm run test:watch` | Çıplak koşu / dosya değiştikçe yeniden koşan izleme modu |
@@ -26,8 +26,10 @@ bir test çoğu zaman "test eskidi" değil, "kural çiğnendi" demektir.
 | `tests/ui/` | Bileşenlerdeki **kapılar**: rıza kutusu, giriş kapısı, analitik bandı, hesap silme, Hesabım |
 | `tests/guards/` | Kaynak taraması: CLAUDE.md kuralları, elle-senkron kopyalar, hukuki metin ↔ kod, test yalıtımı |
 
-Durum `tmp/unit-test/` altında tutulur (`tmp/` .gitignore'da): `last-run.json`, `last-green.json`,
-`history.jsonl`, `scan.json`.
+Durum `tmp/unit-test/` altında tutulur (`tmp/` .gitignore'da): `last-run.json`, `last-green.json`
+(dosya başına test sayısıyla), `history.jsonl`, `scan.json`. Son koşunun ham çıktısı da orada durur:
+`files.json` (vitest'in topladığı dosyalar), `vitest.json` ve `vitest.log`. İşlenmemiş hatalar
+yalnızca `vitest.log`'a yazılır.
 
 ## Hangi mod?
 
@@ -41,10 +43,22 @@ Argümana bak; yoksa kullanıcının cümlesinden çıkar.
 
 ## run — koş ve raporla
 
-`npm run test:report` çalıştır. Çıkış kodu: 0 yeşil · 1 düşen test var · 2 koşu hiç başlayamadı.
+`npm run test:report` çalıştır. Çıkış kodu: 0 yeşil · 1 düşen var · 2 koşu hiç başlayamadı ya da test
+dosyaları listelenemedi.
+
+Betik üç şeyi düşen sayar: düşen test, **koşmayan dosya** ve vitest'in **işlenmemiş hatası**. Vitest,
+worker'ı başlayamayan bir dosyayı JSON sonucuna hiç yazmaz ve JSON'daki `success` bunu saymaz. Bu yüzden
+betik, vitest'in kendi ayarıyla topladığı dosyaları (`vitest list --filesOnly`) sonuçla karşılaştırır ve
+vitest'in çıkış koduna bakar. 8 Kasım 2026'da `emailCode.test.tsx` sonuçta hiç görünmedi ve paket
+o gün "1140 test geçti" dedi. Toplamı ya da dosya sayısını elle karşılaştırma, çünkü betik bunu yapıyor.
 
 **Yeşilse** tek satır yeter: kaç test, kaç saniye, son yeşilden beri dosya değişti mi. Bin testin
-adını sayma.
+adını sayma. Çıktıda **"test sayısı azaldı"** uyarısı varsa tek satırla geçme: dosyayı ve iki sayıyı
+söyle, sebebine bak. Uyarı yalnızca son yeşilden beri içeriği değişmemiş bir test dosyası için çıkar
+(testi silinen dosya uyarı vermez). Uyarı bir kez görünür, çünkü yeşil koşu yeni sayıyı taban alır.
+Meşru sebep çoğunlukla testlerini bir dizinden ya da başka bir dosyadan türeten bir bekçidir (kaynak
+dosya silinmiştir). Kaynak da değişmediyse test sayısı ortama bağlıdır (saat, ortam değişkeni, dosya
+sırası); bu kendi başına bir kusurdur ve kök nedeni bulunmalıdır.
 
 **Düşen varsa** her yeni düşen için teşhis koy, sonra raporla:
 
@@ -69,9 +83,19 @@ Dosyayı tek başına birkaç kez koş (`npx vitest run <dosya>`), `tmp/unit-tes
 arkasında yarım iş bırakır ve aynı dosyadaki sonraki testleri de düşürür — zincirin ilk halkasını çöz,
 gerisi kendiliğinden düzelir. Bilinen kök nedenler `references/test-yazimi.md` → Tuzaklar'da.
 
+**Koşmayan dosya** (`(dosya koşmadı — sonuçta yok)`) kodun değil koşunun kusurudur: o dosyanın
+testleri geçmedi, hiç çalışmadı. Satırdaki mesaj vitest'in kendi hatasıdır. Çoğunlukla bu hata
+`Failed to start forks worker … ← Timeout waiting for worker to respond` olur ve worker'ın 60 sn
+içinde başlayamadığını gösterir. Mesaj yoksa `tmp/unit-test/vitest.log`'daki "Unhandled Errors"
+bölümüne bak. Önce dosyayı tek başına koş (`npx vitest run <dosya>`), makine boşalınca da **paketin
+tamamını** yeniden koş. Yeşil ancak tam koşudan gelir; tek dosyanın yeşili paketi yeşil yapmaz.
+`(vitest) › işlenmemiş hata` satırı da aynı bölümden gelir. Bu satır bir dosyaya bağlanamamış bir
+hatayı gösterir (testten taşan bir reddetme gibi) ve o da düşen sayılır.
+
 Koşu başlamadıysa (kod 2) en sık iki sebep: yeni bir import'un `tests/`'teki sahteleriyle uyuşmaması
 (çıktının sonunu oku) ve bellek darlığı ("Failed to start forks worker" — `vitest.config.ts`'teki
-`maxWorkers` bu yüzden 3; makine doluysa tek dosyayla dene).
+`maxWorkers` bu yüzden 3; makine doluysa tek dosyayla dene). Aynı hata yalnızca bir worker'da
+kalırsa koşu başlar ve kod 1 olur; o durumda o worker'ın dosyası "koşmadı" diye düşer.
 
 ## scan — eksik testleri belirle
 
@@ -183,7 +207,8 @@ değilse birincisini kur, diğer ikisini bir cümleyle söyle.
 **1. Oturum içi döngü (varsayılan).** Skill aracıyla `loop` skill'ini şu argümanla çağır:
 `<aralık> /lens-unit-test run` — aralık verilmediyse `30m`. Her turda `run` adımlarını uygula ama
 sessiz ol: yeşil ve dosya değişmemişse tek satır; yeni düşen varsa tam teşhis. Aynı düşen testi
-her turda baştan anlatma — "hâlâ düşüyor" de. Döngü oturum açıkken yaşar.
+her turda baştan anlatma — "hâlâ düşüyor" de. "Test sayısı azaldı" uyarısı yalnızca bir turda
+görünür; o turda söyle. Döngü oturum açıkken yaşar.
 
 **2. Değişiklik tetikli.** `npm run test:watch` kullanıcının kendi terminalinde koşar ve dosya
 kaydedildikçe ilgili testleri yeniden çalıştırır. Aktif geliştirme sırasında aralıklı koşudan iyidir.
@@ -197,8 +222,10 @@ schtasks /Create /TN "Lens unit testleri" /SC HOURLY /MO 2 /TR "cmd /c cd /d <de
 schtasks /Delete /TN "Lens unit testleri" /F        (kaldırmak için)
 ```
 
-Zamanlanmış koşuların sonucunu görmek için `tmp/unit-test/history.jsonl`'i oku (her satır bir koşu:
-zaman, commit, toplam, düşen) — bir sonraki `run` zaten "önceki koşu" satırında özetler.
+Zamanlanmış koşuların sonucunu görmek için `tmp/unit-test/history.jsonl`'i oku. Her satır bir koşudur
+ve zamanı, commit'i, toplamı, düşen sayısını ve dosya sayısını taşır. Koşmayan dosya (`missing`),
+azalan test sayısı (`shrunk`) ya da vitest'in sıfırdan farklı çıkış kodu (`exitCode`) varsa onlar da
+satıra yazılır. Bir sonraki `run` sonucu zaten "önceki koşu" satırında özetler.
 
 ## Bu paketin sınamadığı şeyler
 

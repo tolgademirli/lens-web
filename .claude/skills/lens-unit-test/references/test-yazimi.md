@@ -265,6 +265,18 @@ silerdi). Başka bir oturumun hâlâ üzerinde çalıştığı dosyada koşma.
   Çare iki parça: soğuk yüklemeyi `beforeAll(async () => { await import("@/pages/…"); })` ile test
   süresinin dışına al; `mount` zaten testi bitmiş bir çizimi söküp hata verir. Bir dosyada çok sayıda
   test birden "ekran boş" diye düşüyorsa ilk düşenin süresine bak.
+- **Vitest, başlayamayan worker'ın dosyasını sonuca YAZMAZ.** Worker 60 sn içinde el sıkışamazsa
+  (vitest 4.1'de `START_TIMEOUT`, ayarlanamıyor) ya da başlarken hata verirse dosya hiç toplanmaz.
+  O zaman dosya JSON sonucunda yer almaz ve `success: true` kalır. Tek iz çıkış kodu 1 ile konsoldaki
+  "Unhandled Errors" bölümüdür, ama yalnızca `--reporter=json` ile koşulduğunda o bölüm hiçbir yere
+  basılmaz. 8 Kasım 2026'da makine yüklüyken `emailCode.test.tsx` sonuçta hiç görünmedi ve paket
+  "1140 test geçti" dedi. O koşunun günlüğü kalmadığı için sebebin bu olduğu kanıtlanamadı, ama koşu
+  her zamankinin üç katı sürmüştü ve dosya 20 Ekim'den beri değişmemişti. `test:report` bu yüzden topladığı dosyaları sonuçla karşılaştırır, çıkış koduna bakar
+  ve konsolu `vitest.log`'a yazar. Vitest JSON'unu okuyan yeni bir betik de bu üçünü yapmalıdır.
+  Arıza yükle yeniden üretilemedi (üç paralel tam koşu temiz geçti). İlk forks worker'ını 65 sn
+  bekleten bir `NODE_OPTIONS=--require <dosya>` ön yüklemesi ise onu her seferinde üretir: dosyada
+  `typeof process.send === "function"` iken bir kilit klasörü açılır ve `Atomics.wait` ile beklenir.
+  Kapıyı yeniden sınamak gerekirse bu yol kullanılır.
 - **`clearMocks` açık**: modül yüklenirken yapılan çağrılar (ör. `createClient`) ilk testten önce
   silinir. O argümanları dosyanın üst düzeyinde, testler başlamadan al.
 - **`vi.resetModules()` yardımcıları da yeniden yükler**: modül düzeyinde durum tutan bir yardımcı
